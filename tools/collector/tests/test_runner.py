@@ -4,7 +4,7 @@ from pathlib import Path
 
 from collector.court_parser import parse_search_page
 from collector.repository import InMemoryAuctionRepository
-from collector.runner import CollectionTarget, run_collection
+from collector.runner import CollectionTarget, build_search_payload, run_collection
 
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "court_search_page.json"
@@ -12,8 +12,8 @@ FIXTURE_PATH = Path(__file__).parent / "fixtures" / "court_search_page.json"
 
 class FakeClient:
     def search_items(self, payload: dict) -> dict:
-        assert payload["cortOfcCd"] == "B000210"
-        assert payload["pageNo"] == 1
+        assert payload["dma_srchGdsDtlSrchInfo"]["cortOfcCd"] == "B000210"
+        assert payload["dma_pageInfo"]["pageNo"] == "1"
         return json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
 
 
@@ -37,3 +37,20 @@ def test_run_collection_logs_counts_without_personal_values(caplog):
     assert "court=B000210" in messages
     assert "processed=2" in messages
     assert "서울특별시" not in messages
+
+
+def test_build_search_payload_matches_websquare_submission_shape():
+    payload = build_search_payload(CollectionTarget(court_office_code="B000210", page_no=3))
+
+    assert payload == {
+        "dma_pageInfo": {
+            "pageNo": "3",
+            "startRowNo": "40",
+            "totalYn": "N",
+        },
+        "dma_srchGdsDtlSrchInfo": {
+            "cortOfcCd": "B000210",
+            "pgmId": "PGJ151M01",
+            "mvprpRletDvsCd": "R",
+        },
+    }

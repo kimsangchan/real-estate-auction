@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko" lang="ko"
+    xmlns:ev="http://www.w3.org/2001/xml-events"
+    xmlns:w2="http://www.inswave.com/websquare" xmlns:xf="http://www.w3.org/2002/xforms">
+    <head meta_screenName="물건상세검색" meta_vertical_guides="" meta_horizontal_guides="52">
+        <title>법원경매정보제공 - 물건상세검색</title>
+        <w2:type>DEFAULT</w2:type>
+        <w2:buildDate/>
+        <xf:model>
+            <xf:instance>
+                <data xmlns="" />
+            </xf:instance>
+            <w2:dataCollection baseNode="map">
+                <w2:dataMap baseNode="map" id="dma_srchBmrkSrchCond">
+                    <w2:keyInfo>
+                        <w2:key id="cortAuctnMbrsId" name="회원ID" dataType="text"></w2:key>
+                        <w2:key id="cortAuctnSrchCondCd" name="법원경매검색조건코드" dataType="text"></w2:key>
+                    </w2:keyInfo>
+                </w2:dataMap>
+                <w2:dataList baseNode="list" repeatNode="map" id="dlt_gdsDtlBmrkSrchCondLst" saveRemovedData="true">
+                    <w2:columnInfo>
+                        <w2:column id="title" name="제목" dataType="text"></w2:column>
+                        <w2:column id="select" name="검색" dataType="text"></w2:column>
+                        <w2:column id="delete" name="삭제" dataType="text"></w2:column>
+                        <w2:column id="cortAuctnMbrsId" name="회원ID" dataType="text"></w2:column>
+                        <w2:column id="bmrkSrchSeq" name="자주쓰는검색목록순번" dataType="text"></w2:column>
+                        <w2:column id="mvprpRletDvsCd" name="동산부동산여부" dataType="text"></w2:column>
+                        <w2:column id="cortAuctnSrchCondCd" name="검색구분코드" dataType="text"></w2:column>
+                    </w2:columnInfo>
+                </w2:dataList>
+                <w2:dataMap baseNode="map" id="dma_srchGdsDtlSrchInfo">
+                    <w2:keyInfo>
+                        <w2:key id="rletDspslSpcCondCd" name="부동산매각특수조건" dataType="text"></w2:key>
+                        <w2:key id="bidDvsCd" name="입찰구분" dataType="text"></w2:key>
+                        <w2:key id="mvprpRletDvsCd" name="부동산동산구분코드" dataType="text"></w2:key>
+                        <w2:key id="cortAuctnSrchCondCd" name="법원경매검색조건" dataType="text"></w2:key>
+                        <w2:key id="rprsAdongSdCd" name="부동산지번시도코드" dataType="text"></w2:key>
+                        <w2:key id="rprsAdongSggCd" name="부동산지번시군구코드" dataType="text"></w2:key>
+                        <w2:key id="rprsAdongEmdCd" name="부동산지번읍면동코드" dataType="text"></w2:key>
+                        <w2:key id="rdnmSdCd" name="부동산도로명시도코드" dataType="text"></w2:key>
+                        <w2:key id="rdnmSggCd" name="부동산도로명시군구코드" dataType="text"></w2:key>
+                        <w2:key id="rdnmNo" name="부동산도로명" dataType="text"></w2:key>
+                        <w2:key id="mvprpDspslPlcAdongSdCd" name="동산지번시도코드" dataType="text"></w2:key>
+                        <w2:key id="mvprpDspslPlcAdongSggCd" name="동산지번시군구코드" dataType="text"></w2:key>
+                        <w2:key id="mvprpDspslPlcAdongEmdCd" name="동산지번읍면동코드" dataType="text"></w2:key>
+                        <w2:key id="rdDspslPlcAdongSdCd" name="동산도로명시도코드" dataType="text"></w2:key>
+                        <w2:key id="rdDspslPlcAdongSggCd" name="동산도로명시군구코드" dataType="text"></w2:key>
+                        <w2:key id="rdDspslPlcAdongEmdCd" name="동산도로명" dataType="text"></w2:key>
+                        <w2:key id="cortOfcCd" name="법원사무소코드" dataType="text"></w2:key>
+                        <w2:key id="jdbnCd" name="법원사무소부서코드" dataType="text"></w2:key>
+                        <w2:key id="execrOfcDvsCd" name="집행관사무소도구분코드" dataType="text"></w2:key>
+                        <w2:key id="lclDspslGdsLstUsgCd" name="용도대분류코드" dataType="text"></w2:key>
+                        <w2:key id="mclDspslGdsLstUsgCd" name="용도중분류코드" dataType="text"></w2:key>
+                        <w2:key id="sclDspslGdsLstUsgCd" name="용도소분류코드" dataType="text"></w2:key>
+                        <w2:key id="cortAuctnMbrsId" name="회원ID" dataType="text"></w2:key>
+                        <w2:key id="aeeEvlAmtMin" name="감정평가액MIN" dataType="text"></w2:key>
+                        <w2:key id="aeeEvlAmtMax" name="감정평가액MAX" dataType="text"></w2:key>
+                        <w2:key id="rletLwsDspslPrcMin" name="부동산최저매각가격MIN" dataType="text"></w2:key>
+                        <w2:key id="rletLwsDspslPrcMax" name="부동산최저매각가격MAX" dataType="text"></w2:key>
+                        <w2:key id="mvprpLwsDspslPrcMin" name="동산최저매각가격MIN" dataType="text"></w2:key>
+                        <w2:key id="mvprpLwsDspslPrcMax" name="동산최저매각가격MAX" dataType="text"></w2:key>
+                        <w2:key id="lwsDspslPrcRateMin" name="최저매각가율MIN" dataType="text"></w2:key>
+                        <w2:key id="lwsDspslPrcRateMax" name="최저매각가율MAX" dataType="text"></w2:key>
+                        <w2:key id="flbdNcntMin" name="유찰횟수MIN" dataType="text"></w2:key>
+                        <w2:key id="flbdNcntMax" name="유찰횟수MAX" dataType="text"></w2:key>
+                        <w2:key id="objctArDtsMin" name="면적MIN" dataType="text"></w2:key>
+                        <w2:key id="objctArDtsMax" name="면적MAX" dataType="text"></w2:key>
+                        <w2:key id="mvprpArtclKndCd" name="동산물품종류" dataType="text"></w2:key>
+                        <w2:key id="mvprpArtclNm" name="동산물품명" dataType="text"></w2:key>
+                        <w2:key id="mvprpAtchmPlcTypCd" name="압류장소" dataType="text"></w2:key>
+                        <w2:key id="notifyLoc" name="주소공고중여버" dataType="text"></w2:key>
+                        <w2:key id="lafjOrderBy" name="정렬" dataType="text"></w2:key>
+                        <w2:key id="pgmId" name="화면ID" dataType="text"></w2:key>
+                        <w2:key id="csNo" name="사건번호" dataType="text"></w2:key>
+                        <w2:key id="cortStDvs" name="법원/소재지구분코드" dataType="text"></w2:key>
+                        <w2:key id="statNum" name="익수주임님" dataType="text"></w2:key>
+                        <w2:key id="bidBgngYmd" name="입찰시작일자" dataType="text"></w2:key>
+                        <w2:key id="bidEndYmd" name="입찰종료일자" dataType="text"></w2:key>
+                    </w2:keyInfo>
+                </w2:dataMap>
+                <w2:dataMap baseNode="map" id="dma_pageInfo">
+                    <w2:keyInfo>
+                        <w2:key id="pageNo" name="페이지번호" dataType="text"></w2:key>
+                        <w2:key id="page" name="페이지크기" dataType="text"></w2:key>
+                        <w2:key id="bfPageNo" name="이전 페이지 번호" dataType="text"></w2:key>
+                        <w2:key id="startRowNo" name="시작 행번호" dataType="text"></w2:key>
+                        <w2:key id="totalCnt" name="총건수" dataType="text"></w2:key>
+                        <w2:key id="totalYn" name="총건수조회여부" dataType="text"></w2:key>
+                    </w2:keyInfo>
+                </w2:dataMap>
+            </w2:dataCollection>
+            <w2:workflowCollection></w2:workflowCollection>
+            <xf:submission id="sbm_selectBmrkSrchCondLst" ref="data:json,dma_srchBmrkSrchCond"
+                target='data:json,{"id":"dlt_gdsDtlBmrkSrchCondLst","key":"data.dlt_gdsDtlBmrkSrchCondLst"}'
+                action="/pgj/pgj151/selectGdsDtlBmrkSrchCond.on" method="post" mediatype="application/json" encoding="UTF-8" instance=""
+                replace="" errorHandler="" customHandler="" mode="asynchronous" processMsg="" ev:submit=""
+                ev:submitdone="scwin.sbm_selectBmrkSrchCondLst_submitdone" ev:submiterror="" abortTrigger="">
+            </xf:submission>
+            <xf:submission id="sbm_selectGdsDtlSrch" ref='data:json,["dma_pageInfo","dma_srchGdsDtlSrchInfo"]' target=""
+                action="/pgj//pgjsearch/searchControllerMain.on" method="post" mediatype="application/json" encoding="UTF-8" instance=""
+                replace="" errorHandler="" customHandler="" mode="asynchronous" processMsg="" ev:submit="" ev:submitdone="" ev:submiterror=""
+                abortTrigger="">
+            </xf:submission>
+        </xf:model>
+        <script type="text/javascript" lazy="false"><![CDATA[/* 최상단(opener, parent 포함) 기준 함수 */
+scwin.isMain = function() {
+    return true;
+};
+
+/* 검색조건 */
+scwin.param;
+
+/**
+ *  물건 상세검색 MAIN 프레임
+ *
+ * ============= ============ ==========================
+ *  Date          Author       Description
+ * ============= ============ ==========================
+ *  2022.12.28.   나해준       [NELS]최초 생성
+ * ============= ============ ==========================
+ */
+scwin.onpageload = function(e) {
+ 
+    const jsonInput = JSON.parse($w.local.getItem('dtlSrchParam')) || '';
+    $w.local.removeItem('dtlSrchParam');
+
+    let urlPath = "";
+    let srchInfo = "";
+    let prevInfo = "";
+    let csNo = "";
+    let cortOfcCd = "";
+    let dspslGdsSeq = "";
+    let pgmId = "";
+    let dtlObj = '';
+
+    if (!scutilo.isEmpty(jsonInput)) {
+        srchInfo = jsonInput.srchInfo
+        prevInfo = jsonInput.prevInfo
+        csNo = jsonInput.scNo
+        cortOfcCd = jsonInput.cortOfcCd
+        dspslGdsSeq = jsonInput.dspslGdsSeq
+        pgmId = jsonInput.pgmId
+    }
+    switch (pgmId) {
+        /* 나의검색 화면에서 물건 선택시 물건 상세화면 이동 */
+        case 'PGJ15BP05':case 'PGJ111M01': case'PGJ152P02': case 'PGJ192M01': case 'PGJ193M01' : 
+            dtlObj = {
+                "dataObject": { "type" : "json",
+                "name" : "param",
+                "data" : { csNo,cortOfcCd,dspslGdsSeq,pgmId,srchInfo,prevInfo}
+                }
+            };
+            document.title = '법원경매정보제공 - 물건상세내역'
+            $p.main().wfm_mainFrame.setSrc('/pgj/ui/pgj100/PGJ15BM01.xml',dtlObj);
+            break;
+        /* 물건상세화면(동산) */
+        case 'PGJ152F07' :
+            dtlObj = {
+                "dataObject": { "type" : "json",
+                "name" : "param",
+                "data" : { csNo,cortOfcCd,dspslGdsSeq,pgmId,srchInfo,prevInfo}
+                }
+            };
+            document.title = '법원경매정보제공 - 물건상세내역'
+            $p.main().wfm_mainFrame.setSrc('/pgj/ui/pgj100/PGJ15BM04.xml',dtlObj);
+            break
+        /* 사이트맵에서 동산,부동산 화면 이동분류 */
+        case 'PGJ185M01' :
+            if (srchInfo.pgmNm === 'gdsDtl') {
+                urlPath = '/pgj/ui/pgj100/PGJ151F01.xml'
+                document.title = '법원경매정보제공 - 물건상세검색'
+            } else if (srchInfo.pgmNm === 'dxdy') {
+                urlPath = '/pgj/ui/pgj100/PGJ153F01.xml'
+                document.title = '법원경매정보제공 - 기일별검색'
+            }
+            dtlObj = {
+                "dataObject": { "type" : "json",
+                "name" : "param",
+                "data" : { tapDvsCd : srchInfo.tapDvsCd }
+                }
+            };
+            $p.main().wfm_mainFrame.setSrc(urlPath,dtlObj);
+            break;
+        /* (공통) 사건상세화면 */
+        case 'PGJ15AF01' :
+            dtlObj = {
+                "dataObject": { "type" : "json",
+                "name" : "param",
+                "data" : { sideDvsCd : srchInfo.sideDvsCd,menuNm: srchInfo.menuNm, userCsNo: srchInfo.userCsNo,csNo,cortOfcCd,srchInfo,prevInfo}
+                }
+            };
+            document.title = '법원경매정보제공 - 사건상세내역'
+            $p.main().wfm_mainFrame.setSrc('/pgj/ui/pgj100/PGJ15AF01.xml',dtlObj);
+            break
+        /* 메인 용도별(부동산) 검색 */
+        case 'mainUsg' :
+            srchInfo.pgmId = "PGJ151M01";
+            dtlObj = {
+                "dataObject": { "type" : "json",
+                "name" : "param",
+                "data" : { pgmId,srchInfo}
+                }
+            };
+            document.title = '법원경매정보제공 - 물건상세검색(부동산)'
+            $p.main().wfm_mainFrame.setSrc('/pgj/ui/pgj100/PGJ151M01.xml',dtlObj);
+            break
+        /* 메인 빠른검색 동산 */
+        case 'mvprpSrch' :
+            srchInfo.pgmId = "PGJ151M02";
+            dtlObj = {
+                "dataObject": { "type" : "json",
+                "name" : "param",
+                "data" : { pgmId,srchInfo}
+                }
+            };
+            document.title = '법원경매정보제공 - 물건상세검색(동산)'
+            $p.main().wfm_mainFrame.setSrc('/pgj/ui/pgj100/PGJ151M02.xml',dtlObj);
+            break
+        /* 메인 용도별 차량 검색 */
+        case 'mainUsgCar' :
+            srchInfo.pgmId = "PGJ154M02";
+            dtlObj = {
+                "dataObject": { "type" : "json",
+                "name" : "param",
+                "data" : {
+                    cortAuctnSrchCondCd : srchInfo.cortAuctnSrchCondCd,
+                    lclDspslGdsLstUsgCd : srchInfo.lclDspslGdsLstUsgCd,
+                    mclDspslGdsLstUsgCd : srchInfo.mclDspslGdsLstUsgCd,
+                    sclDspslGdsLstUsgCd : srchInfo.sclDspslGdsLstUsgCd,
+                    csNo : "",
+                    cortOfcCd : "",
+                    srchInfo,
+                    prevInfo}
+                }
+            };
+            document.title = '법원경매정보제공 - 자동차ㆍ중기 검색'
+            $p.main().wfm_mainFrame.setSrc('/pgj/ui/pgj100/PGJ154M02.xml',dtlObj);
+            break
+        default :
+            dtlObj = {
+                "dataObject": { "type" : "json",
+                "name" : "param",
+                "data" : { prevInfo,srchInfo}
+                }
+            };
+            document.title = '법원경매정보제공 - 물건상세검색' 
+            $p.main().wfm_mainFrame.setSrc('/pgj/ui/pgj100/PGJ151F01.xml',dtlObj);
+    }
+};
+
+scwin.onpageunload = function() {
+
+};]]></script>
+    </head>
+    <body ev:onpageload="scwin.onpageload" ev:onpageunload="scwin.onpageunload">
+        <xf:group class="wrap user" id="" style="">
+            <w2:wframe class="header" id="wfm_header" src="../common/header.xml" style=""></w2:wframe>
+            <w2:wframe class="" id="wfm_mainFrame" style=""></w2:wframe>
+            <w2:wframe class="footer" id="" src="../common/footer.xml" style=""></w2:wframe>
+            <w2:wframe class="quickmenu" id="" src="../common/quick.xml" style=""></w2:wframe>
+        </xf:group>
+    </body>
+</html>

@@ -37,10 +37,7 @@ def run_collection(
     repository: AuctionRepository,
     parse_search_page: ParseSearchPage,
 ) -> UpsertResult:
-    payload = {
-        "cortOfcCd": target.court_office_code,
-        "pageNo": target.page_no,
-    }
+    payload = build_search_payload(target)
     raw_page = client.search_items(payload)
     page = parse_search_page(raw_page)
     result = repository.upsert_items(page.items)
@@ -57,3 +54,18 @@ def run_collection(
     )
 
     return result
+
+
+def build_search_payload(target: CollectionTarget) -> dict[str, Any]:
+    return {
+        "dma_pageInfo": {
+            "pageNo": str(target.page_no),
+            "startRowNo": str((target.page_no - 1) * 20),
+            "totalYn": "Y" if target.page_no == 1 else "N",
+        },
+        "dma_srchGdsDtlSrchInfo": {
+            "cortOfcCd": target.court_office_code,
+            "pgmId": "PGJ151M01",
+            "mvprpRletDvsCd": "R",
+        },
+    }

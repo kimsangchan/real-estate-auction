@@ -22,6 +22,7 @@
 | GREEN | `.\.venv\Scripts\python.exe -m pytest` | PASS | 11 tests passed |
 | Lint | `.\.venv\Scripts\python.exe -m ruff check .` | PASS | All checks passed |
 | DB smoke | `COLLECTOR_RUN_DB_TESTS=1 DATABASE_URL=postgresql://app:changeme@localhost:55432/auction .\.venv\Scripts\python.exe -m pytest tests/test_postgres_repository.py` | PASS | 2 tests passed against temporary `postgis/postgis:18-3.6` |
+| Screen contract | `.\.venv\Scripts\python.exe -m pytest` | PASS | 16 passed, 1 skipped after adding `PGJ151F00.xml` fixture |
 
 ## Test Specification
 
@@ -38,8 +39,12 @@
 | 9 | PostgreSQL repository는 migration 후 동일 fixture를 중복 없이 upsert한다 | `tools/collector/tests/test_postgres_repository.py` | integration | PASS |
 | 10 | PostGIS `ST_Intersects` bbox 조회가 서울 좌표 fixture 2건을 반환한다 | `tools/collector/tests/test_postgres_repository.py` | integration | PASS |
 | 11 | 수집 runner는 실행 ID·법원·페이지·처리 건수·insert/update/skip을 로그로 남기고 주소값은 남기지 않는다 | `tools/collector/tests/test_runner.py` | unit | PASS |
+| 12 | 공개 화면 XML은 물건상세검색 submission이 `/pgj//pgjsearch/searchControllerMain.on`와 `dma_pageInfo`/`dma_srchGdsDtlSrchInfo`를 사용함을 보장한다 | `tools/collector/tests/test_court_screen_contract.py` | static | PASS |
+| 13 | 검색 payload는 WebSquare submission shape로 생성된다 | `tools/collector/tests/test_runner.py` | unit | PASS |
+| 14 | transport HTTP 오류는 수집기 도메인 오류로 감싸진다 | `tools/collector/tests/test_court_client.py` | unit | PASS |
 
 ## Known Gaps
 
-- 현재 fixture는 phase0 필드 모델 기반 샘플이다. 실제 브라우저 개발자도구 캡처 응답으로 교체해야 한다.
+- 현재 응답 fixture는 phase0 필드 모델 기반 샘플이다. 실제 브라우저 개발자도구 캡처 응답으로 교체해야 한다.
+- 공개 XML 기준 최소 payload로 `searchControllerMain.on`에 1회 요청했으나 HTTP 500이 반환됐다. 브라우저 세션/추가 WebSquare context가 필요한 것으로 보고 우회하지 않았다.
 - 법원 1곳 대상 실수집 E2E는 아직 실행하지 않았다.

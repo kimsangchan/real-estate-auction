@@ -49,3 +49,18 @@ def test_client_retries_transient_errors_then_returns_payload():
 
     assert client.search_items({"pageNo": 1}) == {"data": {"totalCnt": 0, "items": []}}
     assert sleeps == [1500, 3000]
+
+
+def test_client_wraps_transport_http_error_as_request_error():
+    def transport(url: str, payload: dict) -> FakeResponse:
+        raise OSError("HTTP Error 500: Internal Server Error")
+
+    client = CourtAuctionClient(
+        base_url="https://www.courtauction.go.kr",
+        request_interval_ms=0,
+        max_retry=1,
+        transport=transport,
+    )
+
+    with pytest.raises(Exception, match="transport failed"):
+        client.search_items({"pageNo": 1})

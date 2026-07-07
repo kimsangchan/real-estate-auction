@@ -10,7 +10,7 @@ from urllib import request
 from collector.backoff import backoff_delay_ms
 
 
-SEARCH_PATH = "/pgj/pgj151/selectGdsDtlBmrkSrchCond.on"
+SEARCH_PATH = "/pgj//pgjsearch/searchControllerMain.on"
 
 
 class BlockedByCourtError(RuntimeError):
@@ -65,7 +65,10 @@ class CourtAuctionClient:
             elif self._request_interval_ms:
                 self._sleep_ms(self._request_interval_ms)
 
-            response = self._transport(url, dict(payload))
+            try:
+                response = self._transport(url, dict(payload))
+            except OSError as exc:
+                raise CourtRequestError(f"courtauction transport failed: {exc}") from exc
             status_code = int(response.status_code)
             last_status = status_code
 

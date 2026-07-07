@@ -14,7 +14,7 @@
 
 ### 보너스: 물건상세검색 데이터 모델 확보 (수집기 스펙 원료)
 
-- 검색 API 엔드포인트: `POST /pgj/pgj151/selectGdsDtlBmrkSrchCond.on` (물건상세검색), `/pgj/pgjsearch/searchControllerMain.on` (통합검색)
+- 검색 관련 엔드포인트: `POST /pgj/pgj151/selectGdsDtlBmrkSrchCond.on` (즐겨찾기 검색조건 조회), `POST /pgj//pgjsearch/searchControllerMain.on` (물건상세검색 submission — `PGJ151F00.xml`의 `sbm_selectGdsDtlSrch` 기준)
 - 화면 정의: `https://www.courtauction.go.kr/pgj/ui/pgj100/PGJ151F00.xml` (WebSquare — 직접 조회 가능)
 - 확보한 검색 필드(발췌): 법원사무소코드(cortOfcCd), 용도 대/중/소분류(lcl/mcl/sclDspslGdsLstUsgCd), 감정평가액 MIN/MAX(aeeEvlAmtMin/Max), 최저매각가격 MIN/MAX, 최저매각가율 MIN/MAX, 유찰횟수 MIN/MAX(flbdNcnt), 면적 MIN/MAX, 사건번호(csNo), 입찰 시작/종료일(bidBgngYmd/bidEndYmd), 시도/시군구/읍면동 코드, 부동산매각특수조건(rletDspslSpcCondCd), 페이징(pageNo, startRowNo, totalCnt)
 - 원본 XML 사본: 세션 스크래치패드 `PGJ151F00.xml` (필요 시 재다운로드 가능)
