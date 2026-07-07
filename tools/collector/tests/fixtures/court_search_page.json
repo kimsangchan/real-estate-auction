@@ -1,0 +1,36 @@
+{
+  "data": {
+    "totalCnt": 2,
+    "pageNo": 1,
+    "items": [
+      {
+        "cortOfcCd": "B000210",
+        "csNo": "2024타경12345",
+        "gdsNo": "1",
+        "cortNm": "서울중앙지방법원",
+        "lclDspslGdsLstUsgCd": "01",
+        "gdsDtlAddr": "서울특별시 서초구 서초동 100",
+        "aeeEvlAmt": "500000000",
+        "minDspslPrc": "400000000",
+        "flbdNcnt": "1",
+        "bidDtm": "2026-07-20 10:00",
+        "lat": "37.492361",
+        "lng": "127.013292"
+      },
+      {
+        "cortOfcCd": "B000210",
+        "csNo": "2024타경12345",
+        "gdsNo": "2",
+        "cortNm": "서울중앙지방법원",
+        "lclDspslGdsLstUsgCd": "01",
+        "gdsDtlAddr": "서울특별시 서초구 서초동 101",
+        "aeeEvlAmt": "300000000",
+        "minDspslPrc": "240000000",
+        "flbdNcnt": "1",
+        "bidDtm": "2026-07-20 10:00",
+        "lat": "37.493000",
+        "lng": "127.014000"
+      }
+    ]
+  }
+}
