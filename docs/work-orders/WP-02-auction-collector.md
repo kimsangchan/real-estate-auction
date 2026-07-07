@@ -1,6 +1,7 @@
 # WP-02. 법원경매 수집기 v1
 
-- 상태: 대기 | 선행: WP-01 | 담당 에이전트: (할당 시 기입)
+- 상태: **진행 중 (2026-07-07, Codex)** — 파싱(fixture), 차단 감지, 재시도 백오프, 멱등 upsert 규칙, 개인정보 분리 DDL 단위 테스트 완료. 남음: 실제 법원 응답 캡처 fixture 교체, PostgreSQL/PostGIS 적재 구현, 법원 1곳 실수집 E2E, bbox 스모크.
+  | 선행: WP-01 | 담당 에이전트: Codex
 - 시작 전 필독: `AGENTS.md`, `solution-planning/realestate-auction-platform/phase0-findings.md`(§0-1 API·필드 모델), `06-tech-blueprint.md` §2, `decision-log.md` D-007
 
 ## 목적
@@ -19,9 +20,9 @@ courtauction.go.kr에서 진행 중 경매 사건·물건·기일을 수집해 P
 
 ## 완료 기준
 - [ ] 법원 1곳 대상 실수집 E2E 1회 성공 (물건 ≥ 50건 적재, 재실행 시 신규 0)
-- [ ] `ruff check . && pytest` 통과 (커버리지: 파싱·upsert 핵심 경로)
+- [x] `ruff check . && pytest` 통과 (커버리지: 파싱·upsert 핵심 경로)
 - [ ] bbox 쿼리 스모크: `ST_Intersects`로 서울 영역 물건 조회 동작
-- [ ] 차단 감지 시나리오 테스트 (mock 403 → 중단·로그 확인)
+- [x] 차단 감지 시나리오 테스트 (mock 403 → 중단·로그 확인)
 - [ ] 규칙 18 보고 + README에 실행·장애 확인 방법 (규칙 17)
 
 ## 범위 제외
