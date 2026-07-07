@@ -1,0 +1,21 @@
+# 비밀값 — 절대 커밋 금지
+.env
+.env.*
+!.env.example
+
+# 의존성/빌드
+node_modules/
+dist/
+build/
+.next/
+coverage/
+__pycache__/
+.venv/
+*.pyc
+*.tsbuildinfo
+*.log
+
+# IDE/OS
+.idea/
+.vscode/
+.DS_Store

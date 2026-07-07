@@ -1,0 +1,22 @@
+# 로컬 개발용 인프라 — PostgreSQL + PostGIS (WP-01)
+services:
+  db:
+    image: postgis/postgis:18-3.6
+    container_name: auction-db
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: auction
+    ports:
+      - "5432:5432"
+    volumes:
+      # PG 18+ 이미지는 데이터 마운트 지점이 /var/lib/postgresql (하위에 data/ 자동 생성)
+      - dbdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d auction"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  dbdata:

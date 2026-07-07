@@ -1,0 +1,18 @@
+# 경매 데이터 수집기 프로젝트 설정 (WP-01 골격, 구현은 WP-02)
+[project]
+name = "auction-collector"
+version = "0.1.0"
+description = "법원경매정보 수집 배치"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

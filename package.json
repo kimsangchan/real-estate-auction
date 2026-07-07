@@ -1,0 +1,10 @@
+{
+  "name": "real-estate-auction",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build"
+  }
+}
