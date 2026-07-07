@@ -4,7 +4,7 @@ name = "auction-collector"
 version = "0.1.0"
 description = "법원경매정보 수집 배치"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["psycopg[binary]>=3.2"]
 
 [dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.6"]

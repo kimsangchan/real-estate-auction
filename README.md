@@ -31,7 +31,25 @@ pnpm --filter @auction/web dev
 
 ```bash
 pnpm -r lint && pnpm -r test && pnpm -r build   # TS 전체
-cd tools/collector && .venv/Scripts/ruff check . && .venv/Scripts/pytest  # 수집기 (venv 생성: python -m venv .venv && .venv/Scripts/pip install pytest ruff)
+cd tools/collector
+python -m venv .venv
+.venv/Scripts/python -m pip install -e .
+.venv/Scripts/python -m ruff check .
+.venv/Scripts/python -m pytest
+
+# PostGIS 적재·bbox 통합 테스트
+$env:COLLECTOR_RUN_DB_TESTS="1"
+$env:DATABASE_URL="postgresql://app:changeme@localhost:5432/auction"
+.venv/Scripts/python -m pytest tests/test_postgres_repository.py
+```
+
+## 수집기 실행
+
+```bash
+cd tools/collector
+
+# 마이그레이션 + 법원 1곳 1페이지 수집
+.venv/Scripts/python -m collector --migrate --court-office-code B000210 --page-no 1
 ```
 
 ## 장애 확인
@@ -39,6 +57,8 @@ cd tools/collector && .venv/Scripts/ruff check . && .venv/Scripts/pytest  # 수�
 - API 생존: `curl http://localhost:3000/health` → `{"status":"ok",...}`
 - API가 기동하지 않으면: 콘솔의 "환경 변수 검증 실패" 메시지 확인 (.env의 DATABASE_URL 등)
 - DB 확인: `docker exec auction-db psql -U app -d auction -c "SELECT PostGIS_Version();"`
+- 수집기 DB 연결 실패: `.env`의 `DATABASE_URL`과 Docker volume의 DB 계정이 일치하는지 확인. 기존 volume 비밀번호가 다르면 새 테스트 컨테이너를 별도 포트로 띄워 검증한다.
+- 수집기 차단 감지: HTTP 403/429가 발생하면 우회하지 않고 중단한다. 로그의 `run_id`, `court`, `page`, `processed`, `inserted`, `updated`, `skipped` 값을 기준으로 재시작 범위를 판단한다.
 
 ## 보안 메모
 
