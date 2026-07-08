@@ -10,7 +10,9 @@ from urllib import request
 from collector.backoff import backoff_delay_ms
 
 
-SEARCH_PATH = "/pgj//pgjsearch/searchControllerMain.on"
+SEARCH_PATH = "/pgj/pgjsearch/searchControllerMain.on"
+SUBMISSION_ID = "mf_wfm_mainFrame_sbm_selectGdsDtlSrch"
+REFERER = "https://www.courtauction.go.kr/pgj/index.on?w2xPath=/pgj/ui/pgj100/PGJ151F00.xml"
 
 
 class BlockedByCourtError(RuntimeError):
@@ -89,6 +91,10 @@ def _urllib_transport(url: str, payload: dict[str, Any]) -> HttpResponse:
         data=body,
         headers={
             "Content-Type": "application/json;charset=UTF-8",
+            "Accept": "application/json",
+            "Referer": REFERER,
+            "sc-userid": "SYSTEM",
+            "submissionid": SUBMISSION_ID,
             "User-Agent": "real-estate-auction-collector/0.1",
         },
         method="POST",

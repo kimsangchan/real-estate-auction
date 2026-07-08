@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import date
 from pathlib import Path
 
 from collector.court_parser import parse_search_page
@@ -8,12 +9,13 @@ from collector.runner import CollectionTarget, build_search_payload, run_collect
 
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "court_search_page.json"
+REQUEST_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "court_search_request.json"
 
 
 class FakeClient:
     def search_items(self, payload: dict) -> dict:
         assert payload["dma_srchGdsDtlSrchInfo"]["cortOfcCd"] == "B000210"
-        assert payload["dma_pageInfo"]["pageNo"] == "1"
+        assert payload["dma_pageInfo"]["pageNo"] == 1
         return json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
 
 
@@ -39,18 +41,23 @@ def test_run_collection_logs_counts_without_personal_values(caplog):
     assert "서울특별시" not in messages
 
 
-def test_build_search_payload_matches_websquare_submission_shape():
-    payload = build_search_payload(CollectionTarget(court_office_code="B000210", page_no=3))
+def test_build_search_payload_matches_captured_browser_request():
+    payload = build_search_payload(
+        CollectionTarget(court_office_code="B000210", page_no=1),
+        today=date(2026, 7, 8),
+    )
 
-    assert payload == {
-        "dma_pageInfo": {
-            "pageNo": "3",
-            "startRowNo": "40",
-            "totalYn": "N",
-        },
-        "dma_srchGdsDtlSrchInfo": {
-            "cortOfcCd": "B000210",
-            "pgmId": "PGJ151M01",
-            "mvprpRletDvsCd": "R",
-        },
-    }
+    expected = json.loads(REQUEST_FIXTURE_PATH.read_text(encoding="utf-8"))
+    assert payload == expected
+
+
+def test_build_search_payload_pages_without_total_count_requery():
+    payload = build_search_payload(
+        CollectionTarget(court_office_code="B000210", page_no=3),
+        today=date(2026, 7, 8),
+    )
+
+    assert payload["dma_pageInfo"]["pageNo"] == 3
+    assert payload["dma_pageInfo"]["totalYn"] == "N"
+    assert payload["dma_srchGdsDtlSrchInfo"]["bidBgngYmd"] == "20260708"
+    assert payload["dma_srchGdsDtlSrchInfo"]["bidEndYmd"] == "20260722"

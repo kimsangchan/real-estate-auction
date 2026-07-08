@@ -14,10 +14,11 @@
 
 ### 보너스: 물건상세검색 데이터 모델 확보 (수집기 스펙 원료)
 
-- 검색 관련 엔드포인트: `POST /pgj/pgj151/selectGdsDtlBmrkSrchCond.on` (즐겨찾기 검색조건 조회), `POST /pgj//pgjsearch/searchControllerMain.on` (물건상세검색 submission — `PGJ151F00.xml`의 `sbm_selectGdsDtlSrch` 기준)
+- 검색 관련 엔드포인트: `POST /pgj/pgj151/selectGdsDtlBmrkSrchCond.on` (즐겨찾기 검색조건 조회), `POST /pgj/pgjsearch/searchControllerMain.on` (물건상세검색 submission — `PGJ151F00.xml`의 `sbm_selectGdsDtlSrch` 기준). **주의**: 공개 XML의 `action` 속성은 이중 슬래시(`/pgj//pgjsearch/...`)로 적혀 있으나, 브라우저 실캡처(2026-07-08) 기준 실제 요청 경로는 단일 슬래시. 세션 쿠키 없이도 동일 요청이 재현됨(무상태).
 - 화면 정의: `https://www.courtauction.go.kr/pgj/ui/pgj100/PGJ151F00.xml` (WebSquare — 직접 조회 가능)
 - 확보한 검색 필드(발췌): 법원사무소코드(cortOfcCd), 용도 대/중/소분류(lcl/mcl/sclDspslGdsLstUsgCd), 감정평가액 MIN/MAX(aeeEvlAmtMin/Max), 최저매각가격 MIN/MAX, 최저매각가율 MIN/MAX, 유찰횟수 MIN/MAX(flbdNcnt), 면적 MIN/MAX, 사건번호(csNo), 입찰 시작/종료일(bidBgngYmd/bidEndYmd), 시도/시군구/읍면동 코드, 부동산매각특수조건(rletDspslSpcCondCd), 페이징(pageNo, startRowNo, totalCnt)
 - 원본 XML 사본: 세션 스크래치패드 `PGJ151F00.xml` (필요 시 재다운로드 가능)
+- **좌표 필드 주의**: 응답의 `wgs84Xcordi`/`wgs84Ycordi`는 정수로 반올림되어(예: `"127"`/`"37"`) 지도 표시에 쓸 수 없다. 실제 좌표는 `xCordi`/`yCordi`(카텍/KATEC 평면좌표, `+proj=tmerc +lat_0=38 +lon_0=128 +k=0.9999 +x_0=400000 +y_0=600000 +ellps=bessel +towgs84=-146.43,507.89,681.46`)를 변환해서 써야 한다. 실주소 4건으로 역산 검증 완료 — `tools/collector/src/collector/geo.py`.
 
 ## 0-2. 등기부 데이터 소스 확인 — ✅ 방향 확정
 

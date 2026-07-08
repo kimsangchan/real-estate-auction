@@ -8,7 +8,8 @@ services:
       POSTGRES_PASSWORD: changeme
       POSTGRES_DB: auction
     ports:
-      - "5432:5432"
+      # 호스트에 네이티브 PostgreSQL이 5432를 점유하는 환경이 있어 55432로 매핑 (데이터 볼륨은 dbdata로 유지)
+      - "55432:5432"
     volumes:
       # PG 18+ 이미지는 데이터 마운트 지점이 /var/lib/postgresql (하위에 data/ 자동 생성)
       - dbdata:/var/lib/postgresql

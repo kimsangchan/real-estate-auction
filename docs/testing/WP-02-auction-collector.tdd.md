@@ -23,6 +23,13 @@
 | Lint | `.\.venv\Scripts\python.exe -m ruff check .` | PASS | All checks passed |
 | DB smoke | `COLLECTOR_RUN_DB_TESTS=1 DATABASE_URL=postgresql://app:changeme@localhost:55432/auction .\.venv\Scripts\python.exe -m pytest tests/test_postgres_repository.py` | PASS | 2 tests passed against temporary `postgis/postgis:18-3.6` |
 | Screen contract | `.\.venv\Scripts\python.exe -m pytest` | PASS | 16 passed, 1 skipped after adding `PGJ151F00.xml` fixture |
+| 실계약 캡처 | Playwright MCP로 물건상세검색 화면에서 검색 버튼 클릭 → 실제 요청/응답 캡처 (2026-07-08) | PASS | 실제 경로는 `/pgj/pgjsearch/searchControllerMain.on` (단일 슬래시) — 공개 XML의 `action` 속성(이중 슬래시)과 다름. 이전 세션의 HTTP 500은 경로 오류가 원인이었음 |
+| 무세션 재현 | `curl`로 동일 payload를 쿠키 없이 재요청 | PASS | 200 OK, 세션 쿠키 불필요 — 배치 수집기가 브라우저 없이 동일 계약을 재현 가능함을 확인 |
+| GREEN (실계약 반영 후) | `.\.venv\Scripts\python.exe -m pytest` | PASS | 18 passed, 1 skipped |
+| Lint (실계약 반영 후) | `.\.venv\Scripts\python.exe -m ruff check .` | PASS | All checks passed |
+| 실수집 E2E | `DATABASE_URL=... python -m collector --court-office-code B000210 --page-no {1..5} --migrate` | PASS | 서울중앙지방법원(B000210) 5페이지 × 10건 = 50건 신규 적재 (2026-07-08) |
+| 멱등성 재실행 | 동일 페이지(1~5) 재실행 | PASS | 5회 모두 `inserted=0 skipped=10` |
+| PostGIS 검증 | `docker exec auction-db psql ...` | PASS | 50/50건 geom 생성, 서울 bbox(`ST_Intersects`) 50/50건 포함, 사건 37건 |
 
 ## Test Specification
 
@@ -39,12 +46,21 @@
 | 9 | PostgreSQL repository는 migration 후 동일 fixture를 중복 없이 upsert한다 | `tools/collector/tests/test_postgres_repository.py` | integration | PASS |
 | 10 | PostGIS `ST_Intersects` bbox 조회가 서울 좌표 fixture 2건을 반환한다 | `tools/collector/tests/test_postgres_repository.py` | integration | PASS |
 | 11 | 수집 runner는 실행 ID·법원·페이지·처리 건수·insert/update/skip을 로그로 남기고 주소값은 남기지 않는다 | `tools/collector/tests/test_runner.py` | unit | PASS |
-| 12 | 공개 화면 XML은 물건상세검색 submission이 `/pgj//pgjsearch/searchControllerMain.on`와 `dma_pageInfo`/`dma_srchGdsDtlSrchInfo`를 사용함을 보장한다 | `tools/collector/tests/test_court_screen_contract.py` | static | PASS |
-| 13 | 검색 payload는 WebSquare submission shape로 생성된다 | `tools/collector/tests/test_runner.py` | unit | PASS |
+| 12 | 공개 화면 XML은 물건상세검색 submission이 `dma_pageInfo`/`dma_srchGdsDtlSrchInfo`를 사용함을 보장한다 | `tools/collector/tests/test_court_screen_contract.py` | static | PASS |
+| 13 | 검색 payload는 브라우저 캡처와 동일한 실제 요청(`tests/fixtures/court_search_request.json`)을 만든다 | `tools/collector/tests/test_runner.py` | unit | PASS |
 | 14 | transport HTTP 오류는 수집기 도메인 오류로 감싸진다 | `tools/collector/tests/test_court_client.py` | unit | PASS |
+| 15 | `_urllib_transport`는 실제 경로·필수 헤더(`sc-userid`, `submissionid`, `referer`, `accept`)로 요청을 만든다 | `tools/collector/tests/test_court_client.py` | unit | PASS |
+| 16 | 실제 응답 필드(`dlt_srchResult`, `boCd`, `srnSaNo`, `mokmulSer`, `printSt` 등)가 `AuctionItem`으로 매핑된다 | `tools/collector/tests/test_court_parser.py` | unit | PASS |
+| 17 | 카텍(KATEC) 좌표(`xCordi`/`yCordi`)가 WGS84 위경도로 변환된다 | `tools/collector/tests/test_court_parser.py` | unit | PASS |
+
+## 좌표계 확인 (카텍 → WGS84)
+
+- 응답의 `wgs84Xcordi`/`wgs84Ycordi` 필드는 정수로 반올림되어 있어(`"127"`/`"37"`) 사실상 정밀도가 없다 — 지도 표시용으로 사용 불가.
+- `xCordi`/`yCordi`는 카텍(KATEC, 내비게이션용) 평면좌표로 확인됨: `+proj=tmerc +lat_0=38 +lon_0=128 +k=0.9999 +x_0=400000 +y_0=600000 +ellps=bessel +towgs84=-146.43,507.89,681.46`.
+- 검증: 서울 4개 실주소(강남구 논현동/중구 오장동/관악구 남현동/중구 남창동) 좌표를 역산해 실제 주소 위치와 일치함을 확인 (`tools/collector/src/collector/geo.py`).
+- 실수집 E2E 50건 전량 geom 생성 성공, 서울 bbox(`ST_Intersects`) 50/50건 포함 확인.
 
 ## Known Gaps
 
-- 현재 응답 fixture는 phase0 필드 모델 기반 샘플이다. 실제 브라우저 개발자도구 캡처 응답으로 교체해야 한다.
-- 공개 XML 기준 최소 payload로 `searchControllerMain.on`에 1회 요청했으나 HTTP 500이 반환됐다. 브라우저 세션/추가 WebSquare context가 필요한 것으로 보고 우회하지 않았다.
-- 법원 1곳 대상 실수집 E2E는 아직 실행하지 않았다.
+- 실제 요청/응답 계약, 좌표 변환, 실수집 E2E까지 모두 검증 완료. 남은 공식적인 Known Gap 없음.
+- (참고) 로컬 개발 환경에서 Windows 호스트에 네이티브 PostgreSQL이 5432 포트를 점유하고 있어, docker-compose의 `db` 서비스 포트를 `55432:5432`로 변경함 (`.env`/`.env.example` 동기화 완료). 다른 환경에서 재현 시 호스트 5432 포트 점유 여부를 먼저 확인할 것.

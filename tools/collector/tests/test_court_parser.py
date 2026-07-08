@@ -14,20 +14,29 @@ def test_parse_search_page_maps_required_fields():
 
     page = parse_search_page(payload)
 
-    assert page.total_count == 2
+    assert page.total_count == 282
     assert page.page_no == 1
     assert len(page.items) == 2
     first = page.items[0]
     assert first.court_office_code == "B000210"
-    assert first.case_no == "2024타경12345"
+    assert first.case_no == "2022타경101244"
     assert first.item_no == "1"
-    assert first.appraisal_amount == 500_000_000
-    assert first.minimum_sale_price == 400_000_000
-    assert first.location == (127.013292, 37.492361)
+    assert first.court_name == "서울중앙지방법원"
+    assert first.usage_code == "20106"
+    assert first.address == "서울특별시 강남구 논현로8길 32-16 1층102호"
+    assert first.appraisal_amount == 88_184_767
+    assert first.minimum_sale_price == 88_184_767
+    assert first.failed_bid_count == 0
+    assert first.bid_datetime == "2026-07-22 10:00:00+09:00"
+    lng, lat = first.location
+    assert lng == pytest.approx(127.05037, abs=1e-4)
+    assert lat == pytest.approx(37.47382, abs=1e-4)
 
 
 def test_parse_search_page_allows_empty_page():
-    page = parse_search_page({"data": {"totalCnt": 0, "pageNo": 3, "items": []}})
+    page = parse_search_page(
+        {"data": {"dma_pageInfo": {"totalCnt": 0, "pageNo": 3}, "dlt_srchResult": []}}
+    )
 
     assert page.total_count == 0
     assert page.page_no == 3
@@ -36,7 +45,7 @@ def test_parse_search_page_allows_empty_page():
 
 def test_parse_search_page_rejects_missing_natural_key():
     payload = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-    del payload["data"]["items"][0]["csNo"]
+    del payload["data"]["dlt_srchResult"][0]["boCd"]
 
-    with pytest.raises(CourtPayloadError, match="csNo"):
+    with pytest.raises(CourtPayloadError, match="boCd"):
         parse_search_page(payload)
