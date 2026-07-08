@@ -1,0 +1,16 @@
+.bar {
+  display: flex;
+  justify-content: space-between;
+}
+
+.link {
+  color: var(--color-primary-deep);
+  font-size: var(--typography-body-sm-bold-font-size);
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  text-decoration: none;
+}
+
+.linkDisabled {
+  color: var(--color-disabled-text);
+  pointer-events: none;
+}

@@ -1,0 +1,118 @@
+.page {
+  padding: var(--spacing-xl);
+  padding-bottom: var(--spacing-xxxl);
+}
+
+.title {
+  font-size: var(--typography-heading-lg-font-size);
+  font-weight: var(--typography-heading-lg-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-xs);
+}
+
+.subtitle {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  margin: 0 0 var(--spacing-base);
+}
+
+.progressBar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xl);
+}
+
+.progressTrack {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-soft);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background-color: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width 200ms ease-out;
+}
+
+.progressText {
+  flex-shrink: 0;
+  font-size: var(--typography-body-sm-bold-font-size);
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  color: var(--color-ink);
+}
+
+.groupBlock {
+  margin-bottom: var(--spacing-xl);
+}
+
+.groupTitle {
+  font-size: var(--typography-heading-sm-font-size);
+  font-weight: var(--typography-heading-sm-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-sm);
+}
+
+.itemCard {
+  display: flex;
+  gap: var(--spacing-base);
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-hairline-soft);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-sm);
+  cursor: pointer;
+}
+
+.itemChecked {
+  background-color: var(--color-surface-soft);
+}
+
+.checkbox {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--color-hairline);
+  accent-color: var(--color-primary);
+}
+
+.itemMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemLabelLine {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: 2px;
+}
+
+.itemLabel {
+  font-size: var(--typography-body-md-font-size);
+  font-weight: var(--typography-body-md-bold-font-weight);
+  color: var(--color-ink);
+}
+
+.itemLabelChecked {
+  color: var(--color-steel);
+  text-decoration: line-through;
+}
+
+.itemHelp {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  margin: 0;
+}
+
+.savedNotice {
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-stone);
+  text-align: center;
+  margin-top: var(--spacing-lg);
+}

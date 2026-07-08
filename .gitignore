@@ -6,6 +6,7 @@
 # 의존성/빌드
 node_modules/
 dist/
+dist-test/
 build/
 .next/
 coverage/

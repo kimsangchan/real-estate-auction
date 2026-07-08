@@ -1,0 +1,77 @@
+.page {
+  padding: var(--spacing-xl);
+  padding-bottom: var(--spacing-xxxl);
+}
+
+.title {
+  font-size: var(--typography-heading-lg-font-size);
+  font-weight: var(--typography-heading-lg-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-xs);
+}
+
+.subtitle {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  margin: 0 0 var(--spacing-xl);
+}
+
+.emptyState {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  background-color: var(--color-surface-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-base) var(--spacing-lg);
+}
+
+.card {
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-hairline-soft);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-base);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.sourceDocument {
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-stone);
+}
+
+.quote {
+  margin: 0 0 var(--spacing-base);
+  padding: var(--spacing-base);
+  border-left: 3px solid var(--color-hairline);
+  background-color: var(--color-surface-soft);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-charcoal);
+  font-style: normal;
+}
+
+.actionLabel {
+  font-size: var(--typography-caption-bold-font-size);
+  font-weight: var(--typography-caption-bold-font-weight);
+  color: var(--color-primary-deep);
+  margin: 0 0 var(--spacing-xxs);
+}
+
+.actionText {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-ink);
+  margin: 0 0 var(--spacing-base);
+}
+
+.checklistLink {
+  display: inline-block;
+  color: var(--color-primary-deep);
+  font-size: var(--typography-body-sm-bold-font-size);
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  text-decoration: none;
+}

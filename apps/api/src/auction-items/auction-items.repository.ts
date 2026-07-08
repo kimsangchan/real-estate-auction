@@ -1,0 +1,137 @@
+// 물건 조회 리포지토리 — WP-02 수집기가 채운 auction_item/auction_case/auction_item_raw를 읽기 전용으로 조회.
+// usageName/deptName/시도/시군구는 별도 컬럼이 없어 WP-02가 저장해 둔 원문 스냅샷(auction_item_raw.payload)에서 읽는다.
+import { Inject, Injectable } from '@nestjs/common';
+import type { Pool, QueryResultRow } from 'pg';
+import type { AuctionItemDto } from './dto/auction-item.dto';
+import type { Bbox } from './dto/bbox.dto';
+import type { RegionCountDto } from './dto/region-count.dto';
+
+export const PG_POOL = Symbol('PG_POOL');
+
+const JOIN_RAW_AND_SCHEDULE = `
+  FROM auction_item ai
+  JOIN auction_case ac ON ac.id = ai.auction_case_id
+  LEFT JOIN LATERAL (
+    SELECT payload FROM auction_item_raw
+    WHERE auction_item_id = ai.id
+    ORDER BY observed_at DESC LIMIT 1
+  ) raw ON true
+  LEFT JOIN LATERAL (
+    SELECT bid_datetime FROM auction_schedule
+    WHERE auction_item_id = ai.id
+    ORDER BY observed_at DESC LIMIT 1
+  ) sch ON true
+`;
+
+const SELECT_AND_FROM = `
+  SELECT
+    ac.court_office_code AS "courtOfficeCode",
+    ac.case_no AS "caseNo",
+    ai.item_no AS "itemNo",
+    ac.court_name AS "courtName",
+    raw.payload->>'jpDeptNm' AS "deptName",
+    raw.payload->>'dspslUsgNm' AS "usageName",
+    ai.address AS "address",
+    ai.appraisal_amount AS "appraisalAmount",
+    ai.minimum_sale_price AS "minimumSalePrice",
+    ai.failed_bid_count AS "failedBidCount",
+    sch.bid_datetime AS "bidDatetime",
+    ST_X(ai.geom) AS "lng",
+    ST_Y(ai.geom) AS "lat"
+  ${JOIN_RAW_AND_SCHEDULE}
+`;
+
+interface AuctionItemRow extends QueryResultRow {
+  courtOfficeCode: string;
+  caseNo: string;
+  itemNo: string;
+  courtName: string | null;
+  deptName: string | null;
+  usageName: string | null;
+  address: string | null;
+  appraisalAmount: string | null;
+  minimumSalePrice: string | null;
+  failedBidCount: number | null;
+  bidDatetime: Date | null;
+  lng: number | null;
+  lat: number | null;
+}
+
+function toDto(row: AuctionItemRow): AuctionItemDto {
+  return {
+    ...row,
+    appraisalAmount: row.appraisalAmount === null ? null : Number(row.appraisalAmount),
+    minimumSalePrice: row.minimumSalePrice === null ? null : Number(row.minimumSalePrice),
+    bidDatetime: row.bidDatetime === null ? null : row.bidDatetime.toISOString(),
+  };
+}
+
+interface RegionCountRow extends QueryResultRow {
+  region: string;
+  count: string;
+}
+
+@Injectable()
+export class AuctionItemsRepository {
+  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+
+  async findOne(courtOfficeCode: string, caseNo: string, itemNo: string): Promise<AuctionItemDto | null> {
+    const result = await this.pool.query<AuctionItemRow>(
+      `${SELECT_AND_FROM} WHERE ac.court_office_code = $1 AND ac.case_no = $2 AND ai.item_no = $3`,
+      [courtOfficeCode, caseNo, itemNo],
+    );
+    const row = result.rows[0];
+    return row ? toDto(row) : null;
+  }
+
+  async findMany(
+    limit: number,
+    offset: number,
+    filter: { sido?: string; sigungu?: string } = {},
+  ): Promise<AuctionItemDto[]> {
+    const result = await this.pool.query<AuctionItemRow>(
+      `${SELECT_AND_FROM}
+       WHERE ($3::text IS NULL OR raw.payload->>'hjguSido' = $3)
+         AND ($4::text IS NULL OR raw.payload->>'hjguSigu' = $4)
+       ORDER BY ai.updated_at DESC LIMIT $1 OFFSET $2`,
+      [limit, offset, filter.sido ?? null, filter.sigungu ?? null],
+    );
+    return result.rows.map(toDto);
+  }
+
+  async countBySido(): Promise<RegionCountDto[]> {
+    const result = await this.pool.query<RegionCountRow>(
+      `SELECT raw.payload->>'hjguSido' AS region, COUNT(*) AS count
+       ${JOIN_RAW_AND_SCHEDULE}
+       WHERE raw.payload->>'hjguSido' IS NOT NULL
+       GROUP BY raw.payload->>'hjguSido'
+       ORDER BY count DESC`,
+    );
+    return result.rows.map((row) => ({ name: row.region, count: Number(row.count) }));
+  }
+
+  async countBySigungu(sido: string): Promise<RegionCountDto[]> {
+    const result = await this.pool.query<RegionCountRow>(
+      `SELECT raw.payload->>'hjguSigu' AS region, COUNT(*) AS count
+       ${JOIN_RAW_AND_SCHEDULE}
+       WHERE raw.payload->>'hjguSido' = $1 AND raw.payload->>'hjguSigu' IS NOT NULL
+       GROUP BY raw.payload->>'hjguSigu'
+       ORDER BY count DESC`,
+      [sido],
+    );
+    return result.rows.map((row) => ({ name: row.region, count: Number(row.count) }));
+  }
+
+  /** 지도 뷰포트(경위도 사각형) 안의 물건을 찾는다 — 지도 홈(F-01, RN)의 팬/줌 갱신용 */
+  async findItemsInBbox(bbox: Bbox, limit: number): Promise<AuctionItemDto[]> {
+    const result = await this.pool.query<AuctionItemRow>(
+      `${SELECT_AND_FROM}
+       WHERE ai.geom IS NOT NULL
+         AND ST_Intersects(ai.geom, ST_MakeEnvelope($1, $2, $3, $4, 4326))
+       ORDER BY ai.updated_at DESC
+       LIMIT $5`,
+      [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat, limit],
+    );
+    return result.rows.map(toDto);
+  }
+}

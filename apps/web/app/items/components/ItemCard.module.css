@@ -1,0 +1,74 @@
+.card {
+  display: block;
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-xxxl);
+  border: 1px solid var(--color-hairline-soft);
+  padding: var(--spacing-xl);
+  text-decoration: none;
+}
+
+.usageBadge {
+  display: inline-block;
+  background-color: var(--color-surface-soft);
+  color: var(--color-slate);
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: var(--typography-caption-bold-font-size);
+  font-weight: var(--typography-caption-bold-font-weight);
+  margin-bottom: var(--spacing-sm);
+}
+
+.address {
+  font-size: var(--typography-subtitle-lg-font-size);
+  font-weight: var(--typography-subtitle-lg-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-sm);
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  margin-bottom: 2px;
+}
+
+.minPrice {
+  font-size: var(--typography-heading-sm-font-size);
+  font-weight: var(--typography-heading-sm-font-weight);
+  color: var(--color-ink-deep);
+}
+
+.minRate {
+  font-size: var(--typography-body-sm-bold-font-size);
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  color: var(--color-critical-strong);
+}
+
+.appraisedLine {
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-stone);
+  margin: 0 0 var(--spacing-base);
+}
+
+.metaChips {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+.chip {
+  border-radius: var(--radius-full);
+  padding: 3px 10px;
+  font-size: var(--typography-caption-bold-font-size);
+  font-weight: var(--typography-caption-bold-font-weight);
+}
+
+.chipFailed {
+  background-color: var(--color-critical);
+  color: var(--color-canvas);
+}
+
+.chipDate {
+  background-color: var(--color-ink-deep);
+  color: var(--color-canvas);
+}

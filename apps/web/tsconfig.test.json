@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "outDir": "./dist-test",
+    "rootDir": "."
+  },
+  "include": ["app/items/format.ts", "app/items/format.test.ts", "app/items/item-id.ts", "app/items/item-id.test.ts"]
+}

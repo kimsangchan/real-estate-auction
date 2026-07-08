@@ -1,0 +1,154 @@
+.page {
+  padding-bottom: 96px;
+}
+
+.breadcrumb {
+  padding: var(--spacing-lg) var(--spacing-xl) 0;
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+}
+
+.priceHeader {
+  padding: var(--spacing-xl);
+}
+
+.courtLine {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  margin: 0 0 var(--spacing-xs);
+}
+
+.usageBadge {
+  display: inline-block;
+  background-color: var(--color-surface-soft);
+  color: var(--color-slate);
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: var(--typography-caption-bold-font-size);
+  font-weight: var(--typography-caption-bold-font-weight);
+  margin-bottom: var(--spacing-sm);
+}
+
+.address {
+  font-size: var(--typography-heading-sm-font-size);
+  font-weight: var(--typography-heading-sm-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-lg);
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xxs);
+}
+
+.minPrice {
+  font-size: var(--typography-display-lg-font-size);
+  font-weight: var(--typography-display-lg-font-weight);
+  color: var(--color-ink-deep);
+}
+
+.minRate {
+  font-size: var(--typography-subtitle-lg-font-size);
+  font-weight: var(--typography-subtitle-lg-font-weight);
+  color: var(--color-critical-strong);
+}
+
+.appraisedLine {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  margin: 0 0 var(--spacing-base);
+}
+
+.appraisedLine s {
+  color: var(--color-stone);
+}
+
+.metaChips {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+.chip {
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: var(--typography-caption-bold-font-size);
+  font-weight: var(--typography-caption-bold-font-weight);
+}
+
+.chipFailed {
+  background-color: var(--color-critical);
+  color: var(--color-canvas);
+}
+
+.chipDate {
+  background-color: var(--color-ink-deep);
+  color: var(--color-canvas);
+}
+
+.section {
+  padding: 0 var(--spacing-xl) var(--spacing-xl);
+}
+
+.sectionTitle {
+  font-size: var(--typography-heading-sm-font-size);
+  font-weight: var(--typography-heading-sm-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-base);
+}
+
+.specsTable {
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-hairline-soft);
+  overflow: hidden;
+}
+
+.specsRow {
+  display: flex;
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--typography-body-sm-font-size);
+}
+
+.specsRow:not(:last-child) {
+  border-bottom: 1px solid var(--color-hairline-soft);
+}
+
+.specsLabel {
+  width: 96px;
+  flex-shrink: 0;
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  color: var(--color-ink);
+}
+
+.specsValue {
+  color: var(--color-charcoal);
+}
+
+.ctaBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  background-color: var(--color-canvas);
+  border-top: 1px solid var(--color-hairline-soft);
+  padding: var(--spacing-base) var(--spacing-xl);
+}
+
+.ctaLink {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  text-align: center;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  border-radius: var(--radius-full);
+  padding: 14px 30px;
+  font-size: var(--typography-button-md-font-size);
+  font-weight: var(--typography-button-md-font-weight);
+  text-decoration: none;
+}

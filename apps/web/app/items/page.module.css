@@ -1,0 +1,33 @@
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--spacing-xl);
+}
+
+.title {
+  font-size: var(--typography-heading-lg-font-size);
+  font-weight: var(--typography-heading-lg-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-xs);
+}
+
+.subtitle {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  margin: 0 0 var(--spacing-xl);
+}
+
+.emptyState {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  background-color: var(--color-surface-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-base) var(--spacing-lg);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-base);
+  margin-bottom: var(--spacing-xl);
+}

@@ -1,0 +1,196 @@
+.page {
+  padding: var(--spacing-xl);
+  padding-bottom: var(--spacing-xxxl);
+}
+
+.title {
+  font-size: var(--typography-heading-lg-font-size);
+  font-weight: var(--typography-heading-lg-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-lg);
+}
+
+.summaryCard {
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-hairline-soft);
+  box-shadow: rgba(20, 22, 26, 0.3) 0px 1px 4px 0px;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  margin-bottom: var(--spacing-base);
+}
+
+.summaryLabel {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  margin: 0 0 2px;
+}
+
+.summaryTotal {
+  font-size: var(--typography-display-lg-font-size);
+  font-weight: var(--typography-display-lg-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-sm);
+}
+
+.summaryBreakdown {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-charcoal);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-hairline-soft);
+}
+
+/* 한눈 요약 바 — 인수/확인필요/말소 건수를 즉시 비교 */
+.glanceBar {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xl);
+}
+
+.glanceChip {
+  flex: 1;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-sm) var(--spacing-base);
+  text-align: center;
+}
+
+.glanceChipCount {
+  display: block;
+  font-size: var(--typography-heading-sm-font-size);
+  font-weight: var(--typography-heading-sm-font-weight);
+}
+
+.glanceChipLabel {
+  display: block;
+  font-size: var(--typography-caption-font-size);
+  margin-top: 2px;
+}
+
+.glanceAssumed {
+  background-color: var(--color-warning);
+  color: var(--color-ink-deep);
+}
+
+.glanceReview {
+  background-color: var(--color-critical);
+  color: var(--color-canvas);
+}
+
+.glanceExtinguished {
+  background-color: var(--color-surface-soft);
+  color: var(--color-slate);
+}
+
+.groupBlock {
+  margin-bottom: var(--spacing-xl);
+}
+
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--typography-heading-sm-font-size);
+  font-weight: var(--typography-heading-sm-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-sm);
+}
+
+.groupTitleAssumed {
+  color: var(--color-critical-strong);
+}
+
+.groupEmpty {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  background-color: var(--color-surface-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-base) var(--spacing-lg);
+}
+
+.table {
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-hairline-soft);
+  overflow: hidden;
+}
+
+.tableMuted {
+  opacity: 0.72;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg);
+}
+
+.row:not(:last-child) {
+  border-bottom: 1px solid var(--color-hairline-soft);
+}
+
+.rowBaseline {
+  border-left: 3px solid var(--color-primary);
+}
+
+.rowKind {
+  width: 64px;
+  flex-shrink: 0;
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-stone);
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowLabelLine {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.rowLabel {
+  font-size: var(--typography-body-sm-bold-font-size);
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  color: var(--color-ink);
+}
+
+.baselineTag {
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-deep);
+  border-radius: var(--radius-full);
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: var(--typography-caption-bold-font-weight);
+}
+
+.rowDetail {
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-steel);
+  margin: 0;
+}
+
+.footnote {
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-stone);
+  margin: var(--spacing-sm) 0 var(--spacing-xl);
+}
+
+.footnoteLink {
+  display: inline-block;
+  color: var(--color-primary-deep);
+  font-size: var(--typography-body-sm-bold-font-size);
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  text-decoration: none;
+  margin-top: var(--spacing-xs);
+}
+
+.disclaimer {
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-stone);
+  text-align: center;
+  margin-top: var(--spacing-lg);
+}
