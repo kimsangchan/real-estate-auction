@@ -6,9 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint app"
+    "lint": "eslint app",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/app/items/*.test.js"
   },
   "dependencies": {
+    "@auction/design-tokens": "workspace:*",
     "next": "^16.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

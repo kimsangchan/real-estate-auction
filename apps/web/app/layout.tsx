@@ -1,4 +1,5 @@
-// 웹 루트 레이아웃 — 물건 상세 SEO 페이지의 공통 골격 (WP-01 플레이스홀더)
+// 웹 루트 레이아웃 — 디자인 토큰(CSS 변수) 주입 + 물건 상세 SEO 페이지의 공통 골격
+import { buildCssVariablesText, colors, typography } from '@auction/design-tokens';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
@@ -10,7 +11,19 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <head>
+        <style>{buildCssVariablesText()}</style>
+      </head>
+      <body
+        style={{
+          fontFamily: typography.bodyMd.fontFamily,
+          backgroundColor: colors.canvas,
+          color: colors.ink,
+          margin: 0,
+        }}
+      >
+        {children}
+      </body>
     </html>
   );
 }
