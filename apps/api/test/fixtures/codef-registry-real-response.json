@@ -1,0 +1,1932 @@
+{
+  "result": {
+    "code": "CF-00000",
+    "extraMessage": "",
+    "message": "성공",
+    "transactionId": "sample-transaction-id-0001"
+  },
+  "data": {
+    "resRegisterEntriesList": [
+      {
+        "resPublishRegistryOffice": "",
+        "commUniqueNo": "11032020002242",
+        "resIssueNo": "",
+        "resRegistrationHisList": [
+          {
+            "resType": "표제부",
+            "resContentsList": [
+              {
+                "resType2": "1",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "표시번호"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "접수"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "소재지번,건물명칭 및 번호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "건물내역"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "등기원인 및 기타사항"
+                  }
+                ],
+                "resNumber": "0"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "2020년9월10일"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "서울특별시 중구 오장동\n145-1\n오렌지카운티을지로\n[도로명주소]\n서울특별시 중구 동호로33길\n15"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "철근콘크리트구조\n평스라브지붕 지상 15층\n공동주택(도시형생활주택)\n업무시설(오피스텔)\n제1종근린생활시설(소매점)\n지3층 442.10㎡\n926.76㎡ 지1층 937.39㎡\n1층 404.67㎡ 2층\n450.45㎡ 3층 595.38㎡\n4층 595.38㎡\n5층 595.38㎡ 6층\n595.38㎡ 7층 595.38㎡\n8층 492.62㎡\n9층 492.62㎡ 10층\n492.62㎡ 11층 492.62㎡\n12층 492.62㎡\n13층 492.62㎡\n492.62㎡ 15층 506.66㎡"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": ""
+                  }
+                ],
+                "resNumber": "1"
+              }
+            ],
+            "resType1": "1동의 건물의 표시"
+          },
+          {
+            "resType": "표제부",
+            "resContentsList": [
+              {
+                "resType2": "1",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "표시번호"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "소재지번"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "지목"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "면적"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "등기원인 및 기타사항"
+                  }
+                ],
+                "resNumber": "0"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "1. 서울특별시 중구 오장동\n145-1"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "대"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "1210.9㎡"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "2020년9월10일 등기"
+                  }
+                ],
+                "resNumber": "1"
+              }
+            ],
+            "resType1": "대지권의 목적인 토지의 표시"
+          },
+          {
+            "resType": "표제부",
+            "resContentsList": [
+              {
+                "resType2": "1",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "표시번호"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "접수"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "건물번호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "건물내역"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "등기원인 및 기타사항"
+                  }
+                ],
+                "resNumber": "0"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "2020년9월10일"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "제6층 제604호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "철근콘크리트구조\n18.36㎡"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": ""
+                  }
+                ],
+                "resNumber": "1"
+              }
+            ],
+            "resType1": "전유부분의 건물의 표시"
+          },
+          {
+            "resType": "표제부",
+            "resContentsList": [
+              {
+                "resType2": "1",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "표시번호"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "대지권종류"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "대지권비율"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "등기원인 및 기타사항"
+                  }
+                ],
+                "resNumber": "0"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "1 소유권대지권"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "1210.9분의 4.68"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "2020년8월20일 대지권\n2020년9월10일 등기"
+                  }
+                ],
+                "resNumber": "1"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "&2&"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": ""
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": ""
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "&별도등기 있음&\n&1토지(갑구4번 신탁등기)&\n&2020년9월24일 등기&"
+                  }
+                ],
+                "resNumber": "2"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "3"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": ""
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": ""
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "2번 별도등기 말소\n2021년4월16일 등기"
+                  }
+                ],
+                "resNumber": "3"
+              }
+            ],
+            "resType1": "대지권의 표시"
+          },
+          {
+            "resType": "갑구",
+            "resContentsList": [
+              {
+                "resType2": "1",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "순위번호"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "등기목적"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "접수"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "등기원인"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "권리자 및 기타사항"
+                  }
+                ],
+                "resNumber": "0"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "소유권보존|&신탁&"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2020년9월10일\n제33649호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": ""
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "소유자 가나부동산신탁주식회사\n110111-1000001\n서울특별시 강남구 테헤란로 129 (역삼동)|&신탁원부 제2020-3396호&"
+                  }
+                ],
+                "resNumber": "1"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "소유권이전|1번신탁등기말소"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2021년4월16일\n제14136호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "2021년4월16일\n신탁재산의귀속\n신탁재산귀속"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "소유자 다라기업주식회사 110111-1000002\n서울특별시 강남구 테헤란로103길\n6,201호(삼성동)"
+                  }
+                ],
+                "resNumber": "2"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "3"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "가압류"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2022년10월18일\n제35763호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "2022년10월18일\n서울중앙지방법\n원의 가압류\n결정(2022카단8\n17621)"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "청구금액 금393,374,335 원\n채권자 김민준 900101-*******\n의정부시 가나로137번길 1 (가나동)"
+                  }
+                ],
+                "resNumber": "3"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "4"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "가압류"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2023년5월23일\n제17624호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "2023년5월22일\n서울서부지방법\n원의 가압류\n결정(2023카합5\n0253)"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "청구금액 금726,313,737 원\n채권자 마바저축은행 주식회사\n110111-1000003\n서울 용산구 한강대로 148 (한강로2가,\n마바금융타워)"
+                  }
+                ],
+                "resNumber": "4"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "5"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "가압류"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2023년7월28일\n제28305호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "2023년7월28일\n서울중앙지방법\n원의 가압류\n결정(2023카단8\n21964)"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "청구금액 금425,906,717 원\n채권자 가나동농업협동조합 114836-1000004\n서울 강동구 구천면로 331 (암사동,\n가나농협)\n(본점채권팀)"
+                  }
+                ],
+                "resNumber": "5"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "6"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "강제경매개시결정"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2023년9월21일\n제35874호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "2023년9월21일\n서울중앙지방법\n원의\n강제경매개시결\n정(2023타경472\n2)"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "채권자 이서연 950101-*******\n서울 중구 동호로33길 15, 604호 (오장동,\n오렌지카운티을지로)"
+                  }
+                ],
+                "resNumber": "6"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "&7&"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "&압류&"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "&2025년7월11일&\n&제3610803호&"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "&2025년7월11일&\n&압류 (징수과-00&\n&3605)&"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "&권리자 여주시 3170&"
+                  }
+                ],
+                "resNumber": "7"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "8"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "7번압류등기말소"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2025년9월9일\n제4775425호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "2025년9월9일\n해제"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": ""
+                  }
+                ],
+                "resNumber": "8"
+              }
+            ],
+            "resType1": "소유권에 관한 사항"
+          },
+          {
+            "resType": "을구",
+            "resContentsList": [],
+            "resType1": "소유권 이외의 권리에 관한 사항"
+          }
+        ],
+        "resDocTitle": "등기사항전부증명서(말소사항 포함) - 집합건물 -",
+        "resRealty": "[집합건물] 서울특별시 중구 오장동 145-1 오렌지카운티을지로 제6층 제604호",
+        "resPublishNo": "",
+        "resPublishDate": "20260708",
+        "resRegistrationSumList": [
+          {
+            "resType": "소유지분현황 (갑구)",
+            "resContentsList": [
+              {
+                "resType2": "1",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "등기명의인"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "(주민)등록번호"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "최종지분"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "주소"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "순위번호"
+                  }
+                ],
+                "resNumber": "0"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "중부기업주식회\n사 (소유자)"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "110111-1000002"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "단독소유"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "서울특별시 강남구 테헤란로103길 6,201호(삼성동)"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "2"
+                  }
+                ],
+                "resNumber": "1"
+              }
+            ],
+            "resType1": ""
+          },
+          {
+            "resType": "소유지분을 제외한 소유권에 관한 사항 (갑구)",
+            "resContentsList": [
+              {
+                "resType2": "1",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "순위번호"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "등기목적"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "접수정보"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "주요등기사항"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "대상소유자"
+                  }
+                ],
+                "resNumber": "0"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "3"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "가압류"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2022년10월18일\n제35763호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "청구금액 금393,374,335 원\n채권자 김민준"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "중부기업주\n식회사"
+                  }
+                ],
+                "resNumber": "1"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "4"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "가압류"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2023년5월23일\n제17624호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "청구금액 금726,313,737 원\n채권자 마바저축은행 주식회사"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "중부기업주\n식회사"
+                  }
+                ],
+                "resNumber": "2"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "5"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "가압류"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2023년7월28일\n제28305호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "청구금액 금425,906,717 원\n채권자 가나동농업협동조합"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "중부기업주\n식회사"
+                  }
+                ],
+                "resNumber": "3"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "6"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "강제경매개시결정"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "2023년9월21일\n제35874호"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "채권자 이서연"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "중부기업주\n식회사"
+                  }
+                ],
+                "resNumber": "4"
+              }
+            ],
+            "resType1": ""
+          },
+          {
+            "resType": "개별공시지가",
+            "resContentsList": [
+              {
+                "resType2": "1",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "신청대상토지|가격기준년도"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "신청대상토지|토지소재지"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "신청대상토지|지번"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "확인내용|개별공시지가"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "확인내용|기준일자"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "확인내용|공시일자"
+                  }
+                ],
+                "resNumber": "0"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2026"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "9531000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "9531000"
+                  }
+                ],
+                "resNumber": "1"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2025"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "9217000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "9217000"
+                  }
+                ],
+                "resNumber": "2"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2024"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "8966000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "8966000"
+                  }
+                ],
+                "resNumber": "3"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2023"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "8841000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "8841000"
+                  }
+                ],
+                "resNumber": "4"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2022"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "9447000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "9447000"
+                  }
+                ],
+                "resNumber": "5"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2021"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "8666000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "8666000"
+                  }
+                ],
+                "resNumber": "6"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2020"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "8243000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "8243000"
+                  }
+                ],
+                "resNumber": "7"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2019"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "7999000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "7999000"
+                  }
+                ],
+                "resNumber": "8"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2018"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "7773000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "7773000"
+                  }
+                ],
+                "resNumber": "9"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2017"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "7407000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "7407000"
+                  }
+                ],
+                "resNumber": "10"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2016"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "6927000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "6927000"
+                  }
+                ],
+                "resNumber": "11"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2015"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "6777000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "6777000"
+                  }
+                ],
+                "resNumber": "12"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2014"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "6645000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "6645000"
+                  }
+                ],
+                "resNumber": "13"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2013"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "6390000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "6390000"
+                  }
+                ],
+                "resNumber": "14"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2012"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "6230000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "6230000"
+                  }
+                ],
+                "resNumber": "15"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2011"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "5960000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "5960000"
+                  }
+                ],
+                "resNumber": "16"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2010"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "5900000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "5900000"
+                  }
+                ],
+                "resNumber": "17"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2009"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "6210000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "6210000"
+                  }
+                ],
+                "resNumber": "18"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2008"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "6400000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "6400000"
+                  }
+                ],
+                "resNumber": "19"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2007"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "6100000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "6100000"
+                  }
+                ],
+                "resNumber": "20"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2006"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "5590000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "5590000"
+                  }
+                ],
+                "resNumber": "21"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2005"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "4880000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "4880000"
+                  }
+                ],
+                "resNumber": "22"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2004"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "4600000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "4600000"
+                  }
+                ],
+                "resNumber": "23"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2003"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "4230000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "4230000"
+                  }
+                ],
+                "resNumber": "24"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2002"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3540000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "3540000"
+                  }
+                ],
+                "resNumber": "25"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2001"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3490000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "3490000"
+                  }
+                ],
+                "resNumber": "26"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "2000"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3490000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "3490000"
+                  }
+                ],
+                "resNumber": "27"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1999"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3380000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "3380000"
+                  }
+                ],
+                "resNumber": "28"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1998"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3800000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "3800000"
+                  }
+                ],
+                "resNumber": "29"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1997"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3740000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "3740000"
+                  }
+                ],
+                "resNumber": "30"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1996"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3420000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "3420000"
+                  }
+                ],
+                "resNumber": "31"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1995"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3020000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "3020000"
+                  }
+                ],
+                "resNumber": "32"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1994"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3070000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "3070000"
+                  }
+                ],
+                "resNumber": "33"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1993"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3070000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "3070000"
+                  }
+                ],
+                "resNumber": "34"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1992"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3070000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "3070000"
+                  }
+                ],
+                "resNumber": "35"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1991"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "3320000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "3320000"
+                  }
+                ],
+                "resNumber": "36"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "1990"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "서울특별시 중구 오장동"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "145-1"
+                  },
+                  {
+                    "resNumber": "3",
+                    "resContents": "2400000"
+                  },
+                  {
+                    "resNumber": "4",
+                    "resContents": "01월01일"
+                  },
+                  {
+                    "resNumber": "5",
+                    "resContents": "2400000"
+                  }
+                ],
+                "resNumber": "37"
+              }
+            ],
+            "resType1": ""
+          },
+          {
+            "resType": "토지이용계획",
+            "resContentsList": [
+              {
+                "resType2": "1",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "「국토의 계획 및 이용에 관한 법률」 에 따른 지역·지구 등"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "다른 볍령 등에 따른 지역·지구 등"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "「토지이용규제 기본법 시행령」 제9조제4항 각 호에 해당되는 사항"
+                  }
+                ],
+                "resNumber": "0"
+              },
+              {
+                "resType2": "2",
+                "resDetailList": [
+                  {
+                    "resNumber": "0",
+                    "resContents": "일반상업지역"
+                  },
+                  {
+                    "resNumber": "1",
+                    "resContents": "가축사육제한구역<가축분뇨의 관리 및 이용에 관한 법률>, 가로구역별 최고높이 제한지역(2015-08-27)<건축법>, 대공방어협조구역(위탁고도:77-257m)<군사기지 및 군사시설 보호법>, 정비구역기타(2025-07-17)(정비예정구역, 건축물의 건축 등 행위제한)<도시 및 주거환경정비법>, 과밀억제권역<수도권정비계획법>"
+                  },
+                  {
+                    "resNumber": "2",
+                    "resContents": "중점경관관리구역(2016-11-24), 토지거래계약에관한허가구역(2025-08-21)((대상자: 외국인 등, 용도: 단독, 다가구, 아파트, 연립, 다세대, 지정기간: 2025.8.26.~2026.8.25.)), 토지거래계약에관한허가구역(2025-10-15)(용도: 아파트, 지정기간: 2025.10.20.~2026.12.31.), 서울도심(4대문안)"
+                  }
+                ],
+                "resNumber": "1"
+              }
+            ],
+            "resType1": ""
+          }
+        ],
+        "commCompetentRegistryOffice": "서울중앙지방법원 중부등기소",
+        "resPrecautionsList": []
+      }
+    ],
+    "resOriGinalData": "",
+    "commStartPageNo": "",
+    "resIssueYN": "1",
+    "resEndPageNo": "",
+    "resWarningMessage": "",
+    "resSearchList": [],
+    "resImageList": [],
+    "commIssueCode": "",
+    "resAddrList": [],
+    "resTotalPageCount": ""
+  }
+}
