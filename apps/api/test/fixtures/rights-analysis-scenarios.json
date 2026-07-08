@@ -1,0 +1,207 @@
+[
+  {
+    "name": "단순 근저당 1건 — 전부 말소",
+    "input": {
+      "registeredRights": [{ "id": "r1", "type": "MORTGAGE", "receivedDate": "2024-01-10" }],
+      "tenants": [],
+      "region": "SEOUL",
+      "distributionDemandDeadline": "2024-06-01"
+    },
+    "expected": {
+      "baselineRightId": "r1",
+      "registeredRightStatuses": { "r1": "EXTINGUISHED" },
+      "tenantStatuses": {}
+    }
+  },
+  {
+    "name": "선순위 임차인, 배당요구 없음 — 전액 인수",
+    "input": {
+      "registeredRights": [{ "id": "r1", "type": "MORTGAGE", "receivedDate": "2024-03-10" }],
+      "tenants": [
+        {
+          "id": "t1",
+          "moveInDate": "2024-01-01",
+          "fixedDate": null,
+          "depositAmount": 50000000,
+          "demandedDistribution": false,
+          "demandedDistributionDate": null
+        }
+      ],
+      "region": "SEOUL",
+      "distributionDemandDeadline": "2024-06-01"
+    },
+    "expected": {
+      "baselineRightId": "r1",
+      "registeredRightStatuses": { "r1": "EXTINGUISHED" },
+      "tenantStatuses": { "t1": { "status": "ASSUMED", "assumedAmount": 50000000 } }
+    }
+  },
+  {
+    "name": "배당요구한 선순위 소액임차인 — 최우선변제로 인수 0",
+    "input": {
+      "registeredRights": [{ "id": "r1", "type": "MORTGAGE", "receivedDate": "2024-03-10" }],
+      "tenants": [
+        {
+          "id": "t1",
+          "moveInDate": "2024-01-01",
+          "fixedDate": "2024-01-05",
+          "depositAmount": 50000000,
+          "demandedDistribution": true,
+          "demandedDistributionDate": "2024-04-01"
+        }
+      ],
+      "region": "SEOUL",
+      "distributionDemandDeadline": "2024-06-01",
+      "saleAmount": 300000000
+    },
+    "expected": {
+      "baselineRightId": "r1",
+      "registeredRightStatuses": { "r1": "EXTINGUISHED" },
+      "tenantStatuses": { "t1": { "status": "EXTINGUISHED", "assumedAmount": 0 } }
+    }
+  },
+  {
+    "name": "경계: 전입일 = 말소기준 접수일 — 익일 0시 규칙으로 후순위",
+    "input": {
+      "registeredRights": [{ "id": "r1", "type": "MORTGAGE", "receivedDate": "2024-03-10" }],
+      "tenants": [
+        {
+          "id": "t1",
+          "moveInDate": "2024-03-10",
+          "fixedDate": null,
+          "depositAmount": 50000000,
+          "demandedDistribution": false,
+          "demandedDistributionDate": null
+        }
+      ],
+      "region": "SEOUL",
+      "distributionDemandDeadline": "2024-06-01"
+    },
+    "expected": {
+      "baselineRightId": "r1",
+      "registeredRightStatuses": { "r1": "EXTINGUISHED" },
+      "tenantStatuses": { "t1": { "status": "EXTINGUISHED", "assumedAmount": 0 } }
+    }
+  },
+  {
+    "name": "경계: 담보 설정일 = 시행령 개정일(2023-02-21) 당일 — 신 기준 적용",
+    "input": {
+      "registeredRights": [{ "id": "r1", "type": "MORTGAGE", "receivedDate": "2023-02-21" }],
+      "tenants": [
+        {
+          "id": "t1",
+          "moveInDate": "2023-01-01",
+          "fixedDate": "2023-01-05",
+          "depositAmount": 140000000,
+          "demandedDistribution": true,
+          "demandedDistributionDate": "2023-06-01"
+        }
+      ],
+      "region": "SEOUL",
+      "distributionDemandDeadline": "2023-12-01",
+      "saleAmount": 300000000
+    },
+    "expected": {
+      "baselineRightId": "r1",
+      "registeredRightStatuses": { "r1": "EXTINGUISHED" },
+      "tenantStatuses": { "t1": { "status": "EXTINGUISHED", "assumedAmount": 0 } },
+      "note": "서울 소액임차인 상한이 2021년 기준(1억3천)이면 대상 제외지만 2023-02-21 신 기준(1억6천5백)은 대상 포함 — 신 기준 적용을 검증"
+    }
+  },
+  {
+    "name": "경계: 배당요구종기 이후 배당요구 — 무효 처리되어 전액 인수",
+    "input": {
+      "registeredRights": [{ "id": "r1", "type": "MORTGAGE", "receivedDate": "2024-03-10" }],
+      "tenants": [
+        {
+          "id": "t1",
+          "moveInDate": "2024-01-01",
+          "fixedDate": "2024-01-05",
+          "depositAmount": 50000000,
+          "demandedDistribution": true,
+          "demandedDistributionDate": "2024-07-01"
+        }
+      ],
+      "region": "SEOUL",
+      "distributionDemandDeadline": "2024-06-01",
+      "saleAmount": 300000000
+    },
+    "expected": {
+      "baselineRightId": "r1",
+      "registeredRightStatuses": { "r1": "EXTINGUISHED" },
+      "tenantStatuses": { "t1": { "status": "ASSUMED", "assumedAmount": 50000000 } }
+    }
+  },
+  {
+    "name": "판별 불가: 유치권 신고",
+    "input": {
+      "registeredRights": [{ "id": "r1", "type": "MORTGAGE", "receivedDate": "2024-01-10" }],
+      "tenants": [],
+      "unregisteredRisks": [{ "id": "u1", "type": "LIEN" }],
+      "region": "SEOUL",
+      "distributionDemandDeadline": "2024-06-01"
+    },
+    "expected": {
+      "baselineRightId": "r1",
+      "registeredRightStatuses": { "r1": "EXTINGUISHED" },
+      "tenantStatuses": {},
+      "unregisteredRiskStatuses": { "u1": "NEEDS_REVIEW" }
+    }
+  },
+  {
+    "name": "판별 불가: 법정지상권 신고",
+    "input": {
+      "registeredRights": [{ "id": "r1", "type": "MORTGAGE", "receivedDate": "2024-01-10" }],
+      "tenants": [],
+      "unregisteredRisks": [{ "id": "u1", "type": "STATUTORY_SUPERFICIES" }],
+      "region": "SEOUL",
+      "distributionDemandDeadline": "2024-06-01"
+    },
+    "expected": {
+      "baselineRightId": "r1",
+      "registeredRightStatuses": { "r1": "EXTINGUISHED" },
+      "tenantStatuses": {},
+      "unregisteredRiskStatuses": { "u1": "NEEDS_REVIEW" }
+    }
+  },
+  {
+    "name": "선순위 전세권(건물 전부+배당요구)이 말소기준이 되어 그 전세권 자신도 말소된다",
+    "input": {
+      "registeredRights": [
+        {
+          "id": "r1",
+          "type": "LEASEHOLD",
+          "receivedDate": "2024-01-01",
+          "isWholeBuilding": true,
+          "demandedDistribution": true
+        },
+        { "id": "r2", "type": "MORTGAGE", "receivedDate": "2024-05-01" }
+      ],
+      "tenants": [],
+      "region": "SEOUL",
+      "distributionDemandDeadline": "2024-06-01"
+    },
+    "expected": {
+      "baselineRightId": "r1",
+      "registeredRightStatuses": { "r1": "EXTINGUISHED", "r2": "EXTINGUISHED" },
+      "tenantStatuses": {}
+    }
+  },
+  {
+    "name": "말소기준 이후 등기된 가처분은 말소된다",
+    "input": {
+      "registeredRights": [
+        { "id": "r1", "type": "MORTGAGE", "receivedDate": "2024-01-10" },
+        { "id": "r2", "type": "PROVISIONAL_DISPOSITION", "receivedDate": "2024-05-01" }
+      ],
+      "tenants": [],
+      "region": "SEOUL",
+      "distributionDemandDeadline": "2024-06-01"
+    },
+    "expected": {
+      "baselineRightId": "r1",
+      "registeredRightStatuses": { "r1": "EXTINGUISHED", "r2": "EXTINGUISHED" },
+      "tenantStatuses": {}
+    }
+  }
+]

@@ -1,6 +1,7 @@
 # WP-03. 권리분석 룰 엔진 v1
 
-- 상태: 대기 | 선행: WP-01 (WP-02와 병행 가능 — DB 의존 없음, 순수 도메인 모듈) | 담당 에이전트: (할당 시 기입)
+- 상태: **완료 (2026-07-08)** — 말소기준권리 판별, 인수/말소 분류, 임차인 대항력·배당요구 분석, 소액임차인 최우선변제(1984~2026 개정 이력 seed), 단순화 예상배당표, 총부담액 계산기 구현 완료. `apps/api/src/rights-analysis/` (domain/dto/service), 검증 시나리오 10건 + 판단문구 0건 강제 테스트 포함 76개 테스트 통과.
+  | 선행: WP-01 (WP-02와 병행 가능 — DB 의존 없음, 순수 도메인 모듈) | 담당 에이전트: Claude Sonnet 5
 - 시작 전 필독: `AGENTS.md`(특히 "판단 문구 금지"), `solution-planning/realestate-auction-platform/01-domain-discovery.md` §1-3, `05-product-blueprint.md` F-03, `decision-log.md` D-011
 
 ## 목적
@@ -25,11 +26,11 @@
    - 판별 불가: 유치권 신고 키워드 → NEEDS_REVIEW
 
 ## 완료 기준
-- [ ] `pnpm --filter api test` 통과 — 위 케이스 전부 포함
-- [ ] 검증 시나리오 10건(01-discovery 규칙으로 수작업 작성한 기대값) 일치 — 시나리오 파일을 `test/fixtures/`에 보존
-- [ ] 출력 JSON 전수에서 판단·권유 문자열 0건 (테스트로 강제)
-- [ ] 소액임차인 연혁 테이블 seed + 출처 주석 (law.go.kr 링크)
-- [ ] 규칙 18 보고
+- [x] `pnpm --filter api test` 통과 — 위 케이스 전부 포함 (11 suites, 76 tests)
+- [x] 검증 시나리오 10건(01-discovery 규칙으로 수작업 작성한 기대값) 일치 — `apps/api/test/fixtures/rights-analysis-scenarios.json`
+- [x] 출력 JSON 전수에서 판단·권유 문자열 0건 (테스트로 강제) — `service/rights-analysis.service.spec.ts`
+- [x] 소액임차인 연혁 테이블 seed + 출처 주석 (law.go.kr 연계 출처) — `domain/small-deposit-tenant-table.ts`
+- [x] 규칙 18 보고 — `docs/testing/WP-03-rights-analysis-engine.tdd.md`
 
 ## 범위 제외
 등기부 원문 파싱(WP-04), HTTP API 노출, 사용자 문구/화면, 정밀 배당(동순위 안분 등).
