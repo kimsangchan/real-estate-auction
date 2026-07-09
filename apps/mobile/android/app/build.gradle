@@ -72,6 +72,19 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+// 네이버 지도 SDK 클라이언트 ID를 gitignore된 local.properties(또는 NCP_MAPS_CLIENT_ID 환경변수)에서
+// 읽어 매니페스트 placeholder로 주입한다 — 키를 저장소에 커밋하지 않기 위함.
+def naverMapClientId = ""
+def localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    def localProps = new Properties()
+    localPropsFile.withInputStream { localProps.load(it) }
+    naverMapClientId = localProps.getProperty("NAVER_MAP_CLIENT_ID", "")
+}
+if (!naverMapClientId?.trim()) {
+    naverMapClientId = System.getenv("NCP_MAPS_CLIENT_ID") ?: ""
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -84,6 +97,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        manifestPlaceholders += [NAVER_MAP_CLIENT_ID: naverMapClientId]
     }
     signingConfigs {
         debug {

@@ -1,45 +1,42 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+// 앱 진입점 — 네비게이션 컨테이너와 네이티브 스택(지도 홈 → 물건 상세)을 구성한다.
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { StatusBar } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import type { RootStackParamList } from './src/navigation';
+import { ItemDetailScreen } from './src/screens/ItemDetailScreen';
+import { MapHomeScreen } from './src/screens/MapHomeScreen';
+import { colors } from './src/theme';
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function App() {
-  const isDarkMode = useColorScheme() === 'dark';
-
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
+      <StatusBar barStyle="dark-content" />
+      <NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.canvas },
+            headerTintColor: colors.inkDeep,
+            headerTitleStyle: { color: colors.inkDeep },
+            contentStyle: { backgroundColor: colors.canvas },
+          }}
+        >
+          <Stack.Screen
+            name="MapHome"
+            component={MapHomeScreen}
+            options={{ title: '경매 지도' }}
+          />
+          <Stack.Screen
+            name="ItemDetail"
+            component={ItemDetailScreen}
+            options={{ title: '물건 상세' }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
 
 export default App;

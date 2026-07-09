@@ -19,3 +19,10 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+allprojects {
+    repositories {
+        // 네이버 지도 SDK(com.naver.maps:map-sdk)는 mavenCentral이 아니라 네이버 저장소에만 있다.
+        maven { url 'https://repository.map.naver.com/archive/maven' }
+    }
+}
