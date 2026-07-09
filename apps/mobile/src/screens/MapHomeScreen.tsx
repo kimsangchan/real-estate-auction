@@ -9,6 +9,8 @@ import {
   NaverMapMarkerOverlay,
   NaverMapView,
 } from '@mj-studio/react-native-naver-map';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   fetchItemsInBbox,
@@ -16,10 +18,13 @@ import {
   type Bbox,
 } from '../api/auctionItems';
 import { formatWonCompact } from '../lib/format';
-import type { RootStackParamList } from '../navigation';
+import type { RootStackParamList, TabParamList } from '../navigation';
 import { colors, radius, space, text } from '../theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'MapHome'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<TabParamList, 'MapHome'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
 // 서울 중심 초기 카메라 + 최초 로딩용 bbox(현재 수집 데이터는 전부 서울이라 서울 전역을 덮는다).
 const SEOUL_CENTER = { latitude: 37.5665, longitude: 126.978 };

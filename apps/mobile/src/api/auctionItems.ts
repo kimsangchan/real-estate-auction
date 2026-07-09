@@ -55,3 +55,16 @@ export async function fetchAuctionItem(
   }
   return (await response.json()) as AuctionItem;
 }
+
+export async function fetchAuctionItems(
+  limit: number,
+  offset: number,
+): Promise<AuctionItem[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/auction-items?limit=${limit}&offset=${offset}`,
+  );
+  if (!response.ok) {
+    throw new Error(`물건 목록 조회 실패: ${response.status}`);
+  }
+  return (await response.json()) as AuctionItem[];
+}

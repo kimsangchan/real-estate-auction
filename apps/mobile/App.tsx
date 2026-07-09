@@ -1,21 +1,68 @@
-// 앱 진입점 — 네비게이션 컨테이너와 네이티브 스택(지도 홈 → 물건 상세)을 구성한다.
+// 앱 진입점 — 하단 탭(지도/목록)을 루트 스택(탭 → 물건 상세)으로 감싼다.
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StatusBar } from 'react-native';
+import { StatusBar, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import type { RootStackParamList } from './src/navigation';
+import type { RootStackParamList, TabParamList } from './src/navigation';
 import { ItemDetailScreen } from './src/screens/ItemDetailScreen';
+import { ItemListScreen } from './src/screens/ItemListScreen';
 import { MapHomeScreen } from './src/screens/MapHomeScreen';
 import { colors } from './src/theme';
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
+
+const renderMapIcon = ({ size }: { size: number }) => (
+  <Text style={{ fontSize: size }}>🗺️</Text>
+);
+const renderListIcon = ({ size }: { size: number }) => (
+  <Text style={{ fontSize: size }}>📋</Text>
+);
+
+function Tabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.canvas },
+        headerTintColor: colors.inkDeep,
+        headerTitleStyle: { color: colors.inkDeep },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.stone,
+        tabBarStyle: {
+          backgroundColor: colors.canvas,
+          borderTopColor: colors.hairlineSoft,
+        },
+      }}
+    >
+      <Tab.Screen
+        name="MapHome"
+        component={MapHomeScreen}
+        options={{
+          title: '경매 지도',
+          tabBarLabel: '지도',
+          tabBarIcon: renderMapIcon,
+        }}
+      />
+      <Tab.Screen
+        name="ItemList"
+        component={ItemListScreen}
+        options={{
+          title: '물건 목록',
+          tabBarLabel: '목록',
+          tabBarIcon: renderListIcon,
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
 
 function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" />
       <NavigationContainer>
-        <Stack.Navigator
+        <RootStack.Navigator
           screenOptions={{
             headerStyle: { backgroundColor: colors.canvas },
             headerTintColor: colors.inkDeep,
@@ -23,17 +70,17 @@ function App() {
             contentStyle: { backgroundColor: colors.canvas },
           }}
         >
-          <Stack.Screen
-            name="MapHome"
-            component={MapHomeScreen}
-            options={{ title: '경매 지도' }}
+          <RootStack.Screen
+            name="Tabs"
+            component={Tabs}
+            options={{ headerShown: false }}
           />
-          <Stack.Screen
+          <RootStack.Screen
             name="ItemDetail"
             component={ItemDetailScreen}
             options={{ title: '물건 상세' }}
           />
-        </Stack.Navigator>
+        </RootStack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
   );
