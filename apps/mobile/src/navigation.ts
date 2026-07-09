@@ -14,4 +14,5 @@ export type RootStackParamList = {
     itemNo: string;
     address: string | null;
   };
+  RightsAnalysis: undefined;
 };

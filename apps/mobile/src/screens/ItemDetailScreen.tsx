@@ -1,9 +1,8 @@
 // 물건 상세 — 라우트 파라미터의 사건키로 실제 수집 데이터를 조회해 가격 헤더·물건 개요·하단 CTA를 표시한다.
-// 권리분석 이후 화면은 아직 포팅 전이라 CTA는 안내만 띄운다(웹 apps/web의 상세 화면과 동일한 구성).
+// 하단 CTA는 권리분석 화면(예시 데이터)으로 이동한다(웹 apps/web의 상세 화면과 동일한 구성).
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,7 +22,7 @@ import { colors, radius, space, text } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'ItemDetail'>;
 type Status = 'loading' | 'error' | 'notfound' | 'ok';
 
-export function ItemDetailScreen({ route }: Props) {
+export function ItemDetailScreen({ route, navigation }: Props) {
   const { courtOfficeCode, caseNo, itemNo } = route.params;
   const [item, setItem] = useState<AuctionItem | null>(null);
   const [status, setStatus] = useState<Status>('loading');
@@ -133,9 +132,7 @@ export function ItemDetailScreen({ route }: Props) {
       <View style={styles.ctaBar}>
         <Pressable
           style={styles.cta}
-          onPress={() =>
-            Alert.alert('준비 중', '권리분석 화면은 곧 제공될 예정이에요.')
-          }
+          onPress={() => navigation.navigate('RightsAnalysis')}
         >
           <Text style={styles.ctaText}>권리분석 보기</Text>
         </Pressable>

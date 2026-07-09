@@ -8,6 +8,7 @@ import type { RootStackParamList, TabParamList } from './src/navigation';
 import { ItemDetailScreen } from './src/screens/ItemDetailScreen';
 import { ItemListScreen } from './src/screens/ItemListScreen';
 import { MapHomeScreen } from './src/screens/MapHomeScreen';
+import { RightsAnalysisScreen } from './src/screens/RightsAnalysisScreen';
 import { colors } from './src/theme';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -79,6 +80,11 @@ function App() {
             name="ItemDetail"
             component={ItemDetailScreen}
             options={{ title: '물건 상세' }}
+          />
+          <RootStack.Screen
+            name="RightsAnalysis"
+            component={RightsAnalysisScreen}
+            options={{ title: '권리분석' }}
           />
         </RootStack.Navigator>
       </NavigationContainer>
