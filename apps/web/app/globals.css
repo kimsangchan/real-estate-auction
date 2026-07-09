@@ -1,0 +1,24 @@
+/* 웹 전용 프레젠테이션 토큰 — 모노 숫자 폰트 + 무채색 레이어드 그림자 (frontend-design-taste).
+   색·간격·타이포는 design-tokens가 :root 변수로 주입하고, 여기선 그 위의 웹 표현 토큰만 둔다. */
+:root {
+  /* 숫자는 모노(정렬·판독), '원' 등 CJK는 Pretendard로 폴백 */
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono",
+    "Pretendard Variable", "Noto Sans KR", monospace;
+
+  /* 무채색 레이어드 그림자 — colored glow 금지, 한 컴포넌트에 한 종류만 */
+  --shadow-sm: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 1px -0.5px rgba(0, 0, 0, 0.05),
+    0 2px 2px -1px rgba(0, 0, 0, 0.05), 0 4px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 1px 1px -0.5px rgba(0, 0, 0, 0.06),
+    0 3px 3px -1.5px rgba(0, 0, 0, 0.06), 0 6px 6px -3px rgba(0, 0, 0, 0.06),
+    0 12px 12px -6px rgba(0, 0, 0, 0.06), 0 24px 24px -12px rgba(0, 0, 0, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

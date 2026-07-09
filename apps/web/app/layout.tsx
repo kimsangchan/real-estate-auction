@@ -1,4 +1,5 @@
 // 웹 루트 레이아웃 — 디자인 토큰(CSS 변수) 주입 + 물건 상세 SEO 페이지의 공통 골격
+import './globals.css';
 import { buildCssVariablesText, colors, typography } from '@auction/design-tokens';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';

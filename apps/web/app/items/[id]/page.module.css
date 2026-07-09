@@ -13,6 +13,8 @@
 }
 
 .courtLine {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: var(--typography-body-sm-font-size);
   color: var(--color-steel);
   margin: 0 0 var(--spacing-xs);
@@ -44,18 +46,25 @@
 }
 
 .minPrice {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
   font-size: var(--typography-display-lg-font-size);
   font-weight: var(--typography-display-lg-font-weight);
   color: var(--color-ink-deep);
 }
 
 .minRate {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: var(--typography-subtitle-lg-font-size);
   font-weight: var(--typography-subtitle-lg-font-weight);
   color: var(--color-critical-strong);
 }
 
 .appraisedLine {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: var(--typography-body-sm-font-size);
   color: var(--color-steel);
   margin: 0 0 var(--spacing-base);
@@ -72,6 +81,8 @@
 }
 
 .chip {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   border-radius: var(--radius-full);
   padding: 4px 10px;
   font-size: var(--typography-caption-bold-font-size);
@@ -103,6 +114,7 @@
   background-color: var(--color-canvas);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-hairline-soft);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
@@ -124,6 +136,7 @@
 }
 
 .specsValue {
+  font-variant-numeric: tabular-nums;
   color: var(--color-charcoal);
 }
 
@@ -151,4 +164,15 @@
   font-size: var(--typography-button-md-font-size);
   font-weight: var(--typography-button-md-font-weight);
   text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.16s ease, transform 0.16s ease;
+}
+
+.ctaLink:hover {
+  background-color: var(--color-primary-deep);
+  transform: translateY(-1px);
+}
+
+.ctaLink:active {
+  transform: translateY(0);
 }

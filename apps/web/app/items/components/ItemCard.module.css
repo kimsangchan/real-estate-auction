@@ -5,6 +5,18 @@
   border: 1px solid var(--color-hairline-soft);
   padding: var(--spacing-xl);
   text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.card:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
 }
 
 .usageBadge {
@@ -33,18 +45,25 @@
 }
 
 .minPrice {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
   font-size: var(--typography-heading-sm-font-size);
   font-weight: var(--typography-heading-sm-font-weight);
   color: var(--color-ink-deep);
 }
 
 .minRate {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: var(--typography-body-sm-bold-font-size);
   font-weight: var(--typography-body-sm-bold-font-weight);
   color: var(--color-critical-strong);
 }
 
 .appraisedLine {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: var(--typography-caption-font-size);
   color: var(--color-stone);
   margin: 0 0 var(--spacing-base);
@@ -57,6 +76,8 @@
 }
 
 .chip {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   border-radius: var(--radius-full);
   padding: 3px 10px;
   font-size: var(--typography-caption-bold-font-size);
