@@ -1,9 +1,9 @@
-// 지도 홈(F-01) — 서울 중심 네이버 지도에 뷰포트(bbox) 안의 경매 물건을 마커로 얹고, 탭하면 상세로 이동한다.
-// 카메라가 멈출 때마다 현재 화면의 bbox로 물건을 다시 조회한다(GET /auction-items/bbox).
-import { useCallback, useEffect, useState } from 'react';
+// 지도 홈(F-01) — 서울 중심 네이버 지도에 뷰포트(bbox) 안의 경매 물건을 클러스터 마커로 얹고,
+// 개별(leaf) 마커를 탭하면 상세로 이동한다. 카메라가 멈출 때마다 현재 화면의 bbox로 재조회한다.
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import {
-  NaverMapMarkerOverlay,
+  type ClusterMarkerProp,
   NaverMapView,
 } from '@mj-studio/react-native-naver-map';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -12,7 +12,6 @@ import {
   type AuctionItem,
   type Bbox,
 } from '../api/auctionItems';
-import { formatWonCompact } from '../lib/format';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, space, text } from '../theme';
 
@@ -26,6 +25,10 @@ const SEOUL_BBOX: Bbox = {
   maxLng: 127.18,
   maxLat: 37.7,
 };
+
+// 클러스터 leaf 탭 이벤트에서 원본 물건을 역조회하기 위한 식별자.
+const itemKey = (item: AuctionItem): string =>
+  `${item.courtOfficeCode}_${item.caseNo}_${item.itemNo}`;
 
 export function MapHomeScreen({ navigation }: Props) {
   const [items, setItems] = useState<AuctionItem[]>([]);
@@ -48,7 +51,40 @@ export function MapHomeScreen({ navigation }: Props) {
     load(SEOUL_BBOX);
   }, [load]);
 
-  const markers = items.filter(item => item.lng !== null && item.lat !== null);
+  // 좌표가 있는 물건만 클러스터 대상으로 삼는다.
+  const located = useMemo(
+    () => items.filter(item => item.lng !== null && item.lat !== null),
+    [items],
+  );
+
+  // leaf 마커 탭 시 identifier로 원본 물건을 역조회하기 위한 맵.
+  const itemsById = useMemo(() => {
+    const map = new Map<string, AuctionItem>();
+    located.forEach(item => map.set(itemKey(item), item));
+    return map;
+  }, [located]);
+
+  // 마커는 itemsById에서 파생해 identifier 유일성을 보장한다(복합키 중복 시 leaf 탭이
+  // 엉뚱한 물건으로 가는 것을 방지 — 사건키는 사실상 PK지만 방어적으로 dedupe).
+  const clusterMarkers = useMemo<ClusterMarkerProp[]>(
+    () =>
+      Array.from(itemsById, ([identifier, item]) => ({
+        identifier,
+        latitude: item.lat as number,
+        longitude: item.lng as number,
+        image: { symbol: 'green' },
+      })),
+    [itemsById],
+  );
+
+  // clusters prop 리터럴을 메모이즈해 리렌더마다 마커 배열이 재해싱되는 것을 막는다.
+  const clusters = useMemo(
+    () =>
+      clusterMarkers.length
+        ? [{ markers: clusterMarkers, screenDistance: 70, animate: true }]
+        : undefined,
+    [clusterMarkers],
+  );
 
   return (
     <View style={styles.container}>
@@ -56,6 +92,17 @@ export function MapHomeScreen({ navigation }: Props) {
         style={styles.map}
         initialCamera={{ ...SEOUL_CENTER, zoom: 11 }}
         isShowLocationButton={false}
+        clusters={clusters}
+        onTapClusterLeaf={({ markerIdentifier }) => {
+          const item = itemsById.get(markerIdentifier);
+          if (!item) return;
+          navigation.navigate('ItemDetail', {
+            courtOfficeCode: item.courtOfficeCode,
+            caseNo: item.caseNo,
+            itemNo: item.itemNo,
+            address: item.address,
+          });
+        }}
         onCameraIdle={event =>
           load({
             minLng: event.region.longitude,
@@ -64,38 +111,14 @@ export function MapHomeScreen({ navigation }: Props) {
             maxLat: event.region.latitude + event.region.latitudeDelta,
           })
         }
-      >
-        {markers.map(item => (
-          <NaverMapMarkerOverlay
-            key={`${item.courtOfficeCode}_${item.caseNo}_${item.itemNo}`}
-            latitude={item.lat as number}
-            longitude={item.lng as number}
-            onTap={() =>
-              navigation.navigate('ItemDetail', {
-                courtOfficeCode: item.courtOfficeCode,
-                caseNo: item.caseNo,
-                itemNo: item.itemNo,
-                address: item.address,
-              })
-            }
-            caption={
-              item.minimumSalePrice !== null
-                ? {
-                    text: formatWonCompact(item.minimumSalePrice),
-                    textSize: 12,
-                  }
-                : undefined
-            }
-          />
-        ))}
-      </NaverMapView>
+      />
 
       <View style={styles.badge} pointerEvents="none">
         {loading ? (
           <ActivityIndicator size="small" color={colors.primary} />
         ) : (
           <Text style={styles.badgeText}>
-            {error ? '불러오기 실패' : `이 지역 ${markers.length}건`}
+            {error ? '불러오기 실패' : `이 지역 ${itemsById.size}건`}
           </Text>
         )}
       </View>
