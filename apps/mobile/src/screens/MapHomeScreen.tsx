@@ -1,9 +1,12 @@
-// 지도 홈(F-01) — 서울 중심 네이버 지도에 뷰포트(bbox) 안의 경매 물건을 클러스터 마커로 얹고,
-// 개별(leaf) 마커를 탭하면 상세로 이동한다. 카메라가 멈출 때마다 현재 화면의 bbox로 재조회한다.
+// 지도 홈(F-01) — 서울 중심 네이버 지도에 뷰포트(bbox) 안의 경매 물건을 표시한다.
+// 낮은 줌에서는 클러스터(개수 버블)로 겹침을 줄이고, 일정 줌(CAPTION_ZOOM) 이상에서는 화면당 물건이
+// 적어 겹치지 않으므로 개별 마커에 가격 캡션을 붙인다. 어느 쪽이든 마커를 탭하면 상세로 이동하고,
+// 카메라가 멈출 때마다 현재 화면의 bbox로 재조회한다.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import {
   type ClusterMarkerProp,
+  NaverMapMarkerOverlay,
   NaverMapView,
 } from '@mj-studio/react-native-naver-map';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -12,6 +15,7 @@ import {
   type AuctionItem,
   type Bbox,
 } from '../api/auctionItems';
+import { formatWonCompact } from '../lib/format';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, space, text } from '../theme';
 
@@ -26,12 +30,16 @@ const SEOUL_BBOX: Bbox = {
   maxLat: 37.7,
 };
 
-// 클러스터 leaf 탭 이벤트에서 원본 물건을 역조회하기 위한 식별자.
+// 이 줌 이상에서는 화면당 물건이 적어 개별 마커에 가격 캡션을 노출한다(그 아래는 클러스터).
+const CAPTION_ZOOM = 15;
+
+// 클러스터 leaf/마커 탭에서 원본 물건을 역조회하기 위한 식별자.
 const itemKey = (item: AuctionItem): string =>
   `${item.courtOfficeCode}_${item.caseNo}_${item.itemNo}`;
 
 export function MapHomeScreen({ navigation }: Props) {
   const [items, setItems] = useState<AuctionItem[]>([]);
+  const [zoom, setZoom] = useState(11);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -51,21 +59,26 @@ export function MapHomeScreen({ navigation }: Props) {
     load(SEOUL_BBOX);
   }, [load]);
 
-  // 좌표가 있는 물건만 클러스터 대상으로 삼는다.
-  const located = useMemo(
-    () => items.filter(item => item.lng !== null && item.lat !== null),
-    [items],
+  const goToDetail = useCallback(
+    (item: AuctionItem) =>
+      navigation.navigate('ItemDetail', {
+        courtOfficeCode: item.courtOfficeCode,
+        caseNo: item.caseNo,
+        itemNo: item.itemNo,
+        address: item.address,
+      }),
+    [navigation],
   );
 
-  // leaf 마커 탭 시 identifier로 원본 물건을 역조회하기 위한 맵.
+  // 좌표가 있는 물건을 identifier로 dedupe(복합키는 사실상 PK) — 클러스터·마커·역조회의 단일 소스.
   const itemsById = useMemo(() => {
     const map = new Map<string, AuctionItem>();
-    located.forEach(item => map.set(itemKey(item), item));
+    items
+      .filter(item => item.lng !== null && item.lat !== null)
+      .forEach(item => map.set(itemKey(item), item));
     return map;
-  }, [located]);
+  }, [items]);
 
-  // 마커는 itemsById에서 파생해 identifier 유일성을 보장한다(복합키 중복 시 leaf 탭이
-  // 엉뚱한 물건으로 가는 것을 방지 — 사건키는 사실상 PK지만 방어적으로 dedupe).
   const clusterMarkers = useMemo<ClusterMarkerProp[]>(
     () =>
       Array.from(itemsById, ([identifier, item]) => ({
@@ -86,32 +99,49 @@ export function MapHomeScreen({ navigation }: Props) {
     [clusterMarkers],
   );
 
+  // 줌이 임계값 이상이면 클러스터 대신 가격 캡션이 붙은 개별 마커를 그린다.
+  const showCaptions = zoom >= CAPTION_ZOOM;
+
   return (
     <View style={styles.container}>
       <NaverMapView
         style={styles.map}
         initialCamera={{ ...SEOUL_CENTER, zoom: 11 }}
         isShowLocationButton={false}
-        clusters={clusters}
+        clusters={showCaptions ? undefined : clusters}
         onTapClusterLeaf={({ markerIdentifier }) => {
           const item = itemsById.get(markerIdentifier);
-          if (!item) return;
-          navigation.navigate('ItemDetail', {
-            courtOfficeCode: item.courtOfficeCode,
-            caseNo: item.caseNo,
-            itemNo: item.itemNo,
-            address: item.address,
-          });
+          if (item) goToDetail(item);
         }}
-        onCameraIdle={event =>
+        onCameraIdle={event => {
+          if (typeof event.zoom === 'number') setZoom(event.zoom);
           load({
             minLng: event.region.longitude,
             minLat: event.region.latitude,
             maxLng: event.region.longitude + event.region.longitudeDelta,
             maxLat: event.region.latitude + event.region.latitudeDelta,
-          })
-        }
-      />
+          });
+        }}
+      >
+        {showCaptions
+          ? Array.from(itemsById.values()).map(item => (
+              <NaverMapMarkerOverlay
+                key={itemKey(item)}
+                latitude={item.lat as number}
+                longitude={item.lng as number}
+                onTap={() => goToDetail(item)}
+                caption={
+                  item.minimumSalePrice !== null
+                    ? {
+                        text: formatWonCompact(item.minimumSalePrice),
+                        textSize: 12,
+                      }
+                    : undefined
+                }
+              />
+            ))
+          : null}
+      </NaverMapView>
 
       <View style={styles.badge} pointerEvents="none">
         {loading ? (
