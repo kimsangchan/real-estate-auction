@@ -1,6 +1,7 @@
 // 권리분석 결과(예시 데이터) — 인수해야 할 권리를 최우선으로 보여주고 유찰 이력과 나란히 비교한다.
 // CODEF 실호출(유료) 연동 전까지 예시 데이터를 렌더하며, 판단·권유 문구는 넣지 않는다(D-011).
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Badge, type BadgeTone } from '../components/Badge';
 import { formatWon } from '../lib/format';
 import {
@@ -13,7 +14,10 @@ import {
   sampleUnregisteredRisks,
   type RightStatus,
 } from '../lib/rightsSample';
+import type { RootStackParamList } from '../navigation';
 import { colors, radius, space, text } from '../theme';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'RightsAnalysis'>;
 
 const STATUS_LABEL: Record<RightStatus, string> = {
   ASSUMED: '인수',
@@ -72,7 +76,7 @@ function RowList({ rows }: { rows: Row[] }) {
   );
 }
 
-export function RightsAnalysisScreen() {
+export function RightsAnalysisScreen({ navigation }: Props) {
   const totalBurden = sampleBidPrice + sampleTotalAssumedAmount;
 
   const rightRows: Row[] = sampleRights.map(right => ({
@@ -171,6 +175,11 @@ export function RightsAnalysisScreen() {
         <View style={styles.group}>
           <Text style={styles.groupTitle}>확인이 필요해요</Text>
           <RowList rows={needsReviewRows} />
+          <Pressable onPress={() => navigation.navigate('Risks')}>
+            <Text style={styles.footnoteLink}>
+              원문·다음 행동 자세히 보기 →
+            </Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -308,6 +317,11 @@ const styles = StyleSheet.create({
   rowDetail: { ...text.caption, color: colors.steel, marginTop: 2 },
 
   footnote: { ...text.caption, color: colors.stone, marginTop: space.sm },
+  footnoteLink: {
+    ...text.bodySmBold,
+    color: colors.primaryDeep,
+    marginTop: space.xs,
+  },
   disclaimer: {
     ...text.caption,
     color: colors.stone,

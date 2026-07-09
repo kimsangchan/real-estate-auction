@@ -9,6 +9,7 @@ import { ItemDetailScreen } from './src/screens/ItemDetailScreen';
 import { ItemListScreen } from './src/screens/ItemListScreen';
 import { MapHomeScreen } from './src/screens/MapHomeScreen';
 import { RightsAnalysisScreen } from './src/screens/RightsAnalysisScreen';
+import { RisksScreen } from './src/screens/RisksScreen';
 import { colors } from './src/theme';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -85,6 +86,11 @@ function App() {
             name="RightsAnalysis"
             component={RightsAnalysisScreen}
             options={{ title: '권리분석' }}
+          />
+          <RootStack.Screen
+            name="Risks"
+            component={RisksScreen}
+            options={{ title: '확인이 필요해요' }}
           />
         </RootStack.Navigator>
       </NavigationContainer>

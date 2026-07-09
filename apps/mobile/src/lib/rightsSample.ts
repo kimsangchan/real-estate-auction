@@ -74,3 +74,24 @@ export const sampleTenants: SampleTenant[] = [
 export const sampleUnregisteredRisks = [
   { id: 'risk-1', label: '유치권 신고 기재' },
 ];
+
+export interface SampleDetectedRisk {
+  id: string;
+  keyword: string;
+  sourceDocument: string;
+  originalText: string;
+  nextAction: string;
+}
+
+// 매각물건명세서·현황조사서에서 감지한 위험 키워드 + 원문 발췌 (판단 문구 없이 사실만 서술, D-011).
+export const sampleDetectedRisks: SampleDetectedRisk[] = [
+  {
+    id: 'risk-1',
+    keyword: '유치권 신고 기재',
+    sourceDocument: '매각물건명세서',
+    originalText:
+      '본건에 대하여 소외 ○○○이 공사대금 00원의 유치권을 신고하였으나 그 성립여부는 불분명함',
+    nextAction:
+      '현장에서 점유자에게 유치권 주장 여부와 근거 서류를 확인해보세요.',
+  },
+];

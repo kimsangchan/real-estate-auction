@@ -15,4 +15,5 @@ export type RootStackParamList = {
     address: string | null;
   };
   RightsAnalysis: undefined;
+  Risks: undefined;
 };
