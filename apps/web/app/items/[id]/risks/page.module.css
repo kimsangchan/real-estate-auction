@@ -1,6 +1,7 @@
 .page {
   padding: var(--spacing-xl);
   padding-bottom: var(--spacing-xxxl);
+  font-variant-numeric: tabular-nums;
 }
 
 .title {
@@ -28,6 +29,7 @@
   background-color: var(--color-canvas);
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-hairline-soft);
+  box-shadow: var(--shadow-sm);
   padding: var(--spacing-xl);
   margin-bottom: var(--spacing-base);
 }
@@ -74,4 +76,10 @@
   font-size: var(--typography-body-sm-bold-font-size);
   font-weight: var(--typography-body-sm-bold-font-weight);
   text-decoration: none;
+  transition: color 0.16s ease;
+}
+
+.checklistLink:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
 }

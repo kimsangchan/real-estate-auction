@@ -1,6 +1,7 @@
 .page {
   padding: var(--spacing-xl);
   padding-bottom: var(--spacing-xxxl);
+  font-variant-numeric: tabular-nums;
 }
 
 .title {
@@ -14,7 +15,7 @@
   background-color: var(--color-canvas);
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-hairline-soft);
-  box-shadow: rgba(20, 22, 26, 0.3) 0px 1px 4px 0px;
+  box-shadow: var(--shadow-md);
   padding: var(--spacing-lg) var(--spacing-xl);
   margin-bottom: var(--spacing-base);
 }
@@ -26,6 +27,8 @@
 }
 
 .summaryTotal {
+  font-family: var(--font-mono);
+  letter-spacing: -0.03em;
   font-size: var(--typography-display-lg-font-size);
   font-weight: var(--typography-display-lg-font-weight);
   color: var(--color-ink-deep);
@@ -35,6 +38,7 @@
 .summaryBreakdown {
   display: flex;
   justify-content: space-between;
+  font-family: var(--font-mono);
   font-size: var(--typography-body-sm-font-size);
   color: var(--color-charcoal);
   padding-top: var(--spacing-sm);
@@ -51,12 +55,14 @@
 .glanceChip {
   flex: 1;
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   padding: var(--spacing-sm) var(--spacing-base);
   text-align: center;
 }
 
 .glanceChipCount {
   display: block;
+  font-family: var(--font-mono);
   font-size: var(--typography-heading-sm-font-size);
   font-weight: var(--typography-heading-sm-font-weight);
 }
@@ -112,6 +118,7 @@
   background-color: var(--color-canvas);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-hairline-soft);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
@@ -186,6 +193,12 @@
   font-weight: var(--typography-body-sm-bold-font-weight);
   text-decoration: none;
   margin-top: var(--spacing-xs);
+  transition: color 0.16s ease;
+}
+
+.footnoteLink:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
 }
 
 .disclaimer {
