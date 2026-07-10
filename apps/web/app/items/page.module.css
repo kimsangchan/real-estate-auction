@@ -17,6 +17,19 @@
   margin: 0 0 var(--spacing-xl);
 }
 
+.mapLink {
+  display: inline-block;
+  color: var(--color-primary);
+  text-decoration: none;
+  font-size: var(--typography-body-sm-bold-font-size);
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  margin-bottom: var(--spacing-lg);
+}
+
+.mapLink:hover {
+  text-decoration: underline;
+}
+
 .emptyState {
   font-size: var(--typography-body-sm-font-size);
   color: var(--color-steel);

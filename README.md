@@ -24,7 +24,8 @@ pnpm install
 # 4) API 개발 서버 — apps/web과 동시에 띄우려면 apps/api/.env에 PORT=4000을 넣어 포트 충돌을 피한다
 #    (둘 다 기본 3000번을 쓴다). apps/web은 물건 상세 조회 시 API_BASE_URL(기본 http://localhost:4000)로 호출한다.
 pnpm --filter @auction/api start:dev   # http://localhost:4000/health
-# 5) 웹 개발 서버
+# 5) 웹 개발 서버 — /items/map(지도 화면)을 쓰려면 NEXT_PUBLIC_NCP_MAPS_CLIENT_ID에 .env의
+#    NCP_MAPS_CLIENT_ID와 같은 값을 넣어야 한다(공개값, NCP 콘솔에 서비스 URL 등록 필요)
 pnpm --filter @auction/web dev
 ```
 

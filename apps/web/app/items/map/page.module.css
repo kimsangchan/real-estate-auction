@@ -1,0 +1,125 @@
+.page {
+  position: relative;
+  height: 100dvh;
+}
+
+.map {
+  /* 네이버 지도 SDK가 컨테이너에 인라인 style="position: relative"를 직접 주입해 외부 스타일시트의
+     position 선언을 덮어쓴다 — width/height는 건드리지 않으므로 %로 지정해 실제 크기를 보장한다. */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.badge {
+  position: absolute;
+  top: var(--spacing-base);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 96px;
+  margin: 0;
+  text-align: center;
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-hairline-soft);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-xs) var(--spacing-base);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--typography-body-sm-bold-font-size);
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  color: var(--color-ink-deep);
+  z-index: 10;
+}
+
+.badgeError {
+  color: var(--color-critical-strong);
+}
+
+.scriptError {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-base);
+  background-color: var(--color-surface-soft);
+  text-align: center;
+  padding: var(--spacing-xl);
+}
+
+.scriptErrorText {
+  font-size: var(--typography-body-md-font-size);
+  color: var(--color-steel);
+  margin: 0;
+}
+
+.retryButton {
+  font-family: inherit;
+  font-size: var(--typography-button-md-font-size);
+  font-weight: var(--typography-button-md-font-weight);
+  color: var(--color-on-primary);
+  background-color: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 10px 24px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.16s ease;
+}
+
+.retryButton:hover {
+  background-color: var(--color-primary-deep);
+  transform: translateY(-1px);
+}
+
+.marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--color-canvas);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.markerDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-circle);
+  background-color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.markerPrice {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--typography-caption-bold-font-size);
+  font-weight: var(--typography-caption-bold-font-weight);
+  color: var(--color-ink-deep);
+}
+
+.clusterBubble {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-circle);
+  background-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+}
+
+.clusterCount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--typography-body-sm-bold-font-size);
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  color: var(--color-on-primary);
+}

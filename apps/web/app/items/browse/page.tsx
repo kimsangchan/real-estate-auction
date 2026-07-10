@@ -37,6 +37,9 @@ export default async function ItemBrowsePage({
       <main className={styles.page}>
         <h1 className={styles.title}>지역별 물건 찾기</h1>
         <p className={styles.subtitle}>시/도를 선택해주세요.</p>
+        <Link href="/items/map" className={styles.mapLink}>
+          지도로 보기
+        </Link>
         <RegionList regions={regions} buildHref={(name) => `/items/browse?sido=${encodeURIComponent(name)}`} />
       </main>
     );

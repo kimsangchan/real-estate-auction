@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint app",
-    "test": "tsc -p tsconfig.test.json && node --test dist-test/app/items/*.test.js"
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/app/items/*.test.js dist-test/app/items/map/*.test.js"
   },
   "dependencies": {
     "@auction/design-tokens": "workspace:*",
