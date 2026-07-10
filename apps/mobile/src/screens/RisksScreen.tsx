@@ -1,11 +1,16 @@
 // 위험 플래그 상세(예시 데이터) — 감지된 위험 키워드의 법원 서류 원문 + 다음 행동을 함께 제시한다.
 // 판단·권유 문구 없이 원문 발췌와 사실 서술만 담는다(D-011, UX-06 막다른 경고 금지).
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Badge } from '../components/Badge';
 import { sampleDetectedRisks } from '../lib/rightsSample';
+import type { RootStackParamList } from '../navigation';
 import { colors, radius, space, text } from '../theme';
 
-export function RisksScreen() {
+// navigation은 Partial — 기존 RisksScreen.test.tsx가 <RisksScreen />을 prop 없이 렌더한다(수정 금지 대상).
+type Props = Partial<NativeStackScreenProps<RootStackParamList, 'Risks'>>;
+
+export function RisksScreen({ navigation }: Props) {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View style={styles.sampleNote}>
@@ -36,6 +41,11 @@ export function RisksScreen() {
             </View>
             <Text style={styles.actionLabel}>다음 행동</Text>
             <Text style={styles.actionText}>{risk.nextAction}</Text>
+            <Pressable onPress={() => navigation?.navigate('Checklist')}>
+              <Text style={styles.footnoteLink}>
+                임장 체크리스트에서 확인하기 →
+              </Text>
+            </Pressable>
           </View>
         ))
       )}
@@ -100,4 +110,9 @@ const styles = StyleSheet.create({
     marginBottom: space.xxs,
   },
   actionText: { ...text.bodySm, color: colors.ink },
+  footnoteLink: {
+    ...text.bodySmBold,
+    color: colors.primaryDeep,
+    marginTop: space.xs,
+  },
 });

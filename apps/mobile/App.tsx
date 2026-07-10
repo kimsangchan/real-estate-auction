@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { RootStackParamList, TabParamList } from './src/navigation';
+import { ChecklistScreen } from './src/screens/ChecklistScreen';
 import { ItemDetailScreen } from './src/screens/ItemDetailScreen';
 import { ItemListScreen } from './src/screens/ItemListScreen';
 import { MapHomeScreen } from './src/screens/MapHomeScreen';
@@ -91,6 +92,11 @@ function App() {
             name="Risks"
             component={RisksScreen}
             options={{ title: '확인이 필요해요' }}
+          />
+          <RootStack.Screen
+            name="Checklist"
+            component={ChecklistScreen}
+            options={{ title: '임장 체크리스트' }}
           />
         </RootStack.Navigator>
       </NavigationContainer>

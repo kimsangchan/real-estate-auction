@@ -4,6 +4,7 @@
 module.exports = {
   preset: '@react-native/jest-preset',
   transformIgnorePatterns: [
-    '/node_modules/\\.pnpm/(?!((jest-)?react-native|@react-native(-community)?)[@+])',
+    // 긴 패키지명은 pnpm이 `<pkg>_<hash>`로 축약하므로 구분자에 `_`도 포함한다.
+    '/node_modules/\\.pnpm/(?!((jest-)?react-native|@react-native(-community|-async-storage)?)[@+_])',
   ],
 };

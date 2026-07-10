@@ -16,4 +16,5 @@ export type RootStackParamList = {
   };
   RightsAnalysis: undefined;
   Risks: undefined;
+  Checklist: undefined;
 };

@@ -83,6 +83,46 @@ export interface SampleDetectedRisk {
   nextAction: string;
 }
 
+export interface SampleChecklistItem {
+  id: string;
+  category: string;
+  label: string;
+  help: string;
+  fromRisk: boolean;
+}
+
+// 물건별 자동 생성 임장 체크리스트 — 위험 플래그 파생 항목 + 항상 포함되는 기본 항목 (F-04, 웹 sample-data와 동일).
+export const sampleChecklistItems: SampleChecklistItem[] = [
+  {
+    id: 'check-lien',
+    category: '현장 확인',
+    label: '점유자에게 유치권 주장 여부 확인',
+    help: '공사대금 영수증·계약서 등 근거 서류가 있는지 물어보세요.',
+    fromRisk: true,
+  },
+  {
+    id: 'check-tenant-registry',
+    category: '서류 확인',
+    label: '전입세대확인서 열람',
+    help: '주민센터에서 발급받아 임차인 전입 여부를 확인해요.',
+    fromRisk: false,
+  },
+  {
+    id: 'check-occupant',
+    category: '현장 확인',
+    label: '점유자 확인',
+    help: '실제 거주자가 소유자인지 임차인인지 확인해요.',
+    fromRisk: false,
+  },
+  {
+    id: 'check-maintenance-fee',
+    category: '현장 확인',
+    label: '관리비 체납 확인',
+    help: '관리사무소에 체납액을 문의해요. 공용부분 체납분은 낙찰자가 인수할 수 있어요.',
+    fromRisk: false,
+  },
+];
+
 // 매각물건명세서·현황조사서에서 감지한 위험 키워드 + 원문 발췌 (판단 문구 없이 사실만 서술, D-011).
 export const sampleDetectedRisks: SampleDetectedRisk[] = [
   {
