@@ -12,6 +12,8 @@ import styles from './page.module.css';
 
 const NCP_MAPS_CLIENT_ID = process.env.NEXT_PUBLIC_NCP_MAPS_CLIENT_ID;
 const MAP_SCRIPT_SRC = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${NCP_MAPS_CLIENT_ID ?? ''}`;
+// API bbox 조회 상한 (apps/api auction-items.controller.ts BBOX_LIMIT과 동일 값) — 도달 시 "N건+"로 표시
+const BBOX_LIMIT = 500;
 
 // 초기 카메라: 서울시청 (WP-07 §1-9)
 const SEOUL_CENTER = { lat: 37.5665, lng: 126.978 };
@@ -80,12 +82,15 @@ export function MapView() {
     try {
       const response = await fetch(`/api/auction-items/bbox?${params.toString()}`);
       if (!response.ok) throw new Error(`bbox 조회 실패: ${response.status}`);
-      const data = (await response.json()) as AuctionItemPin[];
+      const data: unknown = await response.json();
+      if (!Array.isArray(data)) throw new Error('bbox 응답이 배열이 아님');
       if (requestIdRef.current !== requestId) return; // 그 사이 더 최신 요청이 시작됐으면 이 응답은 버린다
-      setItems(data);
+      setItems(data as AuctionItemPin[]);
       setFetchState('idle');
     } catch {
       if (requestIdRef.current !== requestId) return;
+      // 실패 시 이전 범위·줌 기준으로 그린 마커가 잔존하지 않게 지운다 (§1-10: 에러 배너 + 빈 지도).
+      setItems([]);
       setFetchState('error');
     }
   }, []);
@@ -133,6 +138,9 @@ export function MapView() {
 
   // 지도 인스턴스·리스너·마커를 정리한다 — 언마운트 시와 재시도로 지도를 다시 만들기 직전 둘 다에서 쓴다.
   const cleanupMap = useCallback(() => {
+    // 대기 중인 debounce 타이머가 파괴된 map의 getBounds()를 호출하지 않게 먼저 정리한다.
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = null;
     if (idleListenerRef.current && window.naver?.maps) {
       window.naver.maps.Event.removeListener(idleListenerRef.current);
     }
@@ -143,13 +151,7 @@ export function MapView() {
     mapRef.current = null;
   }, []);
 
-  useEffect(
-    () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      cleanupMap();
-    },
-    [cleanupMap],
-  );
+  useEffect(() => () => cleanupMap(), [cleanupMap]);
 
   // 물건 목록이 바뀔 때마다 기존 마커를 지우고 현재 줌에 맞춰 클러스터 버블 또는 개별 마커를 다시 그린다.
   useEffect(() => {
@@ -166,10 +168,16 @@ export function MapView() {
     const zoom = map.getZoom();
 
     if (zoom >= CAPTION_ZOOM) {
+      // 동일 좌표 물건(같은 건물 다세대 등)이 완전히 겹쳐 아래 마커가 클릭 불가가 되지 않게,
+      // 같은 좌표의 두 번째 물건부터 위도를 살짝(≈7m/개) 어긋나게 배치한다.
+      const seenCoords = new Map<string, number>();
       for (const item of withCoords) {
+        const coordKey = `${item.lng},${item.lat}`;
+        const dupIndex = seenCoords.get(coordKey) ?? 0;
+        seenCoords.set(coordKey, dupIndex + 1);
         const priceLabel = item.minimumSalePrice !== null ? formatWonCompact(item.minimumSalePrice) : null;
         const marker = new naverMaps.Marker({
-          position: new naverMaps.LatLng(item.lat, item.lng),
+          position: new naverMaps.LatLng(item.lat + dupIndex * 0.00006, item.lng),
           map,
           icon: { content: markerHtml(priceLabel), anchor: new naverMaps.Point(28, 12) },
         });
@@ -206,13 +214,22 @@ export function MapView() {
   }, [cleanupMap]);
 
   const badgeLabel =
-    fetchState === 'loading' ? '조회 중...' : fetchState === 'error' ? '불러오기 실패' : `이 지역 ${items.length}건`;
+    fetchState === 'loading'
+      ? '조회 중...'
+      : fetchState === 'error'
+        ? '불러오기 실패'
+        : `이 지역 ${items.length}건${items.length >= BBOX_LIMIT ? '+' : ''}`;
+
+  // next/script는 src 기준으로 로드 프라미스를 모듈 레벨에 캐시하고 실패도 fulfilled로 삼키므로,
+  // key 재마운트만으로는 재요청이 일어나지 않는다(onReady/onError 재호출 없음 — 재시도 영구 고착).
+  // 재시도마다 src를 바꿔 캐시를 우회하고 스크립트를 실제로 다시 로드·실행시킨다(인증 실패 복구 포함).
+  const mapScriptSrc = scriptRetryKey === 0 ? MAP_SCRIPT_SRC : `${MAP_SCRIPT_SRC}&retry=${scriptRetryKey}`;
 
   return (
     <main className={styles.page}>
       <Script
         key={scriptRetryKey}
-        src={MAP_SCRIPT_SRC}
+        src={mapScriptSrc}
         strategy="afterInteractive"
         onReady={handleScriptReady}
         onError={() => setScriptState('error')}
