@@ -84,4 +84,74 @@ describe('ChecklistScreen', () => {
 
     expect(JSON.stringify(renderer.toJSON())).toContain('0/4 확인함');
   });
+
+  it('ignores non-boolean values in saved payload', async () => {
+    await storage.setItem(
+      CHECKLIST_STORAGE_KEY,
+      JSON.stringify({ 'check-lien': {}, 'check-occupant': true }),
+    );
+
+    const renderer = await renderScreen();
+
+    expect(JSON.stringify(renderer.toJSON())).toContain('1/4 확인함');
+  });
+
+  it('merges taps made while loading with the loaded state', async () => {
+    let resolveLoad: (value: string | null) => void = () => {};
+    const spy = jest
+      .spyOn(storage, 'getItem')
+      .mockImplementation(
+        () =>
+          new Promise<string | null>(resolve => {
+            resolveLoad = resolve;
+          }),
+      );
+
+    const renderer = await renderScreen();
+
+    // 로드가 끝나기 전에 유치권 항목을 탭한다.
+    const target = renderer.root
+      .findAll(node => node.props.accessibilityRole === 'checkbox')
+      .find(node =>
+        JSON.stringify(node.props.accessibilityLabel).includes('유치권'),
+      );
+    await act(async () => {
+      target?.props.onPress();
+    });
+
+    // 로드가 탭 이후에 완료돼도 탭이 로드 결과에 덮이지 않아야 한다.
+    await act(async () => {
+      resolveLoad(JSON.stringify({ 'check-occupant': true }));
+    });
+    spy.mockRestore();
+
+    expect(JSON.stringify(renderer.toJSON())).toContain('2/4 확인함');
+  });
+
+  it('does not overwrite saved data when the initial read fails', async () => {
+    await storage.setItem(
+      CHECKLIST_STORAGE_KEY,
+      JSON.stringify({ 'check-lien': true }),
+    );
+    const spy = jest
+      .spyOn(storage, 'getItem')
+      .mockRejectedValue(new Error('io failure'));
+
+    const renderer = await renderScreen();
+    expect(JSON.stringify(renderer.toJSON())).toContain('0/4 확인함');
+
+    // 읽기 실패 상태에서 탭해도 쓰기 게이트가 닫혀 있어 저장값이 보존돼야 한다.
+    const target = renderer.root
+      .findAll(node => node.props.accessibilityRole === 'checkbox')
+      .find(node =>
+        JSON.stringify(node.props.accessibilityLabel).includes('점유자'),
+      );
+    await act(async () => {
+      target?.props.onPress();
+    });
+    spy.mockRestore();
+
+    const saved = await storage.getItem(CHECKLIST_STORAGE_KEY);
+    expect(JSON.parse(saved as string)).toEqual({ 'check-lien': true });
+  });
 });

@@ -19,7 +19,12 @@ function parseChecked(raw: string | null): Record<string, boolean> {
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
       return {};
     }
-    return parsed as Record<string, boolean>;
+    // 값 타입까지 검증한다 — 손상된 payload의 비불리언 값이 체크로 집계되지 않게.
+    const result: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === 'boolean') result[key] = value;
+    }
+    return result;
   } catch {
     return {};
   }
@@ -37,13 +42,14 @@ export function ChecklistScreen() {
     let cancelled = false;
     storage
       .getItem(CHECKLIST_STORAGE_KEY)
-      .then(parseChecked)
-      .catch(() => ({}))
-      .then(saved => {
+      .then(raw => {
         if (cancelled) return;
         // 로드 완료 전에 탭한 체크가 로드 결과에 덮이지 않게 병합한다.
-        setChecked(prev => ({ ...saved, ...prev }));
+        setChecked(prev => ({ ...parseChecked(raw), ...prev }));
         setLoaded(true);
+      })
+      .catch(() => {
+        // 읽기 실패 시 쓰기 게이트를 열지 않는다 — 저장된 기록을 빈 상태로 덮어쓰는 사고 방지.
       });
     return () => {
       cancelled = true;
@@ -52,7 +58,10 @@ export function ChecklistScreen() {
 
   useEffect(() => {
     if (!loaded) return;
-    storage.setItem(CHECKLIST_STORAGE_KEY, JSON.stringify(checked));
+    // 기기 저장 실패는 복구 수단이 없어 무시한다(메모리 상태는 유지) — unhandled rejection 방지.
+    storage
+      .setItem(CHECKLIST_STORAGE_KEY, JSON.stringify(checked))
+      .catch(() => {});
   }, [checked, loaded]);
 
   const toggle = (id: string) => {
