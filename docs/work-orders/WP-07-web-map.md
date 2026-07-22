@@ -1,6 +1,6 @@
 # WP-07. 웹 지도 화면 (네이버 Web Dynamic Map + bbox API)
 
-- 상태: 대기 | 선행: **사용자 액션 1건 (§0 — 미완이면 지도 타일 인증 실패)** | 담당 에이전트: (할당 시 기입)
+- 상태: **구현 완료 — 브라우저 검증 잔여 (2026-07-22 문서 보완)** — 구현은 `595ea25`(/items/map)에서 완료됐으나 상태 갱신이 누락됐었음. §2 자동 항목 통과 재확인(2026-07-22): (a) 웹 테스트 13건(cluster·formatWonCompact 포함), (b) `pnpm -r lint && pnpm -r build` — /items/map 라우트 빌드 성공. **잔여**: (c) rewrites 프록시 curl, (d)(e) 브라우저 검증 — **사용자 액션 §0(NCP 콘솔 Web URL 등록) 대기**, (f) 적대적 리뷰. | 선행: 사용자 액션 1건 (§0)
 - 시작 전 필독: `AGENTS.md`, 이 문서 전체. UX 참고 구현: `apps/mobile/src/screens/MapHomeScreen.tsx`(모바일 F-01 — 동일한 화면 문법을 웹으로)
 
 ## 목적
