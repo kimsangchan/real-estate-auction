@@ -52,9 +52,10 @@
    - `auth` 모듈: `GET /auth/{provider}`, `GET /auth/{provider}/callback`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`
    - `favorites` 모듈(JWT guard): `GET /favorites`, `PUT /favorites/:courtOfficeCode/:caseNo/:itemNo`, `DELETE /favorites/:courtOfficeCode/:caseNo/:itemNo`
    - **기존 공개 조회 API는 무변경** — 비로그인 탐색 유지 (T-04). 익명 앱 토큰·rate limit은 Phase 3-2 범위.
-7. **env (부팅 시 스키마 검증 — 기존 `config/env.ts` 확장, 실패 시 기동 중단)**: `AUTH_JWT_SECRET`,
-   `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `AUTH_WEB_ORIGIN`(기본 `http://localhost:3000`).
-   `.env.example`에 키 이름만 추가.
+7. **env (부팅 시 스키마 검증 — 기존 `config/env.ts` 확장, 실패 시 기동 중단)**: `.env.example`에 이미 있는
+   이름을 그대로 쓴다 — `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `KAKAO_OAUTH_CLIENT_ID`(=REST API 키),
+   `KAKAO_OAUTH_CLIENT_SECRET`, `NAVER_OAUTH_CLIENT_ID`, `NAVER_OAUTH_CLIENT_SECRET` + 신규 `AUTH_WEB_ORIGIN`(기본 `http://localhost:3000`).
+   새 이름을 만들지 말 것(카카오·네이버 실키는 2026-07-22 사용자 발급분이 루트 `.env`에 기입돼 있음).
 8. **웹 UI (apps/web, 디자인 토큰만 — WP-05·frontend-design-taste 하드룰 유지)**:
    - 물건 상세에 관심 등록/해제 버튼(로그인 상태), 비로그인 클릭 시 로그인 화면 `/login`으로 (되돌아올 경로 유지)
    - `/login`: 카카오·네이버 버튼 2개 (각 브랜드 가이드 준수), `/favorites`: 관심 목록(기존 목록 카드 문법 재사용)
