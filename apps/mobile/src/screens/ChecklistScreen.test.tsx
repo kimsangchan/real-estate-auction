@@ -98,14 +98,12 @@ describe('ChecklistScreen', () => {
 
   it('merges taps made while loading with the loaded state', async () => {
     let resolveLoad: (value: string | null) => void = () => {};
-    const spy = jest
-      .spyOn(storage, 'getItem')
-      .mockImplementation(
-        () =>
-          new Promise<string | null>(resolve => {
-            resolveLoad = resolve;
-          }),
-      );
+    const spy = jest.spyOn(storage, 'getItem').mockImplementation(
+      () =>
+        new Promise<string | null>(resolve => {
+          resolveLoad = resolve;
+        }),
+    );
 
     const renderer = await renderScreen();
 

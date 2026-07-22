@@ -16,7 +16,11 @@ function parseChecked(raw: string | null): Record<string, boolean> {
   if (!raw) return {};
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       return {};
     }
     // 값 타입까지 검증한다 — 손상된 payload의 비불리언 값이 체크로 집계되지 않게.

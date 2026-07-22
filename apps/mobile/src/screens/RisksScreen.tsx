@@ -9,7 +9,10 @@ import { colors, radius, space, text } from '../theme';
 
 // 화면이 실제로 쓰는 navigation만 필수로 요구한다 — 없으면 no-op이 되는 Partial 대신
 // 잘못된 통합이 타입 에러로 드러나게 한다. 테스트는 stub navigation을 주입한다.
-type Props = Pick<NativeStackScreenProps<RootStackParamList, 'Risks'>, 'navigation'>;
+type Props = Pick<
+  NativeStackScreenProps<RootStackParamList, 'Risks'>,
+  'navigation'
+>;
 
 export function RisksScreen({ navigation }: Props) {
   return (
