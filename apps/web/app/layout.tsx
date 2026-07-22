@@ -27,6 +27,8 @@ async function fetchCurrentUser(): Promise<CurrentUser | null> {
     const response = await fetch(`${API_BASE_URL}/auth/me`, {
       headers: cookieHeader ? { cookie: cookieHeader } : undefined,
       cache: 'no-store',
+      // 매 페이지 SSR에서 실행되므로, API가 응답 없이 매달리면(hang) 공개 페이지 전체가 지연된다 (T-04)
+      signal: AbortSignal.timeout(2000),
     });
     if (!response.ok) return null;
     return (await response.json()) as CurrentUser;

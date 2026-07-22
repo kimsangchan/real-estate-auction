@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService, OAuthCallbackError, RefreshTokenError } from './auth.service';
+import { OAuthProviderError } from './providers/provider.types';
 
 function createRes(): ServerResponse {
   return {
@@ -18,6 +19,7 @@ function createReq(cookie?: string): IncomingMessage {
 describe('AuthController.startLogin', () => {
   it('provider의 authorize URL로 302 리다이렉트하고 state 쿠키를 설정한다', async () => {
     const authService = {
+      webOrigin: 'http://localhost:3000',
       startLogin: jest.fn().mockResolvedValue({ url: 'https://kauth.kakao.com/authorize?x=1', stateCookieValue: 'signed-state' }),
     } as unknown as AuthService;
     const controller = new AuthController(authService);
@@ -39,15 +41,18 @@ describe('AuthController.startLogin', () => {
     expect(authService.startLogin).not.toHaveBeenCalled();
   });
 
-  it('returnTo가 //로 시작하면(오픈 리다이렉트 방지) 기본값 /로 대체한다', async () => {
+  it('returnTo가 //나 /\\로 시작하면(오픈 리다이렉트 방지) 기본값 /로 대체한다', async () => {
     const authService = {
+      webOrigin: 'http://localhost:3000',
       startLogin: jest.fn().mockResolvedValue({ url: 'https://kauth.kakao.com/authorize', stateCookieValue: 's' }),
     } as unknown as AuthService;
     const controller = new AuthController(authService);
 
     await controller.startLogin('kakao', '//evil.example', createRes());
-
     expect(authService.startLogin).toHaveBeenCalledWith('kakao', '/');
+
+    await controller.startLogin('kakao', '/\\evil.example', createRes());
+    expect(authService.startLogin).toHaveBeenLastCalledWith('kakao', '/');
   });
 });
 
@@ -97,6 +102,31 @@ describe('AuthController.callback', () => {
 
     expect(res.setHeader).toHaveBeenCalledWith('Location', 'https://web.example/login?error=oauth_failed');
   });
+
+  it('provider 인증 실패(OAuthProviderError 계열)도 500이 아니라 /login?error로 리다이렉트한다', async () => {
+    const authService = {
+      webOrigin: 'https://web.example',
+      handleCallback: jest.fn().mockRejectedValue(new OAuthProviderError('토큰 교환 실패')),
+    } as unknown as AuthService;
+    const controller = new AuthController(authService);
+    const res = createRes();
+
+    await controller.callback('kakao', 'code-1', 'state-1', undefined, createReq('oauth_state=cookie-val'), res);
+
+    expect(res.setHeader).toHaveBeenCalledWith('Location', 'https://web.example/login?error=oauth_failed');
+  });
+
+  it('예상외 서버 오류(DB 등)는 삼키지 않고 그대로 던진다', async () => {
+    const authService = {
+      webOrigin: 'https://web.example',
+      handleCallback: jest.fn().mockRejectedValue(new Error('DB 연결 끊김')),
+    } as unknown as AuthService;
+    const controller = new AuthController(authService);
+
+    await expect(
+      controller.callback('kakao', 'code-1', 'state-1', undefined, createReq('oauth_state=cookie-val'), createRes()),
+    ).rejects.toThrow('DB 연결 끊김');
+  });
 });
 
 describe('AuthController.refresh', () => {
@@ -109,6 +139,7 @@ describe('AuthController.refresh', () => {
 
   it('회전 성공 시 새 세션 쿠키를 설정하고 accessToken을 반환한다', async () => {
     const authService = {
+      webOrigin: 'http://localhost:3000',
       refresh: jest.fn().mockResolvedValue({ accessToken: 'new-at', refreshToken: 'new-rt', userId: 'u1' }),
     } as unknown as AuthService;
     const controller = new AuthController(authService);

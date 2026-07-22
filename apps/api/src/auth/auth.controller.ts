@@ -3,7 +3,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Controller, Get, HttpCode, Param, Post, Query, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { AuthService, OAuthCallbackError, RefreshTokenError } from './auth.service';
-import { assertProvider } from './providers/provider.types';
+import { assertProvider, OAuthProviderError } from './providers/provider.types';
 import { expireCookie, parseCookies, serializeCookie } from './util/cookie.util';
 import { AuthenticatedRequest, JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -14,12 +14,17 @@ const ACCESS_TOKEN_MAX_AGE_SECONDS = 15 * 60;
 const REFRESH_TOKEN_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;
 const STATE_COOKIE_MAX_AGE_SECONDS = 10 * 60;
 
-function isProductionEnv(): boolean {
-  return process.env.NODE_ENV === 'production';
+// Secure 속성은 배포 오리진이 실제로 HTTPS일 때만 켠다 — NODE_ENV 주입 누락에 의존하지 않고
+// AUTH_WEB_ORIGIN(부팅 시 스키마 검증됨)의 스킴으로 판단한다(dev localhost는 http라 자동 off).
+function isSecureOrigin(webOrigin: string): boolean {
+  return webOrigin.startsWith('https://');
 }
 
+// 로그인 후 되돌아갈 경로는 반드시 같은 사이트 내부 경로여야 한다 — `//`(프로토콜 상대)와
+// `/\`(백슬래시로 시작하는 스킴 상대) 모두 외부 호스트로 새는 변형이라 차단한다(오픈 리다이렉트 방어).
 function isSafeReturnPath(value: string | undefined): value is string {
-  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//');
+  if (typeof value !== 'string' || !value.startsWith('/')) return false;
+  return value === '/' || /^\/[^/\\]/.test(value);
 }
 
 function redirectTo(res: ServerResponse, url: string): void {
@@ -28,21 +33,21 @@ function redirectTo(res: ServerResponse, url: string): void {
   res.end();
 }
 
-function sessionCookies(accessToken: string, refreshToken: string): string[] {
+function sessionCookies(accessToken: string, refreshToken: string, secure: boolean): string[] {
   return [
     serializeCookie(ACCESS_TOKEN_COOKIE, accessToken, {
       httpOnly: true,
       sameSite: 'Lax',
       path: '/',
       maxAgeSeconds: ACCESS_TOKEN_MAX_AGE_SECONDS,
-      secure: isProductionEnv(),
+      secure,
     }),
     serializeCookie(REFRESH_TOKEN_COOKIE, refreshToken, {
       httpOnly: true,
       sameSite: 'Lax',
       path: '/',
       maxAgeSeconds: REFRESH_TOKEN_MAX_AGE_SECONDS,
-      secure: isProductionEnv(),
+      secure,
     }),
   ];
 }
@@ -84,7 +89,7 @@ export class AuthController {
         sameSite: 'Lax',
         path: '/',
         maxAgeSeconds: STATE_COOKIE_MAX_AGE_SECONDS,
-        secure: isProductionEnv(),
+        secure: isSecureOrigin(this.authService.webOrigin),
       }),
     ]);
     redirectTo(res, url);
@@ -111,10 +116,14 @@ export class AuthController {
 
     try {
       const session = await this.authService.handleCallback({ provider, code, state, stateCookieValue });
-      res.setHeader('Set-Cookie', [...sessionCookies(session.accessToken, session.refreshToken), expireCookie(STATE_COOKIE)]);
+      const secure = isSecureOrigin(webOrigin);
+      res.setHeader('Set-Cookie', [...sessionCookies(session.accessToken, session.refreshToken, secure), expireCookie(STATE_COOKIE)]);
       redirectTo(res, `${webOrigin}${session.returnTo}`);
     } catch (cause) {
-      if (cause instanceof OAuthCallbackError) {
+      // state 불일치(OAuthCallbackError)뿐 아니라 토큰 교환·프로필·id_token 검증 실패
+      // (OAuthProviderError 계열)도 흔한 콜백 실패다 — 전부 안내 화면으로 보내 raw 500을 막는다.
+      // DB 오류 등 진짜 서버 오류만 throw해 500+로그로 남긴다.
+      if (cause instanceof OAuthCallbackError || cause instanceof OAuthProviderError) {
         res.setHeader('Set-Cookie', [expireCookie(STATE_COOKIE)]);
         redirectTo(res, `${webOrigin}/login?error=oauth_failed`);
         return;
@@ -133,7 +142,7 @@ export class AuthController {
 
     try {
       const result = await this.authService.refresh(rawRefreshToken);
-      res.setHeader('Set-Cookie', sessionCookies(result.accessToken, result.refreshToken));
+      res.setHeader('Set-Cookie', sessionCookies(result.accessToken, result.refreshToken, isSecureOrigin(this.authService.webOrigin)));
       return { accessToken: result.accessToken };
     } catch (cause) {
       if (cause instanceof RefreshTokenError) {

@@ -1,9 +1,9 @@
 // 네이버 로그인 어댑터 — OIDC 미지원이라 OAuth2 토큰 교환 후 /v1/nid/me 프로필 API로 사용자 정보를 얻는다
 // (WP-08 §1-2, §3-6 — id_token 파싱을 카카오와 억지로 공용화하지 않는다)
 import { z } from 'zod';
-import type { OAuthProfile, OAuthProvider } from './provider.types';
+import { OAuthProviderError, type OAuthProfile, type OAuthProvider } from './provider.types';
 
-export class NaverAuthError extends Error {}
+export class NaverAuthError extends OAuthProviderError {}
 
 const NAVER_AUTHORIZE_URL = 'https://nid.naver.com/oauth2.0/authorize';
 const NAVER_TOKEN_URL = 'https://nid.naver.com/oauth2.0/token';

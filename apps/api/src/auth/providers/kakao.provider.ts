@@ -1,9 +1,9 @@
 // 카카오 로그인 어댑터 — OIDC. id_token은 카카오 JWKS로 서명 검증하고 iss/aud/nonce를 확인한다 (WP-08 §1-2)
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { z } from 'zod';
-import type { OAuthProfile, OAuthProvider } from './provider.types';
+import { OAuthProviderError, type OAuthProfile, type OAuthProvider } from './provider.types';
 
-export class KakaoAuthError extends Error {}
+export class KakaoAuthError extends OAuthProviderError {}
 
 const KAKAO_AUTHORIZE_URL = 'https://kauth.kakao.com/oauth/authorize';
 const KAKAO_TOKEN_URL = 'https://kauth.kakao.com/oauth/token';

@@ -88,6 +88,19 @@
 6. 네이버 로그인은 OIDC가 아니다 — id_token이 없고 `/v1/nid/me` 프로필 API를 호출해야 한다. 카카오와 같은
    인터페이스로 억지 통일하려고 id_token 파싱을 공용화하지 말 것 (provider 어댑터에서 흡수).
 
+## 적대적 리뷰 결과 (2026-07-22) — 반영/보류 구분
+
+Critical(실익스플로잇) 결함 없음. 인증 핵심(alg 고정·iss/aud·state/nonce·리프레시 회전·favorites 격리)은 curl 실증으로 견고 확인.
+
+**반영 완료**: (1) 콜백 에러 처리 확장 — provider 토큰교환·nonce·프로필 실패(OAuthProviderError 계열)도 raw 500 대신 `/login?error`로(정상 사용자 500 방지), (2) returnTo 백슬래시(`/\`) 차단, (3) Secure 쿠키를 NODE_ENV가 아닌 AUTH_WEB_ORIGIN 스킴 기반으로, (4) 루트 레이아웃 `/auth/me` SSR fetch 타임아웃(hang API가 공개 페이지 지연시키는 것 방지, T-04).
+
+**후속/보류 (근거 포함)**:
+- **웹 액세스 토큰 자동 리프레시 미연동** — 서버 회전 로직은 구현·테스트됐으나 웹이 `/api/auth/refresh`를 호출하지 않아 액세스 15분 만료 후 비로그인처럼 보인다. 세션 지속(14일 의도) 실현은 **WP-08b에서 Next middleware로 처리**(모바일 헤더 토큰 흐름과 함께 설계). 현재도 로그인 직후 관심 등록 흐름엔 지장 없음.
+- **state 서명이 JWT_ACCESS_SECRET 재사용**(RFC 8725 §3.5) — typ/iss/aud 판별자로 교차 사용은 차단됨(실증)이라 실익스플로잇 불가. 전용 시크릿 분리는 후속.
+- **refresh 쿠키 Path=/** — httpOnly+SameSite=Lax로 보호됨. Path 축소는 위 자동 리프레시 방식(middleware가 어느 경로에서 트리거되는지)이 정해진 뒤 함께 조정.
+- **동시 정상 리프레시 시 family 폐기** — 재사용 감지 정확성 우선이라 grace window는 넣지 않음(보안 > 멀티탭 UX).
+- **favorite FK 부재·INNER JOIN** — 물건이 사라지면 목록에서 조용히 누락. user_id 격리는 유지되고 경매 종료 물건 누락은 자연스러워 경미.
+
 ## 범위 제외
 
 - 애플 로그인(D-015로 제외 — iOS 출시 시 지침 4.8 재검토), 모바일 로그인·관심 탭(WP-08b), 푸시·변동 감지(WP-09),
