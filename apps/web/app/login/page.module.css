@@ -1,0 +1,71 @@
+.page {
+  /* 카카오·네이버 브랜드 색 — DESIGN-meta.md 팔레트 밖 공식 브랜드값 2개만 예외로 CSS 변수로 정의한다 */
+  --color-kakao: #fee500;
+  --color-kakao-text: #000000;
+  --color-naver: #03c75a;
+  --color-naver-text: #ffffff;
+
+  max-width: 400px;
+  margin: 0 auto;
+  padding: var(--spacing-xl);
+}
+
+.title {
+  font-size: var(--typography-heading-lg-font-size);
+  font-weight: var(--typography-heading-lg-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-xs);
+}
+
+.subtitle {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  margin: 0 0 var(--spacing-xl);
+}
+
+.error {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-critical-strong);
+  background-color: var(--color-surface-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-base) var(--spacing-lg);
+  margin: 0 0 var(--spacing-xl);
+}
+
+.providerList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-base);
+}
+
+.providerButton {
+  display: block;
+  text-align: center;
+  border-radius: var(--radius-full);
+  padding: 14px 30px;
+  font-size: var(--typography-button-md-font-size);
+  font-weight: var(--typography-button-md-font-weight);
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.providerButton:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.providerButton:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.kakao {
+  background-color: var(--color-kakao);
+  color: var(--color-kakao-text);
+}
+
+.naver {
+  background-color: var(--color-naver);
+  color: var(--color-naver-text);
+}

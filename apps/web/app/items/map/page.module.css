@@ -1,6 +1,6 @@
 .page {
   position: relative;
-  height: 100dvh;
+  height: calc(100dvh - var(--layout-header-height));
 }
 
 .map {

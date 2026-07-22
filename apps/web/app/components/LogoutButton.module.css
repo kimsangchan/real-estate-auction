@@ -1,0 +1,19 @@
+.button {
+  font-family: inherit;
+  font-size: var(--typography-body-sm-bold-font-size);
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  color: var(--color-steel);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.button:hover {
+  color: var(--color-ink);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

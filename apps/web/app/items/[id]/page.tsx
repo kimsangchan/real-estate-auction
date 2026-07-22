@@ -4,8 +4,9 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchAuctionItem } from '../api-client';
+import { FavoriteButton } from '../components/FavoriteButton';
 import { computeMinimumBidRate, formatBidDatetime, formatWon } from '../format';
-import { decodeItemId } from '../item-id';
+import { decodeItemId, encodeItemId } from '../item-id';
 import styles from './page.module.css';
 
 export async function generateMetadata({
@@ -92,9 +93,17 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
       </section>
 
       <div className={styles.ctaBar}>
-        <Link href={`/items/${id}/rights-analysis`} className={styles.ctaLink}>
-          권리분석 보기
-        </Link>
+        <div className={styles.ctaRow}>
+          <FavoriteButton
+            courtOfficeCode={item.courtOfficeCode}
+            caseNo={item.caseNo}
+            itemNo={item.itemNo}
+            currentPath={`/items/${encodeItemId(key)}`}
+          />
+          <Link href={`/items/${id}/rights-analysis`} className={styles.ctaLink}>
+            권리분석 보기
+          </Link>
+        </div>
       </div>
     </main>
   );

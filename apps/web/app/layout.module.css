@@ -1,0 +1,42 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: var(--layout-header-height);
+  padding: 0 var(--spacing-xl);
+  border-bottom: 1px solid var(--color-hairline-soft);
+  background-color: var(--color-canvas);
+}
+
+.authStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-base);
+}
+
+.nickname {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-ink);
+}
+
+.favoritesLink {
+  font-size: var(--typography-body-sm-bold-font-size);
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.favoritesLink:hover {
+  text-decoration: underline;
+}
+
+.loginLink {
+  font-size: var(--typography-body-sm-bold-font-size);
+  font-weight: var(--typography-body-sm-bold-font-weight);
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.loginLink:hover {
+  text-decoration: underline;
+}

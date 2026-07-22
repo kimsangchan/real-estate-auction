@@ -152,10 +152,17 @@
   padding: var(--spacing-base) var(--spacing-xl);
 }
 
-.ctaLink {
-  display: block;
+.ctaRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
   width: 100%;
   max-width: 720px;
+}
+
+.ctaLink {
+  display: block;
+  flex: 1;
   text-align: center;
   background-color: var(--color-primary);
   color: var(--color-on-primary);

@@ -12,7 +12,11 @@
     "app/items/format.test.ts",
     "app/items/item-id.ts",
     "app/items/item-id.test.ts",
+    "app/items/favorite-match.ts",
+    "app/items/favorite-match.test.ts",
     "app/items/map/cluster.ts",
-    "app/items/map/cluster.test.ts"
+    "app/items/map/cluster.test.ts",
+    "app/login/provider-href.ts",
+    "app/login/provider-href.test.ts"
   ]
 }
