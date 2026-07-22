@@ -14,12 +14,14 @@
 
 ## §0. 사용자 액션 (착수 전 확인)
 
-1. **카카오 개발자 콘솔(developers.kakao.com) 앱 등록**: REST API 키 발급, Client Secret 활성화,
-   카카오 로그인 활성화 + OpenID Connect 활성화, Redirect URI `http://localhost:3000/api/auth/kakao/callback` 등록.
-   동의 항목은 닉네임만 (이메일·전화 수집 안 함 — A-08 개인정보 최소화).
-   **함정(2026-07-22 실확인)**: "대표 도메인" 필드는 localhost를 거부한다 — 필수 아님, 비워둘 것(실서비스
-   도메인 전용 표시 필드). "사이트 도메인"(웹 플랫폼)도 JS SDK용이라 서버 사이드 REST 방식엔 불필요 —
-   localhost 등록에 필요한 건 Redirect URI뿐이고 여기는 localhost 허용.
+1. **카카오 개발자 콘솔(developers.kakao.com) 앱 등록** — 2025 개편 후 새 콘솔 경로 기준(2026-07-22 실확인):
+   - 카카오 로그인 > 사용 설정 ON → 카카오 로그인 > OpenID Connect ON
+   - **앱 > 플랫폼 키 > REST API 키** 안에서 "카카오 로그인 리다이렉트 URI"
+     `http://localhost:3000/api/auth/kakao/callback` 등록 + 클라이언트 시크릿 발급
+     (구 콘솔의 "카카오 로그인 > 보안"·"플랫폼" 메뉴는 없어짐 — 플랫폼 키 메뉴로 통합)
+   - 카카오 로그인 > 동의항목 → 닉네임만 (이메일·전화 수집 안 함 — A-08 개인정보 최소화)
+   - **함정**: "대표 도메인"은 localhost 거부 — 필수 아님, 비워둘 것. "사이트 도메인"(웹 도메인)은
+     JS SDK용이라 서버 사이드 REST 방식엔 불필요. localhost가 필요한 곳은 Redirect URI뿐이고 여기는 허용.
 2. **네이버 개발자 센터(developers.naver.com) 앱 등록**: Client ID/Secret 발급, 서비스 URL
    `http://localhost:3000`, Callback URL `http://localhost:3000/api/auth/naver/callback` 등록. 제공 항목: 별명만.
 3. 발급 키를 루트 `.env`에 기입 (키 이름은 §1-7). **값을 코드·리포·채팅에 붙여넣지 말 것** (AGENTS 규칙 8).
