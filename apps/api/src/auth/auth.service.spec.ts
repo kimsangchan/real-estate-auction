@@ -1,4 +1,4 @@
-import { AuthService, OAuthCallbackError, RefreshTokenError } from './auth.service';
+import { AuthService, OAuthCallbackError, RefreshRaceError, RefreshTokenError } from './auth.service';
 import { hashToken } from './token/refresh-token.util';
 import type { AuthRepository, RefreshTokenRecord } from './auth.repository';
 import type { OAuthProvider } from './providers/provider.types';
@@ -12,6 +12,9 @@ const REFRESH_SECRET = 'r'.repeat(32);
 const STATE_SECRET = 's'.repeat(32);
 
 function buildDeps(overrides: { repository?: Partial<jest.Mocked<AuthRepository>>; now?: () => number } = {}) {
+  // 실제 withTransaction은 콜백이 throw하면 ROLLBACK한다 — 목이 이를 흉내 내야
+  // "트랜잭션 안에서 폐기하고 throw" 같은 되돌려지는 쓰기를 테스트가 잡아낸다.
+  let rolledBack = false;
   const repository = {
     upsertUser: jest.fn(),
     findUserById: jest.fn(),
@@ -20,7 +23,14 @@ function buildDeps(overrides: { repository?: Partial<jest.Mocked<AuthRepository>
     revokeToken: jest.fn(),
     revokeFamily: jest.fn(),
     deleteUser: jest.fn(),
-    withTransaction: jest.fn(async (fn: (client: unknown) => unknown) => fn({})),
+    withTransaction: jest.fn(async (fn: (client: unknown) => unknown) => {
+      try {
+        return await fn({});
+      } catch (error) {
+        rolledBack = true;
+        throw error;
+      }
+    }),
     ...overrides.repository,
   } as unknown as jest.Mocked<AuthRepository>;
 
@@ -53,7 +63,17 @@ function buildDeps(overrides: { repository?: Partial<jest.Mocked<AuthRepository>
     now,
   );
 
-  return { service, repository, kakaoProvider, naverProvider, stateService, jwtService, refreshJwtService, mobileExchangeService };
+  return {
+    service,
+    repository,
+    kakaoProvider,
+    naverProvider,
+    stateService,
+    jwtService,
+    refreshJwtService,
+    mobileExchangeService,
+    didRollback: () => rolledBack,
+  };
 }
 
 describe('AuthService.startLogin', () => {
@@ -283,7 +303,7 @@ describe('AuthService.refresh', () => {
     expect(repository.revokeFamily).not.toHaveBeenCalled();
   });
 
-  it('이미 폐기(재사용)된 토큰이 다시 제출되면 계열 전체를 폐기하고 거부한다', async () => {
+  async function buildRevokedTokenDeps(revokedAt: Date) {
     const refreshJwtService = new RefreshJwtService(REFRESH_SECRET);
     const rawToken = await refreshJwtService.issue('user-1', 'family-1');
     const row: RefreshTokenRecord = {
@@ -292,15 +312,34 @@ describe('AuthService.refresh', () => {
       tokenHash: hashToken(rawToken),
       familyId: 'family-1',
       expiresAt: new Date(1000 * 60 * 60 * 24 * 30),
-      revokedAt: new Date(0),
+      revokedAt,
     };
-    const { service, repository } = buildDeps({
+    const deps = buildDeps({
       repository: { findRefreshTokenByHashForUpdate: jest.fn().mockResolvedValue(row) },
     });
+    return { ...deps, rawToken };
+  }
+
+  it('유예 창을 지나 재사용된 토큰은 계열 전체를 폐기하고 거부한다 — 폐기는 커밋돼야 한다', async () => {
+    // now()는 0이므로 60초 전에 폐기된 토큰 = 유예 창(10초) 밖
+    const { service, repository, rawToken, didRollback } = await buildRevokedTokenDeps(new Date(-60_000));
 
     await expect(service.refresh(rawToken)).rejects.toThrow(RefreshTokenError);
 
     expect(repository.revokeFamily).toHaveBeenCalledWith(expect.anything(), 'family-1');
+    expect(repository.insertRefreshToken).not.toHaveBeenCalled();
+    // 트랜잭션 안에서 throw하면 ROLLBACK으로 계열 폐기가 되돌려진다(WP-08부터의 버그)
+    expect(didRollback()).toBe(false);
+  });
+
+  it('방금 회전된 토큰이 곧바로 다시 오면 경쟁으로 보고 계열을 폐기하지 않는다 (WP-08b §4-1)', async () => {
+    // now()는 0이고 폐기 시각도 0 — 유예 창(10초) 안
+    const { service, repository, rawToken } = await buildRevokedTokenDeps(new Date(0));
+
+    await expect(service.refresh(rawToken)).rejects.toThrow(RefreshRaceError);
+
+    // 정상 사용자의 동시 요청이 세션을 끊으면 안 된다
+    expect(repository.revokeFamily).not.toHaveBeenCalled();
     expect(repository.insertRefreshToken).not.toHaveBeenCalled();
   });
 

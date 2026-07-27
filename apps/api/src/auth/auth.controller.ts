@@ -16,7 +16,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { AuthService, OAuthCallbackError, RefreshTokenError } from './auth.service';
+import { AuthService, OAuthCallbackError, RefreshRaceError, RefreshTokenError } from './auth.service';
 import { MobileTokenRequestDto } from './dto/mobile-token-request.dto';
 import { RefreshTokenBodyDto } from './dto/refresh-token-body.dto';
 import { assertProvider, OAuthProviderError } from './providers/provider.types';
@@ -228,7 +228,9 @@ export class AuthController {
       return { accessToken: result.accessToken };
     } catch (cause) {
       if (cause instanceof RefreshTokenError) {
-        if (fromCookie) {
+        // 경쟁에서 진 요청은 쿠키를 건드리지 않는다 — 이긴 요청이 방금 심은 세션을 지우면
+        // 자동 연장이 오히려 로그아웃이 된다 (WP-08b §4-1)
+        if (fromCookie && !(cause instanceof RefreshRaceError)) {
           res.setHeader('Set-Cookie', [expireCookie(ACCESS_TOKEN_COOKIE), expireCookie(REFRESH_TOKEN_COOKIE)]);
         }
         throw new UnauthorizedException(cause.message);

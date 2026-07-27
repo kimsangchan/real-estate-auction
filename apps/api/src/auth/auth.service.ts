@@ -11,8 +11,12 @@ import { RefreshJwtService, RefreshTokenInvalidError } from './token/refresh-jwt
 
 export class OAuthCallbackError extends Error {}
 export class RefreshTokenError extends Error {}
+/** 방금 회전된 토큰이 다시 온 경우 — 도난이 아니라 경쟁이므로 호출부는 세션을 지우면 안 된다 */
+export class RefreshRaceError extends RefreshTokenError {}
 
 const REFRESH_TOKEN_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+// 회전 직후 이 시간 안에 같은 토큰이 다시 오면 정상 경쟁으로 본다 (WP-08b §4-1)
+const REFRESH_ROTATION_GRACE_MS = 10 * 1000;
 
 export interface AuthServiceConfig {
   webOrigin: string;
@@ -142,7 +146,13 @@ export class AuthService {
     await this.repository.deleteUser(userId);
   }
 
-  /** 리프레시 토큰 회전 — 재사용(이미 폐기된 토큰 재제출)이 감지되면 해당 계열 전체를 폐기한다 (WP-08 §1-3) */
+  /**
+   * 리프레시 토큰 회전 — 재사용(이미 폐기된 토큰 재제출)이 감지되면 해당 계열 전체를 폐기한다 (WP-08 §1-3).
+   *
+   * 단, 방금 회전된 토큰이 곧바로 다시 오는 것은 도난이 아니라 정상 경쟁이다(여러 탭·prefetch·
+   * 웹과 모바일 동시 사용). 이를 도난으로 처리하면 정상 사용자가 로그아웃된다 — 회전 직후
+   * REFRESH_ROTATION_GRACE_MS 안의 재제출은 계열을 건드리지 않고 거절만 한다 (WP-08b §4-1).
+   */
   async refresh(rawRefreshToken: string): Promise<RefreshResult> {
     try {
       await this.refreshJwtService.verifySignature(rawRefreshToken);
@@ -155,17 +165,22 @@ export class AuthService {
 
     const tokenHash = hashToken(rawRefreshToken);
 
-    return this.repository.withTransaction(async (client) => {
+    // 계열 폐기는 커밋돼야 의미가 있다 — 트랜잭션 안에서 throw하면 ROLLBACK으로 되돌려진다.
+    // 그래서 결과를 값으로 돌려받고 예외는 트랜잭션 밖에서 던진다.
+    const outcome = await this.repository.withTransaction(async (client) => {
       const row = await this.repository.findRefreshTokenByHashForUpdate(client, tokenHash);
       if (!row) {
-        throw new RefreshTokenError('리프레시 토큰을 찾을 수 없어요');
+        return { kind: 'not-found' } as const;
       }
       if (row.revokedAt) {
+        if (this.now() - row.revokedAt.getTime() <= REFRESH_ROTATION_GRACE_MS) {
+          return { kind: 'raced' } as const;
+        }
         await this.repository.revokeFamily(client, row.familyId);
-        throw new RefreshTokenError('토큰 재사용이 감지되어 세션을 종료했어요');
+        return { kind: 'reused' } as const;
       }
       if (row.expiresAt.getTime() <= this.now()) {
-        throw new RefreshTokenError('리프레시 토큰이 만료됐어요');
+        return { kind: 'expired' } as const;
       }
 
       await this.repository.revokeToken(client, row.id);
@@ -183,8 +198,21 @@ export class AuthService {
       );
 
       const accessToken = await this.jwtService.issueAccessToken(row.userId);
-      return { accessToken, refreshToken: newRefreshToken, userId: row.userId };
+      return { kind: 'ok', accessToken, refreshToken: newRefreshToken, userId: row.userId } as const;
     });
+
+    switch (outcome.kind) {
+      case 'ok':
+        return { accessToken: outcome.accessToken, refreshToken: outcome.refreshToken, userId: outcome.userId };
+      case 'not-found':
+        throw new RefreshTokenError('리프레시 토큰을 찾을 수 없어요');
+      case 'raced':
+        throw new RefreshRaceError('토큰이 방금 갱신됐어요');
+      case 'reused':
+        throw new RefreshTokenError('토큰 재사용이 감지되어 세션을 종료했어요');
+      case 'expired':
+        throw new RefreshTokenError('리프레시 토큰이 만료됐어요');
+    }
   }
 
   /** 로그아웃 — 제출된 토큰이 속한 계열 전체를 폐기한다(다중 기기 세션은 로그인마다 별도 계열이라 영향 없음) */

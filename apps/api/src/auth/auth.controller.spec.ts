@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
-import { AuthService, OAuthCallbackError, RefreshTokenError } from './auth.service';
+import { AuthService, OAuthCallbackError, RefreshRaceError, RefreshTokenError } from './auth.service';
 import { OAuthProviderError } from './providers/provider.types';
 import { MobileExchangeError } from './token/mobile-exchange.service';
 
@@ -247,6 +247,29 @@ describe('AuthController.refresh', () => {
 
     await expect(controller.refresh({}, createReq('refresh_token=old-rt'), res)).rejects.toThrow(UnauthorizedException);
     expect(res.setHeader).toHaveBeenCalledWith('Set-Cookie', expect.arrayContaining([expect.stringContaining('Max-Age=0')]));
+  });
+
+  it('경쟁 패배(RefreshRaceError)는 쿠키를 건드리지 않는다 — 이긴 요청의 세션을 지우면 안 된다', async () => {
+    const authService = {
+      refresh: jest.fn().mockRejectedValue(new RefreshRaceError('방금 갱신됨')),
+    } as unknown as AuthService;
+    const controller = new AuthController(authService);
+    const res = createRes();
+
+    await expect(controller.refresh({}, createReq('refresh_token=old-rt'), res)).rejects.toThrow(UnauthorizedException);
+    expect(res.setHeader).not.toHaveBeenCalled();
+  });
+
+  it('빈 문자열 쿠키면 body의 리프레시 토큰을 쓴다', async () => {
+    const authService = {
+      refresh: jest.fn().mockResolvedValue({ accessToken: 'a', refreshToken: 'r', userId: 'u' }),
+    } as unknown as AuthService;
+    const controller = new AuthController(authService);
+
+    const result = await controller.refresh({ refreshToken: 'body-rt' }, createReq('refresh_token='), createRes());
+
+    expect(authService.refresh).toHaveBeenCalledWith('body-rt');
+    expect(result.refreshToken).toBe('r');
   });
 
   it('body 방식 실패 시 쿠키를 건드리지 않고 401을 던진다', async () => {
