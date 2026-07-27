@@ -2,7 +2,7 @@
 // 안드로이드 에뮬레이터는 호스트 localhost를 10.0.2.2로 접근한다(개발 서버 포트 4000).
 import { Platform } from 'react-native';
 
-const API_BASE_URL =
+export const API_BASE_URL =
   Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
 
 export interface AuctionItem {

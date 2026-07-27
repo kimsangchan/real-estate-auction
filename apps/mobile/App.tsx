@@ -4,10 +4,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider } from './src/auth/AuthContext';
 import type { RootStackParamList, TabParamList } from './src/navigation';
 import { ChecklistScreen } from './src/screens/ChecklistScreen';
+import { FavoritesScreen } from './src/screens/FavoritesScreen';
 import { ItemDetailScreen } from './src/screens/ItemDetailScreen';
 import { ItemListScreen } from './src/screens/ItemListScreen';
+import { LoginScreen } from './src/screens/LoginScreen';
 import { MapHomeScreen } from './src/screens/MapHomeScreen';
 import { RightsAnalysisScreen } from './src/screens/RightsAnalysisScreen';
 import { RisksScreen } from './src/screens/RisksScreen';
@@ -21,6 +24,9 @@ const renderMapIcon = ({ size }: { size: number }) => (
 );
 const renderListIcon = ({ size }: { size: number }) => (
   <Text style={{ fontSize: size }}>📋</Text>
+);
+const renderFavoritesIcon = ({ size }: { size: number }) => (
+  <Text style={{ fontSize: size }}>♥</Text>
 );
 
 function Tabs() {
@@ -56,6 +62,15 @@ function Tabs() {
           tabBarIcon: renderListIcon,
         }}
       />
+      <Tab.Screen
+        name="Favorites"
+        component={FavoritesScreen}
+        options={{
+          title: '관심 물건',
+          tabBarLabel: '관심',
+          tabBarIcon: renderFavoritesIcon,
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -64,42 +79,49 @@ function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" />
-      <NavigationContainer>
-        <RootStack.Navigator
-          screenOptions={{
-            headerStyle: { backgroundColor: colors.canvas },
-            headerTintColor: colors.inkDeep,
-            headerTitleStyle: { color: colors.inkDeep },
-            contentStyle: { backgroundColor: colors.canvas },
-          }}
-        >
-          <RootStack.Screen
-            name="Tabs"
-            component={Tabs}
-            options={{ headerShown: false }}
-          />
-          <RootStack.Screen
-            name="ItemDetail"
-            component={ItemDetailScreen}
-            options={{ title: '물건 상세' }}
-          />
-          <RootStack.Screen
-            name="RightsAnalysis"
-            component={RightsAnalysisScreen}
-            options={{ title: '권리분석' }}
-          />
-          <RootStack.Screen
-            name="Risks"
-            component={RisksScreen}
-            options={{ title: '확인이 필요해요' }}
-          />
-          <RootStack.Screen
-            name="Checklist"
-            component={ChecklistScreen}
-            options={{ title: '임장 체크리스트' }}
-          />
-        </RootStack.Navigator>
-      </NavigationContainer>
+      <AuthProvider>
+        <NavigationContainer>
+          <RootStack.Navigator
+            screenOptions={{
+              headerStyle: { backgroundColor: colors.canvas },
+              headerTintColor: colors.inkDeep,
+              headerTitleStyle: { color: colors.inkDeep },
+              contentStyle: { backgroundColor: colors.canvas },
+            }}
+          >
+            <RootStack.Screen
+              name="Tabs"
+              component={Tabs}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="ItemDetail"
+              component={ItemDetailScreen}
+              options={{ title: '물건 상세' }}
+            />
+            <RootStack.Screen
+              name="RightsAnalysis"
+              component={RightsAnalysisScreen}
+              options={{ title: '권리분석' }}
+            />
+            <RootStack.Screen
+              name="Risks"
+              component={RisksScreen}
+              options={{ title: '확인이 필요해요' }}
+            />
+            <RootStack.Screen
+              name="Checklist"
+              component={ChecklistScreen}
+              options={{ title: '임장 체크리스트' }}
+            />
+            <RootStack.Screen
+              name="Login"
+              component={LoginScreen}
+              options={{ title: '로그인' }}
+            />
+          </RootStack.Navigator>
+        </NavigationContainer>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

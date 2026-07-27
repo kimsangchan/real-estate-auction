@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { fetchAuctionItem, type AuctionItem } from '../api/auctionItems';
+import { FavoriteButton } from '../components/FavoriteButton';
 import {
   computeMinimumBidRate,
   formatBidDatetime,
@@ -130,6 +131,10 @@ export function ItemDetailScreen({ route, navigation }: Props) {
       </ScrollView>
 
       <View style={styles.ctaBar}>
+        <FavoriteButton
+          item={{ courtOfficeCode, caseNo, itemNo }}
+          onRequireLogin={() => navigation.navigate('Login')}
+        />
         <Pressable
           style={styles.cta}
           onPress={() => navigation.navigate('RightsAnalysis')}
@@ -231,12 +236,16 @@ const styles = StyleSheet.create({
   },
 
   ctaBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
     borderTopWidth: 1,
     borderTopColor: colors.hairlineSoft,
     backgroundColor: colors.canvas,
     padding: space.base,
   },
   cta: {
+    flex: 1,
     backgroundColor: colors.primary,
     borderRadius: radius.full,
     paddingVertical: space.md,
