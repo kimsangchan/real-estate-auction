@@ -9,6 +9,7 @@ import { RefreshJwtService } from './token/refresh-jwt.service';
 
 const SECRET = 'a'.repeat(32);
 const REFRESH_SECRET = 'r'.repeat(32);
+const STATE_SECRET = 's'.repeat(32);
 
 function buildDeps(overrides: { repository?: Partial<jest.Mocked<AuthRepository>>; now?: () => number } = {}) {
   const repository = {
@@ -35,10 +36,12 @@ function buildDeps(overrides: { repository?: Partial<jest.Mocked<AuthRepository>
   };
 
   const now = overrides.now ?? (() => 0);
+  // state·교환 코드는 액세스 토큰과 다른 키(OAUTH_STATE_SECRET)로 서명한다 — 스펙에서도 키를
+  // 분리해야 두 키를 다시 합치는 회귀를 테스트가 잡아낸다 (WP-08b §0-1)
   const jwtService = new JwtService(SECRET, now);
-  const stateService = new OAuthStateService(SECRET, now);
+  const stateService = new OAuthStateService(STATE_SECRET, now);
   const refreshJwtService = new RefreshJwtService(REFRESH_SECRET);
-  const mobileExchangeService = new MobileExchangeService(SECRET, now);
+  const mobileExchangeService = new MobileExchangeService(STATE_SECRET, now);
   const service = new AuthService(
     repository,
     { kakao: kakaoProvider, naver: naverProvider },
@@ -149,6 +152,21 @@ describe('AuthService.handleCallback', () => {
         state: '다른-state',
         stateCookieValue: login.stateCookieValue,
       }),
+    ).rejects.toThrow(OAuthCallbackError);
+  });
+
+  it('구 시크릿(액세스 토큰 키)으로 서명된 state는 거부한다 — 키 분리 회귀 방지 (WP-08b §0-1)', async () => {
+    const { service } = buildDeps();
+    // WP-08b 이전처럼 JWT_ACCESS_SECRET으로 state를 서명한 값
+    const forged = await new OAuthStateService(SECRET).sign({
+      provider: 'kakao',
+      state: 's',
+      nonce: 'n',
+      returnTo: '/',
+    });
+
+    await expect(
+      service.handleCallback({ provider: 'kakao', code: 'c', state: 's', stateCookieValue: forged }),
     ).rejects.toThrow(OAuthCallbackError);
   });
 

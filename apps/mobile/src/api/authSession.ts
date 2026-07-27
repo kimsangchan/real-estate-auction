@@ -26,9 +26,29 @@ interface TokenPair {
   refreshToken: string;
 }
 
+// 서버가 매달릴 때 화면이 영영 '로딩'에 갇히지 않도록 예산을 준다.
+const REQUEST_TIMEOUT_MS = 5000;
+
+// Hermes에는 AbortSignal.timeout이 없다 — AbortController로 직접 만든다.
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // 액세스 토큰은 메모리에만 둔다 — 저장소에 쓰지 않는다 (AGENTS 규칙 8, §1-3)
 let accessToken: string | null = null;
 let pendingCodeVerifier: string | null = null;
+// 진행 중인 리프레시 1건 — 동시에 401을 받은 호출들이 같은 토큰으로 회전을 중복 요청하면
+// 서버가 이를 '재사용'으로 보고 세션을 끊는다. 한 번만 보내고 결과를 공유한다.
+let inFlightRefresh: Promise<boolean> | null = null;
 
 async function readRefreshToken(): Promise<string | null> {
   const credentials = await getGenericPassword({
@@ -44,9 +64,9 @@ async function storeTokens(pair: TokenPair): Promise<void> {
   });
 }
 
+/** 세션 정리 — 진행 중인 로그인(pendingCodeVerifier)은 다른 관심사라 건드리지 않는다 */
 export async function clearSession(): Promise<void> {
   accessToken = null;
-  pendingCodeVerifier = null;
   await resetGenericPassword({ service: REFRESH_TOKEN_SERVICE });
 }
 
@@ -64,33 +84,57 @@ export async function startLogin(provider: AuthProvider): Promise<void> {
 /** 딥링크로 받은 일회성 교환 코드를 토큰 쌍으로 바꾼다 — verifier가 없으면 우리가 시작한 로그인이 아니다 */
 export async function completeLogin(code: string): Promise<boolean> {
   const codeVerifier = pendingCodeVerifier;
-  pendingCodeVerifier = null;
   if (!codeVerifier) return false;
 
-  const response = await fetch(`${API_BASE_URL}/auth/mobile/token`, {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/auth/mobile/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, codeVerifier }),
   });
-  if (!response.ok) return false;
+  if (!response.ok) {
+    // 코드가 실제로 무효(401)일 때만 검증자를 버린다 — 일시적 실패면 같은 딥링크로 재시도할 수 있게 남긴다.
+    if (response.status === 401) pendingCodeVerifier = null;
+    return false;
+  }
 
+  pendingCodeVerifier = null;
   await storeTokens((await response.json()) as TokenPair);
   return true;
 }
 
+/**
+ * 리프레시 토큰 회전. 동시 호출은 하나로 합친다 — 같은 토큰을 두 번 제출하면 서버가 재사용으로
+ * 판정해 세션을 끊기 때문이다. 401(토큰이 실제로 무효)일 때만 저장된 토큰을 지운다 —
+ * 5xx·네트워크 오류로 지우면 서버가 잠깐 죽은 동안 로그인이 영구히 풀린다.
+ */
 async function refreshTokens(refreshToken: string): Promise<boolean> {
-  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  });
-  if (!response.ok) {
-    await clearSession();
-    return false;
-  }
+  if (inFlightRefresh) return inFlightRefresh;
 
-  await storeTokens((await response.json()) as TokenPair);
-  return true;
+  inFlightRefresh = (async () => {
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (response.status === 401) {
+        // 그 사이 새 로그인이 토큰을 갈아끼웠을 수 있다 — 우리가 쓴 토큰이 그대로일 때만 지운다.
+        if ((await readRefreshToken()) === refreshToken) await clearSession();
+        return false;
+      }
+      if (!response.ok) return false;
+
+      await storeTokens((await response.json()) as TokenPair);
+      return true;
+    } catch {
+      // 네트워크 실패는 토큰이 무효라는 뜻이 아니다 — 저장분을 남겨 다음 시도에 되살린다.
+      return false;
+    } finally {
+      inFlightRefresh = null;
+    }
+  })();
+
+  return inFlightRefresh;
 }
 
 /** 앱 재실행 시 Keystore의 리프레시 토큰으로 세션을 되살린다 (§2-d 세션 유지의 근거) */

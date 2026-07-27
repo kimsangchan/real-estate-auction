@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -37,50 +38,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<CurrentUser | null>(null);
 
-  const applySession = useCallback(async (hasSession: boolean) => {
-    const current = hasSession ? await fetchCurrentUser() : null;
+  // 세션을 건드리는 비동기 작업이 겹칠 수 있다(부트스트랩 ↔ 딥링크 ↔ 로그아웃).
+  // 마지막으로 시작한 작업의 결과만 반영해 늦게 끝난 이전 작업이 상태를 되돌리지 못하게 한다.
+  const generation = useRef(0);
+
+  const applySession = useCallback(async () => {
+    const mine = ++generation.current;
+    const current = await fetchCurrentUser();
+    if (generation.current !== mine) return;
+
     setUser(current);
     setStatus(current ? 'authenticated' : 'anonymous');
   }, []);
 
-  // 앱 시작 시 Keystore의 리프레시 토큰으로 세션을 되살린다 (강제 종료 후 재실행에도 로그인 유지)
+  const goAnonymous = useCallback(() => {
+    generation.current += 1;
+    setUser(null);
+    setStatus('anonymous');
+  }, []);
+
+  // 부트스트랩 — 딥링크로 깨어난 경우를 먼저 처리하고, 아니면 Keystore의 토큰으로 세션을 되살린다.
+  // 두 경로를 한 effect에서 순차로 처리해야 서로의 결과를 덮어쓰지 않는다.
   useEffect(() => {
     let cancelled = false;
 
-    restoreSession()
-      .then(restored => {
-        if (!cancelled) return applySession(restored);
-      })
-      .catch(() => {
-        if (!cancelled) setStatus('anonymous');
-      });
+    (async () => {
+      const initialCode = parseAuthCallbackCode(await Linking.getInitialURL());
+      if (initialCode && (await completeLogin(initialCode))) {
+        if (!cancelled) await applySession();
+        return;
+      }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [applySession]);
-
-  // 로그인 콜백 딥링크 — 앱이 떠 있을 때(url 이벤트)와 딥링크로 깨어날 때(getInitialURL)를 모두 받는다
-  useEffect(() => {
-    let cancelled = false;
-
-    const handleUrl = async (url: string | null) => {
-      const code = parseAuthCallbackCode(url);
-      if (!code || cancelled) return;
-
-      const exchanged = await completeLogin(code);
-      if (!cancelled) await applySession(exchanged);
-    };
-
-    Linking.getInitialURL()
-      .then(handleUrl)
-      .catch(() => {});
-    const subscription = Linking.addEventListener('url', ({ url }) => {
-      handleUrl(url);
+      const restored = await restoreSession();
+      if (cancelled) return;
+      if (restored) await applySession();
+      else goAnonymous();
+    })().catch(() => {
+      if (!cancelled) goAnonymous();
     });
 
     return () => {
       cancelled = true;
+    };
+  }, [applySession, goAnonymous]);
+
+  // 앱이 떠 있는 동안 도착하는 로그인 콜백 딥링크.
+  useEffect(() => {
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      const code = parseAuthCallbackCode(url);
+      if (!code) return;
+
+      completeLogin(code)
+        .then(exchanged => {
+          // 교환 실패는 기존 세션을 건드리지 않는다 — 이미 소비됐거나 남이 던진 딥링크로
+          // 멀쩡한 로그인 상태를 잃으면 안 된다.
+          if (exchanged) return applySession();
+        })
+        .catch(() => {});
+    });
+
+    return () => {
       subscription.remove();
     };
   }, [applySession]);
@@ -91,18 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await logout();
-    setUser(null);
-    setStatus('anonymous');
-  }, []);
+    goAnonymous();
+  }, [goAnonymous]);
 
   const removeAccount = useCallback(async () => {
     const removed = await deleteAccount();
-    if (removed) {
-      setUser(null);
-      setStatus('anonymous');
-    }
+    if (removed) goAnonymous();
     return removed;
-  }, []);
+  }, [goAnonymous]);
 
   const value = useMemo(
     () => ({ status, user, signIn, signOut, removeAccount }),

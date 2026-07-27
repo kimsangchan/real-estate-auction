@@ -176,6 +176,12 @@ export class AuthController {
         res.setHeader('Set-Cookie', [expireCookie(STATE_COOKIE)]);
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        // 이 페이지 본문에는 교환 코드(자격증명)가 들어 있다 — 디스크 캐시·bfcache·리퍼러로
+        // 새어나가지 않게 막는다 (규칙 8)
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Referrer-Policy', 'no-referrer');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
         res.end(mobileReturnHtml(`${MOBILE_DEEP_LINK_BASE}?code=${encodeURIComponent(result.exchangeCode)}`));
         return;
       }
@@ -205,7 +211,8 @@ export class AuthController {
     @Req() req: IncomingMessage,
     @Res({ passthrough: true }) res: ServerResponse,
   ): Promise<{ accessToken: string; refreshToken?: string }> {
-    const cookieToken = parseCookies(req.headers.cookie)[REFRESH_TOKEN_COOKIE];
+    // 빈 문자열 쿠키(만료 잔재·프록시 정규화)는 없는 것으로 본다 — ??를 쓰면 body를 못 보고 401이 된다
+    const cookieToken = parseCookies(req.headers.cookie)[REFRESH_TOKEN_COOKIE] || undefined;
     const rawRefreshToken = cookieToken ?? body.refreshToken;
     const fromCookie = cookieToken !== undefined;
     if (!rawRefreshToken) {
@@ -252,7 +259,8 @@ export class AuthController {
     @Req() req: IncomingMessage,
     @Res({ passthrough: true }) res: ServerResponse,
   ): Promise<{ success: true }> {
-    const rawRefreshToken = parseCookies(req.headers.cookie)[REFRESH_TOKEN_COOKIE] ?? body.refreshToken;
+    const rawRefreshToken =
+      parseCookies(req.headers.cookie)[REFRESH_TOKEN_COOKIE] || body.refreshToken;
     if (rawRefreshToken) {
       await this.authService.logout(rawRefreshToken);
     }

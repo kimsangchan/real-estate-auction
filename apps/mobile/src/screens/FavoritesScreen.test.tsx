@@ -140,7 +140,7 @@ describe('FavoritesScreen', () => {
   it('관심 해제를 누르면 목록에서 사라진다', async () => {
     setAuth('authenticated');
     mockedFetchFavorites.mockResolvedValue([ITEM]);
-    mockedRemoveFavorite.mockResolvedValue(true);
+    mockedRemoveFavorite.mockResolvedValue('ok');
 
     const renderer = await renderScreen();
     const removeButton = renderer.root

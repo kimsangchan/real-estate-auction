@@ -76,7 +76,7 @@ describe('FavoriteButton', () => {
   it('등록되지 않은 물건을 누르면 등록하고 상태가 바뀐다', async () => {
     setAuth('authenticated');
     mockedFetchFavorites.mockResolvedValue([]);
-    mockedAddFavorite.mockResolvedValue(true);
+    mockedAddFavorite.mockResolvedValue('ok');
 
     const renderer = await renderButton();
     expect(labelOf(renderer)).toBe('관심 등록');
@@ -90,7 +90,7 @@ describe('FavoriteButton', () => {
   it('등록된 물건을 누르면 해제한다', async () => {
     setAuth('authenticated');
     mockedFetchFavorites.mockResolvedValue([KEY]);
-    mockedRemoveFavorite.mockResolvedValue(true);
+    mockedRemoveFavorite.mockResolvedValue('ok');
 
     const renderer = await renderButton();
     await press(renderer);
@@ -113,10 +113,35 @@ describe('FavoriteButton', () => {
     expect(mockedFetchFavorites).toHaveBeenCalledTimes(1);
   });
 
+  it('서버 오류(5xx)로 실패하면 로그인 상태를 유지한다 — 로그아웃으로 오인하지 않는다', async () => {
+    setAuth('authenticated');
+    mockedFetchFavorites.mockResolvedValue([]);
+    mockedAddFavorite.mockResolvedValue('failed');
+
+    const renderer = await renderButton();
+    await press(renderer);
+
+    expect(labelOf(renderer)).toBe('관심 등록');
+    await press(renderer);
+    expect(onRequireLogin).not.toHaveBeenCalled();
+  });
+
+  it('401이면 로그인 안내로 되돌린다', async () => {
+    setAuth('authenticated');
+    mockedFetchFavorites.mockResolvedValue([]);
+    mockedAddFavorite.mockResolvedValue('unauthorized');
+
+    const renderer = await renderButton();
+    await press(renderer);
+    await press(renderer);
+
+    expect(onRequireLogin).toHaveBeenCalled();
+  });
+
   it('목록 조회가 실패하면 미등록으로 두고 다시 누를 수 있게 한다', async () => {
     setAuth('authenticated');
     mockedFetchFavorites.mockRejectedValue(new Error('network'));
-    mockedAddFavorite.mockResolvedValue(true);
+    mockedAddFavorite.mockResolvedValue('ok');
 
     const renderer = await renderButton();
     expect(labelOf(renderer)).toBe('관심 등록');

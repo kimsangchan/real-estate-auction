@@ -75,15 +75,19 @@ export function FavoriteButton({
 
     setPending(true);
     try {
-      const changed = favorited
+      const result = favorited
         ? await removeFavorite(item)
         : await addFavorite(item);
-      if (changed) {
+
+      if (result === 'ok') {
         setStatus(favorited ? 'not-favorited' : 'favorited');
-      } else {
-        // 재시도까지 실패하면 세션이 끊긴 것 — 로그인 안내로 되돌린다 (§1-4)
+      } else if (result === 'unauthorized') {
+        // 재시도까지 401이면 세션이 끊긴 것 — 로그인 안내로 되돌린다 (§1-4)
         setStatus('anonymous');
       }
+      // 그 밖의 실패(5xx·네트워크)는 상태를 그대로 둔다 — 로그인은 살아 있으므로 다시 누르면 된다.
+    } catch {
+      // 네트워크 오류로 프라미스가 깨져도 버튼이 잠기지 않게 삼킨다.
     } finally {
       setPending(false);
     }

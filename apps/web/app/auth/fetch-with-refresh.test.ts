@@ -51,5 +51,6 @@ test('경계값: 재시도도 401이면 더 이상 시도하지 않는다 (1회 
   const response = await fetchWithRefresh('/api/favorites');
 
   assert.equal(response.status, 401);
-  assert.equal(calls.length, 3);
+  // 개수만 세면 세 번째가 또 리프레시여도 통과한다 — 호출 경로까지 못박는다.
+  assert.deepEqual(calls, ['/api/favorites', '/api/auth/refresh', '/api/favorites']);
 });

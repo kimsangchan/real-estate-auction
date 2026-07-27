@@ -3,10 +3,12 @@
 const CALLBACK_PREFIX = 'auction://auth/callback';
 
 export function parseAuthCallbackCode(url: string | null): string | null {
-  if (!url || !url.startsWith(CALLBACK_PREFIX)) return null;
+  if (!url) return null;
 
   const queryStart = url.indexOf('?');
   if (queryStart === -1) return null;
+  // 경로가 정확히 일치할 때만 받는다 — .../callbackXYZ 같은 느슨한 접두 일치는 거부한다
+  if (url.slice(0, queryStart) !== CALLBACK_PREFIX) return null;
 
   for (const pair of url.slice(queryStart + 1).split('&')) {
     const separator = pair.indexOf('=');

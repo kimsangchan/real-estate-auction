@@ -1,6 +1,6 @@
 // 관심 물건 탭 — 로그인 상태면 목록을, 비로그인이면 로그인 안내를 보여준다(탭 진입 자체는 막지 않음, T-04).
 // 계정 화면을 따로 만들지 않고 이 화면 상단에 닉네임·로그아웃·회원 탈퇴를 최소 배치한다 (WP-08b §1-6).
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -38,14 +38,19 @@ export function FavoritesScreen({ navigation }: Props) {
     'loading',
   );
 
+  // 늦게 끝난 이전 조회가 그 사이의 해제 결과를 덮어쓰지 않도록 마지막 조회만 반영한다.
+  const loadId = useRef(0);
+
   const load = useCallback(async () => {
+    const mine = ++loadId.current;
     setListStatus('loading');
     try {
       const favorites = await fetchFavorites();
+      if (loadId.current !== mine) return;
       setItems(favorites ?? []);
       setListStatus('ready');
     } catch {
-      setListStatus('error');
+      if (loadId.current === mine) setListStatus('error');
     }
   }, []);
 
@@ -57,8 +62,13 @@ export function FavoritesScreen({ navigation }: Props) {
   );
 
   const onRemove = useCallback(async (item: AuctionItem) => {
-    if (await removeFavorite(item)) {
-      setItems(prev => prev.filter(prev_ => itemKey(prev_) !== itemKey(item)));
+    try {
+      if ((await removeFavorite(item)) !== 'ok') return;
+      // 진행 중인 조회가 이 삭제를 되살리지 못하게 무효화한다.
+      loadId.current += 1;
+      setItems(prev => prev.filter(kept => itemKey(kept) !== itemKey(item)));
+    } catch {
+      // 네트워크 오류는 목록을 그대로 두고 넘어간다 — 다시 누르면 된다.
     }
   }, []);
 
@@ -72,7 +82,16 @@ export function FavoritesScreen({ navigation }: Props) {
           text: '탈퇴',
           style: 'destructive',
           onPress: () => {
-            removeAccount();
+            // 실패를 조용히 삼키면 사용자가 탈퇴됐다고 오인한다 — 결과를 반드시 알린다.
+            removeAccount()
+              .then(removed => {
+                if (!removed) {
+                  Alert.alert('회원 탈퇴', '지금은 탈퇴 처리를 못 했어요.');
+                }
+              })
+              .catch(() => {
+                Alert.alert('회원 탈퇴', '지금은 탈퇴 처리를 못 했어요.');
+              });
           },
         },
       ],
@@ -147,18 +166,25 @@ export function FavoritesScreen({ navigation }: Props) {
         </View>
       )}
       ListEmptyComponent={
-        <View style={styles.center}>
-          <Text style={styles.message}>
-            {listStatus === 'error'
-              ? '관심 목록을 불러오지 못했어요.'
-              : '등록한 관심 물건이 없어요.'}
-          </Text>
-          {listStatus === 'error' ? (
-            <Pressable style={styles.retry} onPress={load}>
-              <Text style={styles.retryText}>다시 시도</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        // 조회 중에 "없어요"를 보여주면 관심 물건이 있는 사용자에게 거짓말이 된다.
+        listStatus === 'loading' ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : (
+          <View style={styles.center}>
+            <Text style={styles.message}>
+              {listStatus === 'error'
+                ? '관심 목록을 불러오지 못했어요.'
+                : '등록한 관심 물건이 없어요.'}
+            </Text>
+            {listStatus === 'error' ? (
+              <Pressable style={styles.retry} onPress={load}>
+                <Text style={styles.retryText}>다시 시도</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        )
       }
     />
   );

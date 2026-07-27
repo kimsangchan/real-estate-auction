@@ -3,10 +3,22 @@
 import type { AuctionItem, ItemKey } from './auctionItems';
 import { authedFetch } from './authSession';
 
+/** 401(세션 없음)과 그 밖의 실패를 구분한다 — 5xx를 로그아웃으로 오인하지 않기 위해 필요하다 */
+export type FavoriteResult = 'ok' | 'unauthorized' | 'failed';
+
 function favoritePath(key: ItemKey): string {
   return `/favorites/${encodeURIComponent(
     key.courtOfficeCode,
   )}/${encodeURIComponent(key.caseNo)}/${encodeURIComponent(key.itemNo)}`;
+}
+
+async function toggleFavorite(
+  key: ItemKey,
+  method: 'PUT' | 'DELETE',
+): Promise<FavoriteResult> {
+  const response = await authedFetch(favoritePath(key), { method });
+  if (response.ok) return 'ok';
+  return response.status === 401 ? 'unauthorized' : 'failed';
 }
 
 /** 비로그인(401)이면 null — 호출부가 로그인 안내로 전환한다 */
@@ -19,12 +31,10 @@ export async function fetchFavorites(): Promise<AuctionItem[] | null> {
   return (await response.json()) as AuctionItem[];
 }
 
-export async function addFavorite(key: ItemKey): Promise<boolean> {
-  const response = await authedFetch(favoritePath(key), { method: 'PUT' });
-  return response.ok;
+export function addFavorite(key: ItemKey): Promise<FavoriteResult> {
+  return toggleFavorite(key, 'PUT');
 }
 
-export async function removeFavorite(key: ItemKey): Promise<boolean> {
-  const response = await authedFetch(favoritePath(key), { method: 'DELETE' });
-  return response.ok;
+export function removeFavorite(key: ItemKey): Promise<FavoriteResult> {
+  return toggleFavorite(key, 'DELETE');
 }
