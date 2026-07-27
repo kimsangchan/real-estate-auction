@@ -6,6 +6,7 @@ const VALID_DB_URL = 'postgresql://app:changeme@localhost:5432/auction';
 const VALID_AUTH_ENV = {
   JWT_ACCESS_SECRET: 'a'.repeat(32),
   JWT_REFRESH_SECRET: 'b'.repeat(32),
+  OAUTH_STATE_SECRET: 'c'.repeat(32),
   KAKAO_OAUTH_CLIENT_ID: 'kakao-client-id',
   KAKAO_OAUTH_CLIENT_SECRET: 'kakao-client-secret',
   NAVER_OAUTH_CLIENT_ID: 'naver-client-id',
@@ -44,6 +45,13 @@ describe('loadEnv', () => {
 
   it('경계값: JWT 시크릿이 32자 미만이면 거부한다', () => {
     expect(() => loadEnv({ ...VALID_ENV, JWT_ACCESS_SECRET: 'a'.repeat(31) })).toThrow('환경 변수 검증 실패');
+  });
+
+  it('OAUTH_STATE_SECRET이 없거나 32자 미만이면 기동을 중단한다 (WP-08b §0-1)', () => {
+    expect(() => loadEnv({ DATABASE_URL: VALID_DB_URL, ...VALID_AUTH_ENV, OAUTH_STATE_SECRET: undefined })).toThrow(
+      '환경 변수 검증 실패',
+    );
+    expect(() => loadEnv({ ...VALID_ENV, OAUTH_STATE_SECRET: 'c'.repeat(31) })).toThrow('환경 변수 검증 실패');
   });
 
   it('카카오·네이버 OAuth 클라이언트 값이 없으면 기동을 중단한다', () => {

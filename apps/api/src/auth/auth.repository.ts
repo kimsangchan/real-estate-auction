@@ -124,4 +124,9 @@ export class AuthRepository {
       familyId,
     ]);
   }
+
+  /** 회원 탈퇴 — refresh_token·favorite는 FK ON DELETE CASCADE로 함께 삭제된다 (마이그레이션 002, WP-08b §1-5) */
+  async deleteUser(id: string): Promise<void> {
+    await this.pool.query(`DELETE FROM app_user WHERE id = $1`, [id]);
+  }
 }

@@ -3,6 +3,7 @@ import { hashToken } from './token/refresh-token.util';
 import type { AuthRepository, RefreshTokenRecord } from './auth.repository';
 import type { OAuthProvider } from './providers/provider.types';
 import { JwtService } from './token/jwt.service';
+import { MobileExchangeError, MobileExchangeService, s256CodeChallenge } from './token/mobile-exchange.service';
 import { OAuthStateService } from './token/oauth-state.service';
 import { RefreshJwtService } from './token/refresh-jwt.service';
 
@@ -17,6 +18,7 @@ function buildDeps(overrides: { repository?: Partial<jest.Mocked<AuthRepository>
     findRefreshTokenByHashForUpdate: jest.fn(),
     revokeToken: jest.fn(),
     revokeFamily: jest.fn(),
+    deleteUser: jest.fn(),
     withTransaction: jest.fn(async (fn: (client: unknown) => unknown) => fn({})),
     ...overrides.repository,
   } as unknown as jest.Mocked<AuthRepository>;
@@ -36,17 +38,19 @@ function buildDeps(overrides: { repository?: Partial<jest.Mocked<AuthRepository>
   const jwtService = new JwtService(SECRET, now);
   const stateService = new OAuthStateService(SECRET, now);
   const refreshJwtService = new RefreshJwtService(REFRESH_SECRET);
+  const mobileExchangeService = new MobileExchangeService(SECRET, now);
   const service = new AuthService(
     repository,
     { kakao: kakaoProvider, naver: naverProvider },
     jwtService,
     stateService,
     refreshJwtService,
+    mobileExchangeService,
     { webOrigin: 'https://web.example' },
     now,
   );
 
-  return { service, repository, kakaoProvider, naverProvider, stateService, jwtService, refreshJwtService };
+  return { service, repository, kakaoProvider, naverProvider, stateService, jwtService, refreshJwtService, mobileExchangeService };
 }
 
 describe('AuthService.startLogin', () => {
@@ -91,10 +95,39 @@ describe('AuthService.handleCallback', () => {
       stateCookieValue: login.stateCookieValue,
     });
 
+    if (session.kind !== 'web') {
+      throw new Error('웹 로그인은 web 결과여야 해요');
+    }
     expect(session.user).toEqual({ id: 'user-1', nickname: '홍길동', provider: 'kakao' });
     expect(session.returnTo).toBe('/items/1');
     expect(typeof session.accessToken).toBe('string');
     expect(typeof session.refreshToken).toBe('string');
+  });
+
+  it('모바일 시작이면 세션 대신 일회성 교환 코드를 반환한다 (WP-08b §1-1)', async () => {
+    const { service, repository } = buildDeps();
+    repository.upsertUser.mockResolvedValue({
+      id: 'user-1',
+      provider: 'kakao',
+      providerUserId: 'kakao-1',
+      nickname: '홍길동',
+      createdAt: new Date(),
+    });
+
+    const codeVerifier = 'v'.repeat(43);
+    const login = await service.startLogin('kakao', '/', { codeChallenge: s256CodeChallenge(codeVerifier) });
+    const result = await service.handleCallback({
+      provider: 'kakao',
+      code: 'auth-code',
+      state: new URL(login.url).searchParams.get('state') ?? '',
+      stateCookieValue: login.stateCookieValue,
+    });
+
+    expect(result.kind).toBe('mobile');
+    if (result.kind !== 'mobile') throw new Error('unreachable');
+    expect(typeof result.exchangeCode).toBe('string');
+    // 콜백 시점에는 세션(리프레시 토큰)이 아직 발급되지 않아야 한다 — 교환 시점 발급
+    expect(repository.insertRefreshToken).not.toHaveBeenCalled();
   });
 
   it('state 쿠키가 없으면 거부한다', async () => {
@@ -127,6 +160,80 @@ describe('AuthService.handleCallback', () => {
     await expect(
       service.handleCallback({ provider: 'naver', code: 'c', state, stateCookieValue: login.stateCookieValue }),
     ).rejects.toThrow(OAuthCallbackError);
+  });
+});
+
+describe('AuthService.exchangeMobileCode', () => {
+  async function issueMobileCode(deps: ReturnType<typeof buildDeps>, codeVerifier: string): Promise<string> {
+    deps.repository.upsertUser.mockResolvedValue({
+      id: 'user-1',
+      provider: 'kakao',
+      providerUserId: 'kakao-1',
+      nickname: '홍길동',
+      createdAt: new Date(),
+    });
+    const login = await deps.service.startLogin('kakao', '/', { codeChallenge: s256CodeChallenge(codeVerifier) });
+    const result = await deps.service.handleCallback({
+      provider: 'kakao',
+      code: 'auth-code',
+      state: new URL(login.url).searchParams.get('state') ?? '',
+      stateCookieValue: login.stateCookieValue,
+    });
+    if (result.kind !== 'mobile') throw new Error('모바일 결과여야 해요');
+    return result.exchangeCode;
+  }
+
+  it('올바른 verifier면 토큰 쌍을 발급한다', async () => {
+    const deps = buildDeps();
+    const codeVerifier = 'v'.repeat(43);
+    const exchangeCode = await issueMobileCode(deps, codeVerifier);
+
+    const session = await deps.service.exchangeMobileCode(exchangeCode, codeVerifier);
+
+    expect(typeof session.accessToken).toBe('string');
+    expect(typeof session.refreshToken).toBe('string');
+    expect(deps.repository.insertRefreshToken).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }));
+  });
+
+  it('같은 코드를 두 번 쓰면 거부한다 (1회용)', async () => {
+    const deps = buildDeps();
+    const codeVerifier = 'v'.repeat(43);
+    const exchangeCode = await issueMobileCode(deps, codeVerifier);
+
+    await deps.service.exchangeMobileCode(exchangeCode, codeVerifier);
+    await expect(deps.service.exchangeMobileCode(exchangeCode, codeVerifier)).rejects.toThrow(MobileExchangeError);
+  });
+
+  it('verifier가 틀리면 거부하고 코드를 소모한다 (브루트포스 차단)', async () => {
+    const deps = buildDeps();
+    const codeVerifier = 'v'.repeat(43);
+    const exchangeCode = await issueMobileCode(deps, codeVerifier);
+
+    await expect(deps.service.exchangeMobileCode(exchangeCode, 'w'.repeat(43))).rejects.toThrow(MobileExchangeError);
+    // 틀린 verifier 시도로 코드가 소모돼 올바른 verifier로도 더는 못 쓴다
+    await expect(deps.service.exchangeMobileCode(exchangeCode, codeVerifier)).rejects.toThrow(MobileExchangeError);
+    expect(deps.repository.insertRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it('TTL(60초)이 지난 코드는 거부한다', async () => {
+    let currentMs = 0;
+    const deps = buildDeps({ now: () => currentMs });
+    const codeVerifier = 'v'.repeat(43);
+    const exchangeCode = await issueMobileCode(deps, codeVerifier);
+
+    currentMs = 61 * 1000;
+    await expect(deps.service.exchangeMobileCode(exchangeCode, codeVerifier)).rejects.toThrow(MobileExchangeError);
+  });
+});
+
+describe('AuthService.deleteAccount', () => {
+  it('app_user 삭제를 위임한다 (연관 행은 FK CASCADE)', async () => {
+    const deleteUser = jest.fn();
+    const { service } = buildDeps({ repository: { deleteUser } as Partial<jest.Mocked<AuthRepository>> });
+
+    await service.deleteAccount('user-1');
+
+    expect(deleteUser).toHaveBeenCalledWith('user-1');
   });
 });
 

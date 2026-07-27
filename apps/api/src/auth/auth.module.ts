@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { KakaoProvider } from './providers/kakao.provider';
 import { NaverProvider } from './providers/naver.provider';
 import { JwtService } from './token/jwt.service';
+import { MobileExchangeService } from './token/mobile-exchange.service';
 import { OAuthStateService } from './token/oauth-state.service';
 import { RefreshJwtService } from './token/refresh-jwt.service';
 
@@ -30,8 +31,9 @@ import { RefreshJwtService } from './token/refresh-jwt.service';
             naver: new NaverProvider({ clientId: env.NAVER_OAUTH_CLIENT_ID, clientSecret: env.NAVER_OAUTH_CLIENT_SECRET }),
           },
           new JwtService(env.JWT_ACCESS_SECRET),
-          new OAuthStateService(env.JWT_ACCESS_SECRET),
+          new OAuthStateService(env.OAUTH_STATE_SECRET),
           new RefreshJwtService(env.JWT_REFRESH_SECRET),
+          new MobileExchangeService(env.OAUTH_STATE_SECRET),
           { webOrigin: env.AUTH_WEB_ORIGIN },
         );
       },

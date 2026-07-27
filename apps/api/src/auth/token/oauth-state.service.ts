@@ -13,6 +13,10 @@ export interface OAuthStateClaims {
   state: string;
   nonce?: string;
   returnTo: string;
+  /** 로그인을 시작한 클라이언트 — 생략 시 웹(쿠키 세션), 'mobile'이면 콜백에서 교환 코드 발급 (WP-08b §1-1) */
+  client?: 'mobile';
+  /** PKCE S256 챌린지 — 모바일 클라이언트만 사용 (RFC 7636) */
+  codeChallenge?: string;
 }
 
 export class OAuthStateService {
@@ -62,6 +66,8 @@ export class OAuthStateService {
       state: payload.state,
       nonce: typeof payload.nonce === 'string' ? payload.nonce : undefined,
       returnTo: payload.returnTo,
+      client: payload.client === 'mobile' ? 'mobile' : undefined,
+      codeChallenge: typeof payload.codeChallenge === 'string' ? payload.codeChallenge : undefined,
     };
   }
 }

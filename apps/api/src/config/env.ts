@@ -10,6 +10,8 @@ const envSchema = z.object({
   // --- 인증 (WP-08 — 카카오·네이버 소셜 로그인, D-015) ---
   JWT_ACCESS_SECRET: z.string().min(32, 'HS256 서명 키는 최소 32자 이상이어야 합니다'),
   JWT_REFRESH_SECRET: z.string().min(32, 'HS256 서명 키는 최소 32자 이상이어야 합니다'),
+  // OAuth state·모바일 교환 코드 서명 전용 (WP-08b §0-1 — JWT 시크릿과 분리, RFC 8725 §3.5)
+  OAUTH_STATE_SECRET: z.string().min(32, 'HS256 서명 키는 최소 32자 이상이어야 합니다'),
   KAKAO_OAUTH_CLIENT_ID: z.string().min(1),
   KAKAO_OAUTH_CLIENT_SECRET: z.string().min(1),
   NAVER_OAUTH_CLIENT_ID: z.string().min(1),

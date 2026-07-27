@@ -5,6 +5,7 @@ import { AuthRepository } from './auth.repository';
 import type { OAuthProvider, Provider } from './providers/provider.types';
 import { generateFamilyId, generateOpaqueToken, hashToken } from './token/refresh-token.util';
 import { JwtService } from './token/jwt.service';
+import { MobileExchangeService } from './token/mobile-exchange.service';
 import { OAuthStateService } from './token/oauth-state.service';
 import { RefreshJwtService, RefreshTokenInvalidError } from './token/refresh-jwt.service';
 
@@ -29,6 +30,13 @@ export interface IssuedSession {
   returnTo: string;
 }
 
+/** 콜백 결과 — 웹은 쿠키 세션, 모바일은 딥링크로 전달할 일회성 교환 코드 (WP-08b §1-1) */
+export type CallbackResult = ({ kind: 'web' } & IssuedSession) | { kind: 'mobile'; exchangeCode: string };
+
+export interface MobileLoginStart {
+  codeChallenge: string;
+}
+
 export interface RefreshResult {
   accessToken: string;
   refreshToken: string;
@@ -43,6 +51,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly stateService: OAuthStateService,
     private readonly refreshJwtService: RefreshJwtService,
+    private readonly mobileExchangeService: MobileExchangeService,
     private readonly config: AuthServiceConfig,
     private readonly now: () => number = Date.now,
   ) {}
@@ -55,13 +64,20 @@ export class AuthService {
     return `${this.config.webOrigin}/api/auth/${provider}/callback`;
   }
 
-  async startLogin(provider: Provider, returnTo: string): Promise<LoginRedirect> {
+  async startLogin(provider: Provider, returnTo: string, mobile?: MobileLoginStart): Promise<LoginRedirect> {
     const providerAdapter = this.providers[provider];
     const state = generateOpaqueToken();
     const nonce = provider === 'kakao' ? generateOpaqueToken() : undefined;
 
     const url = providerAdapter.buildAuthorizeUrl({ redirectUri: this.buildRedirectUri(provider), state, nonce });
-    const stateCookieValue = await this.stateService.sign({ provider, state, nonce, returnTo });
+    const stateCookieValue = await this.stateService.sign({
+      provider,
+      state,
+      nonce,
+      returnTo,
+      client: mobile ? 'mobile' : undefined,
+      codeChallenge: mobile?.codeChallenge,
+    });
 
     return { url, stateCookieValue };
   }
@@ -71,7 +87,7 @@ export class AuthService {
     code: string;
     state: string;
     stateCookieValue: string | undefined;
-  }): Promise<IssuedSession> {
+  }): Promise<CallbackResult> {
     if (!params.stateCookieValue) {
       throw new OAuthCallbackError('state 쿠키가 없어요');
     }
@@ -95,13 +111,35 @@ export class AuthService {
     });
 
     const user = await this.repository.upsertUser(params.provider, profile.providerUserId, profile.nickname);
+
+    // 모바일은 세션을 아직 만들지 않는다 — 교환 코드가 소모될 때 발급해 미수령 세션 잔류를 막는다 (WP-08b §1-1)
+    if (claims.client === 'mobile') {
+      if (!claims.codeChallenge) {
+        throw new OAuthCallbackError('모바일 로그인에 코드 챌린지가 없어요');
+      }
+      const exchangeCode = await this.mobileExchangeService.issue(user.id, claims.codeChallenge);
+      return { kind: 'mobile', exchangeCode };
+    }
+
     const session = await this.issueSession(user.id);
 
     return {
+      kind: 'web',
       ...session,
       user: { id: user.id, nickname: user.nickname, provider: user.provider },
       returnTo: claims.returnTo,
     };
+  }
+
+  /** 딥링크로 받은 일회성 교환 코드 + PKCE verifier → 토큰 쌍. 실패 사유는 호출부에서 401로 통일한다 (규칙 8) */
+  async exchangeMobileCode(code: string, codeVerifier: string): Promise<{ accessToken: string; refreshToken: string }> {
+    const { userId } = await this.mobileExchangeService.consume(code, codeVerifier);
+    return this.issueSession(userId);
+  }
+
+  /** 회원 탈퇴 — app_user 삭제 시 refresh_token·favorite는 FK CASCADE로 함께 삭제된다 (마이그레이션 002) */
+  async deleteAccount(userId: string): Promise<void> {
+    await this.repository.deleteUser(userId);
   }
 
   /** 리프레시 토큰 회전 — 재사용(이미 폐기된 토큰 재제출)이 감지되면 해당 계열 전체를 폐기한다 (WP-08 §1-3) */
