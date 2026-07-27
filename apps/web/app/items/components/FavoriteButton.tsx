@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { fetchWithRefresh } from '../../auth/fetch-with-refresh';
 import { isFavorited, type FavoriteKey } from '../favorite-match';
 import styles from './FavoriteButton.module.css';
 
@@ -59,7 +60,8 @@ export function FavoriteButton({
 
     setPending(true);
     try {
-      const response = await fetch(path, { method: status === 'favorited' ? 'DELETE' : 'PUT' });
+      // 탭을 오래 열어둔 사이 액세스 토큰이 만료됐을 수 있다 — 401이면 1회 갱신 후 재시도한다 (WP-08b §1-7)
+      const response = await fetchWithRefresh(path, { method: status === 'favorited' ? 'DELETE' : 'PUT' });
       if (response.status === 401) {
         setStatus('anonymous');
         return;
