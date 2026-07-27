@@ -1,6 +1,7 @@
 # WP-08b. 모바일 로그인·관심 탭 + 웹 세션 자동 연장 (로드맵 2-6 2/3)
 
-- 상태: **진행 중 (2026-07-27)** — 서버 파트(§1-5) 구현·§2-a 통과. 모바일(§1-1~4,6)·웹 자동연장(§1-7) 남음
+- 상태: **진행 중 (2026-07-27)** — 구현 전부 완료(서버·웹·모바일), §2-a~c 통과. 남은 것은 실행 검증뿐:
+  §2-d~g E2E(에뮬레이터·실계정 필요)와 §2-h 적대적 리뷰
 - 시작 전 필독: `AGENTS.md`, 이 문서 전체, `WP-08-auth-favorites.md`(§1 설계·§3 함정·후속/보류 항목), `06-tech-blueprint.md` §5(보안)
 
 ## 목적
@@ -74,9 +75,10 @@
 - [x] a. API 테스트: 교환 코드 발급·소모(재사용 거부·TTL 만료·verifier 불일치 401), refresh/logout
       body 수용·회전, `DELETE /auth/me` 캐스케이드(favorite·refresh_token 잔존 0), state 신규 시크릿
       서명·구 시크릿 거부 — `pnpm --filter @auction/api test` 전체 통과
-- [ ] b. 모바일 테스트: 로그인 상태 전환, 관심 탭 목록/빈 상태/해제, 401→리프레시 재시도 1회 한정,
-      딥링크 파싱 — `pnpm --filter @auction/mobile test` 통과
-- [ ] c. `pnpm -r lint && pnpm -r test && pnpm -r build` 통과
+- [x] b. 모바일 테스트: 로그인 상태 전환, 관심 탭 목록/빈 상태/해제, 401→리프레시 재시도 1회 한정,
+      딥링크 파싱 — `pnpm --filter @auction/mobile test` 통과 (40건)
+- [x] c. `pnpm -r lint && pnpm -r test && pnpm -r build` 통과 (+ Gradle assembleDebug 통과 —
+      네이티브 의존성 2종 autolink 확인)
 - [ ] d. 모바일 E2E (AVD, §3-1 adb reverse 선행): 관심 탭 → 로그인 → 브라우저 카카오 실계정 →
       딥링크 복귀 → 물건 상세 관심 등록 → 관심 탭 표시 → 해제 → **앱 강제종료 후 재실행 시 세션
       유지**(Keystore 리프레시 동작) 확인. 네이버는 배선만(웹 WP-08과 동일 기준)
