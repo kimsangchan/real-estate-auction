@@ -30,13 +30,23 @@ describe('NotificationsController', () => {
     expect(service.registerDevice).not.toHaveBeenCalled();
   });
 
-  it('로그아웃 시 기기 토큰을 지운다', async () => {
+  it('로그아웃 시 본인 토큰만 지운다 — 토큰 값만으로 남의 기기를 해제할 수 없어야 한다', async () => {
     const service = { unregisterDevice: jest.fn() } as unknown as NotificationsService;
     const controller = new NotificationsController(service);
 
-    const result = await controller.unregister({ token: 'fcm-token' });
+    const result = await controller.unregister(authedReq('user-1'), { token: 'fcm-token' });
 
-    expect(service.unregisterDevice).toHaveBeenCalledWith('fcm-token');
+    expect(service.unregisterDevice).toHaveBeenCalledWith('user-1', 'fcm-token');
     expect(result).toEqual({ success: true });
+  });
+
+  it('해제도 req.user가 없으면 UnauthorizedException을 던진다', async () => {
+    const service = { unregisterDevice: jest.fn() } as unknown as NotificationsService;
+    const controller = new NotificationsController(service);
+
+    await expect(controller.unregister(authedReq(), { token: 'fcm-token' })).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(service.unregisterDevice).not.toHaveBeenCalled();
   });
 });

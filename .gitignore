@@ -5,6 +5,9 @@
 # FCM (WP-09 §0) — Firebase 앱 설정과 서비스 계정 키
 google-services.json
 firebase-service-account*.json
+# 콘솔이 내려주는 실제 파일명은 <project>-firebase-adminsdk-<id>-<hash>.json 형태다
+*firebase-adminsdk*.json
+*-adminsdk-*.json
 
 # 의존성/빌드
 node_modules/

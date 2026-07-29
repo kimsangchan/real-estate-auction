@@ -27,12 +27,18 @@ async function main(): Promise<void> {
     const summary = await dispatcher.run();
     // 처리 건수를 남긴다 — 실패 원인 추적에 필요 (AGENTS.md 규칙 7). 토큰·문구는 남기지 않는다 (규칙 8).
     console.log(`notify_run ${JSON.stringify(summary)}`);
+
+    // 실패를 0으로 끝내면 cron·모니터링에 성공으로 보인다 — 발송 실패는 종료 코드로 드러낸다.
+    if (summary.failed > 0 || summary.abortedUnavailable) {
+      process.exitCode = 1;
+    }
   } finally {
     await pool.end();
   }
 }
 
 main().catch((error: unknown) => {
-  console.error('notify_failed', error instanceof Error ? error.message : error);
+  // 서비스 계정 경로 같은 내부 경로가 로그로 새지 않게 메시지를 그대로 찍지 않는다 (규칙 8).
+  console.error('notify_failed', error instanceof Error ? error.name : 'UnknownError');
   process.exit(1);
 });

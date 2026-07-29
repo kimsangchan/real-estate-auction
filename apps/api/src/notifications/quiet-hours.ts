@@ -28,6 +28,11 @@ export function isQuietHour(now: Date): boolean {
   return nextSendableAt(now).getTime() !== now.getTime();
 }
 
+/** KST 달력 날짜 문자열(YYYY-MM-DD) — dedupe 키에 UTC 날짜를 쓰면 D-n 판정과 어긋난다 */
+export function kstDateString(instant: Date): string {
+  return new Date(instant.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
 /** KST 달력 기준으로 남은 날수 — 같은 날이면 0, 내일이면 1 */
 export function kstDaysUntil(target: Date, now: Date): number {
   const toKstDay = (instant: Date): number =>

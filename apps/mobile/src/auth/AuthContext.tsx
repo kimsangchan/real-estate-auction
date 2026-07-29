@@ -38,6 +38,18 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// 로그아웃 경로가 네트워크에 매달리지 않게 하는 상한 (WP-09 적대적 리뷰 반영)
+const LOGOUT_SIDE_EFFECT_BUDGET_MS = 3000;
+
+function withBudget(work: Promise<void>): Promise<void> {
+  let timer: ReturnType<typeof setTimeout>;
+  const budget = new Promise<void>(resolve => {
+    timer = setTimeout(resolve, LOGOUT_SIDE_EFFECT_BUDGET_MS);
+  });
+
+  return Promise.race([work.catch(() => undefined), budget]).finally(() => clearTimeout(timer));
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -117,17 +129,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    // 세션이 살아 있을 때 지워야 서버가 토큰을 지운다 — 순서를 바꾸면 죽은 토큰이 남는다.
-    await clearPushRegistration();
+    // 세션이 살아 있을 때 지워야 서버가 토큰을 지운다. 다만 네트워크가 막혀도 로그아웃 자체가
+    // 멈추면 안 되므로 짧은 예산만 준다 — 못 지우면 서버 토큰은 다음 발송의 404로 정리된다.
+    await withBudget(clearPushRegistration());
     await logout();
     goAnonymous();
   }, [goAnonymous]);
 
   const removeAccount = useCallback(async () => {
-    await clearPushRegistration();
     const removed = await deleteAccount();
-    if (removed) goAnonymous();
-    return removed;
+    if (!removed) return false;
+
+    // 탈퇴가 확정된 뒤에만 정리한다 — 실패했는데 푸시만 끊기면 안 된다.
+    // (서버 쪽 device_token은 app_user FK CASCADE로 이미 지워진다)
+    await withBudget(clearPushRegistration());
+    goAnonymous();
+    return true;
   }, [goAnonymous]);
 
   const value = useMemo(

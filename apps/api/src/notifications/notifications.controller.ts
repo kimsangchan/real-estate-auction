@@ -34,10 +34,19 @@ export class NotificationsController {
     return { success: true };
   }
 
+  // 토큰 값만으로는 소유를 증명하지 못한다 — 반드시 로그인한 본인 토큰만 지운다
   @Delete('device')
   @HttpCode(200)
-  async unregister(@Body() body: UnregisterDeviceDto): Promise<{ success: true }> {
-    await this.service.unregisterDevice(body.token);
+  async unregister(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: UnregisterDeviceDto,
+  ): Promise<{ success: true }> {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedException();
+    }
+
+    await this.service.unregisterDevice(userId, body.token);
     return { success: true };
   }
 }
