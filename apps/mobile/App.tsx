@@ -1,6 +1,9 @@
 // 앱 진입점 — 하단 탭(지도/목록)을 루트 스택(탭 → 물건 상세)으로 감싼다.
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  createNavigationContainerRef,
+  NavigationContainer,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,7 +17,11 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { MapHomeScreen } from './src/screens/MapHomeScreen';
 import { RightsAnalysisScreen } from './src/screens/RightsAnalysisScreen';
 import { RisksScreen } from './src/screens/RisksScreen';
+import { usePushNavigation } from './src/notifications/usePushNavigation';
 import { colors } from './src/theme';
+
+// 알림 탭은 화면 밖(네이티브)에서 오므로 컨테이너 ref로 이동시킨다 (WP-09 §1-9)
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -76,11 +83,13 @@ function Tabs() {
 }
 
 function App() {
+  usePushNavigation(navigationRef);
+
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" />
       <AuthProvider>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <RootStack.Navigator
             screenOptions={{
               headerStyle: { backgroundColor: colors.canvas },

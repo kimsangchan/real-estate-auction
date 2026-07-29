@@ -21,6 +21,10 @@ import {
   type CurrentUser,
 } from '../api/authSession';
 import { parseAuthCallbackCode } from '../api/deepLink';
+import {
+  clearPushRegistration,
+  syncPushRegistration,
+} from '../notifications/push';
 
 type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 
@@ -49,6 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setUser(current);
     setStatus(current ? 'authenticated' : 'anonymous');
+
+    // 로그인 상태가 되면 푸시 토큰을 올린다 — 등록을 기다리지 않고, 실패해도 로그인 흐름은
+    // 그대로 간다 (syncPushRegistration이 내부에서 삼킨다, WP-09 §1-9).
+    if (current) {
+      syncPushRegistration().catch(() => {});
+    }
   }, []);
 
   const goAnonymous = useCallback(() => {
@@ -107,11 +117,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    // 세션이 살아 있을 때 지워야 서버가 토큰을 지운다 — 순서를 바꾸면 죽은 토큰이 남는다.
+    await clearPushRegistration();
     await logout();
     goAnonymous();
   }, [goAnonymous]);
 
   const removeAccount = useCallback(async () => {
+    await clearPushRegistration();
     const removed = await deleteAccount();
     if (removed) goAnonymous();
     return removed;

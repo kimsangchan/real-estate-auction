@@ -2,4 +2,7 @@ packages:
   - apps/*
   - packages/*
 allowBuilds:
+  # JS Firebase SDK 쪽 postinstall — RN은 네이티브 SDK(@react-native-firebase)를 쓰므로 필요 없다 (WP-09)
+  '@firebase/util': false
+  protobufjs: false
   sharp: true

@@ -10,6 +10,11 @@ import {
 } from '../api/authSession';
 import { AuthProvider, useAuth } from './AuthContext';
 
+// 푸시 등록은 네이티브 모듈을 타므로 여기서는 흐름만 확인한다 (전용 테스트는 notifications/push.test.ts)
+jest.mock('../notifications/push', () => ({
+  syncPushRegistration: jest.fn().mockResolvedValue(undefined),
+  clearPushRegistration: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('../api/authSession', () => ({
   completeLogin: jest.fn(),
   deleteAccount: jest.fn(),
