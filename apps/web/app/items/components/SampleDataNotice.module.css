@@ -1,0 +1,8 @@
+.notice {
+  background-color: var(--color-surface-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-sm) var(--spacing-base);
+  margin-bottom: var(--spacing-base);
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-steel);
+}

@@ -5,6 +5,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Badge, type BadgeTone } from '../../components/Badge';
+import { SampleDataNotice } from '../../components/SampleDataNotice';
 import { formatWon } from '../../format';
 import {
   sampleBaselineDate,
@@ -100,6 +101,7 @@ export default async function RightsAnalysisPage({ params }: { params: Promise<{
 
   return (
     <main className={styles.page}>
+      <SampleDataNotice source="등기부" />
       <h1 className={styles.title}>권리분석 결과</h1>
 
       <section className={styles.summaryCard}>

@@ -3,6 +3,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Badge } from '../../components/Badge';
+import { SampleDataNotice } from '../../components/SampleDataNotice';
 import { sampleDetectedRisks } from '../../sample-data';
 import { NOINDEX } from '../../../seo';
 import styles from './page.module.css';
@@ -15,6 +16,7 @@ export default async function RisksPage({ params }: { params: Promise<{ id: stri
 
   return (
     <main className={styles.page}>
+      <SampleDataNotice source="법원 서류" />
       <h1 className={styles.title}>확인이 필요해요</h1>
       <p className={styles.subtitle}>법원 서류에서 감지된 내용이에요. 판단은 직접 하시고, 아래 행동으로 확인해보세요.</p>
 

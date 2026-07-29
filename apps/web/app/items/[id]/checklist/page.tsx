@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { Badge } from '../../components/Badge';
+import { SampleDataNotice } from '../../components/SampleDataNotice';
 import { sampleChecklistItems, sampleItem } from '../../sample-data';
 import styles from './page.module.css';
 
@@ -45,6 +46,7 @@ export default function ChecklistPage() {
 
   return (
     <main className={styles.page}>
+      <SampleDataNotice source="물건" />
       <h1 className={styles.title}>임장 체크리스트</h1>
       <p className={styles.subtitle}>온라인으로 확인할 수 없는 항목이에요. 현장에서 하나씩 확인해보세요.</p>
 
