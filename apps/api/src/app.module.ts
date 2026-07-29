@@ -4,9 +4,10 @@ import { AuctionItemsModule } from './auction-items/auction-items.module';
 import { AuthModule } from './auth/auth.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { HealthController } from './health/health.controller';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
-  imports: [AuctionItemsModule, AuthModule, FavoritesModule],
+  imports: [AuctionItemsModule, AuthModule, FavoritesModule, NotificationsModule],
   controllers: [HealthController],
 })
 export class AppModule {}

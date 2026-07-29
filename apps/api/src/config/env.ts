@@ -17,6 +17,9 @@ const envSchema = z.object({
   NAVER_OAUTH_CLIENT_ID: z.string().min(1),
   NAVER_OAUTH_CLIENT_SECRET: z.string().min(1),
   AUTH_WEB_ORIGIN: z.string().url({ message: 'URL 형식이어야 합니다' }).default('http://localhost:3000'),
+  // --- 푸시 알림 (WP-09 §0-2) ---
+  // API 서버는 발송하지 않으므로 선택값이다. 발송 CLI(notify)가 없으면 명시적으로 중단한다.
+  FCM_SERVICE_ACCOUNT_PATH: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
