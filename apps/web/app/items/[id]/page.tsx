@@ -7,6 +7,15 @@ import { fetchAuctionItem } from '../api-client';
 import { FavoriteButton } from '../components/FavoriteButton';
 import { computeMinimumBidRate, formatBidDatetime, formatWon } from '../format';
 import { decodeItemId, encodeItemId } from '../item-id';
+import {
+  buildBreadcrumbJsonLd,
+  buildItemDescription,
+  buildItemTitle,
+  buildOpenGraph,
+  NOINDEX,
+  serializeJsonLd,
+  SITE_URL,
+} from '../../seo';
 import styles from './page.module.css';
 
 export async function generateMetadata({
@@ -17,17 +26,20 @@ export async function generateMetadata({
   const { id } = await params;
   const key = decodeItemId(id);
   const item = key ? await fetchAuctionItem(key) : null;
-  if (!item) {
-    return { title: '물건을 찾을 수 없어요 - 부동산 경매 플랫폼' };
+  if (!key || !item) {
+    // 없는 물건은 색인시키지 않는다 (수집분이 빠지면 404가 색인에 남는다)
+    return { title: '물건을 찾을 수 없어요 - 부동산 경매 플랫폼', robots: NOINDEX };
   }
 
-  const priceLabel = item.minimumSalePrice !== null ? `${formatWon(item.minimumSalePrice)} 경매` : '경매 물건';
-  const title = `${item.address ?? item.caseNo} - ${priceLabel} | 부동산 경매 플랫폼`;
-  const description = `${item.courtName ?? ''} ${item.caseNo} · ${item.usageName ?? '물건'} · 감정가 ${
-    item.appraisalAmount !== null ? formatWon(item.appraisalAmount) : '정보 없음'
-  }, 최저가 ${item.minimumSalePrice !== null ? formatWon(item.minimumSalePrice) : '정보 없음'}`;
-
-  return { title, description };
+  const canonical = `/items/${encodeItemId(key)}`;
+  const title = buildItemTitle(item);
+  const description = buildItemDescription(item);
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: buildOpenGraph(canonical, title, description),
+  };
 }
 
 export default async function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,9 +53,23 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
   const minimumBidRate = computeMinimumBidRate(item.appraisalAmount, item.minimumSalePrice);
   const bidDatetimeLabel = formatBidDatetime(item.bidDatetime);
 
+  // 아래 화면 빵부스러기와 문구·순서가 정확히 같아야 한다 — 화면에 없는 정보를 구조화 데이터에만
+  // 넣지 않는다 (WP-10 §1-5). 마지막 항목(현재 페이지)은 자기 URL을 생략한다
+  const usageLabel = item.usageName ?? '물건';
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd(SITE_URL, [
+    { name: '경매 물건 목록', path: '/items' },
+    { name: usageLabel },
+  ]);
+
   return (
     <main className={styles.page}>
-      <p className={styles.breadcrumb}>물건상세검색 &gt; {item.usageName ?? '물건'}</p>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd) }}
+      />
+      <p className={styles.breadcrumb}>
+        <Link href="/items">경매 물건 목록</Link> &gt; {usageLabel}
+      </p>
 
       <section className={styles.priceHeader}>
         <p className={styles.courtLine}>

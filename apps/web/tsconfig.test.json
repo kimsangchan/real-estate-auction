@@ -8,6 +8,8 @@
     "rootDir": "."
   },
   "include": [
+    "app/seo.ts",
+    "app/seo.test.ts",
     "app/items/format.ts",
     "app/items/format.test.ts",
     "app/items/item-id.ts",

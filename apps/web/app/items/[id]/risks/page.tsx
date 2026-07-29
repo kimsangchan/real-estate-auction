@@ -1,9 +1,14 @@
 // 위험 플래그 상세 화면 — 감지된 위험 키워드의 법원 서류 원문 + 다음 행동을 함께 제시한다.
 // 판단·권유 문구 없이 원문 발췌와 사실 서술만 담는다 (D-011, F-04, UX-06 막다른 경고 금지).
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Badge } from '../../components/Badge';
 import { sampleDetectedRisks } from '../../sample-data';
+import { NOINDEX } from '../../../seo';
 import styles from './page.module.css';
+
+// sample-data 기반이라 물건 ID와 무관하게 본문이 같다 — 실데이터 연동 시 해제 (WP-10 §1-3)
+export const metadata: Metadata = { robots: NOINDEX };
 
 export default async function RisksPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

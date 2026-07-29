@@ -1,10 +1,22 @@
 // 물건 목록 화면 — WP-02 실제 수집 데이터를 최신순으로 훑어보고 상세로 진입한다 (다방식 목록 우선 뷰,
 // 필터·지도는 RN 지도 홈(2-2)의 영역이라 이 화면은 목록만 다룬다). 지역으로 좁혀보려면 /items/browse.
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { fetchAuctionItems } from './api-client';
 import { ItemCard } from './components/ItemCard';
 import { Pagination } from './components/Pagination';
+import { buildOpenGraph, SITE_NAME } from '../seo';
 import styles from './page.module.css';
+
+const TITLE = `경매 물건 목록 | ${SITE_NAME}`;
+const DESCRIPTION = '법원 경매 물건을 최신순으로 훑어보고 감정가·최저매각가격·매각기일을 확인해요';
+
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: '/items' },
+  openGraph: buildOpenGraph('/items', TITLE, DESCRIPTION),
+};
 
 const PAGE_SIZE = 20;
 

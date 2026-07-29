@@ -7,11 +7,16 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { LogoutButton } from './components/LogoutButton';
+import { SITE_NAME, SITE_URL } from './seo';
 import styles from './layout.module.css';
 
 export const metadata: Metadata = {
-  title: '부동산 경매 플랫폼',
+  // 하위 페이지가 canonical·openGraph에 상대 경로만 적어도 절대 URL로 조립되게 한다 (WP-10 §1-2)
+  metadataBase: new URL(SITE_URL),
+  title: SITE_NAME,
   description: '경매 물건을 쉽게 찾고 권리분석까지 확인해요',
+  // openGraph는 여기 두지 않는다 — Next가 깊은 병합을 하지 않아 하위 페이지가 통째로 덮어쓴다.
+  // 페이지마다 buildOpenGraph()로 전체를 만든다 (WP-10 §1-6)
 };
 
 const API_BASE_URL = process.env.API_BASE_URL ?? 'http://localhost:4000';

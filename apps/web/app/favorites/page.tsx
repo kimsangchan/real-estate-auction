@@ -5,11 +5,13 @@ import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import type { AuctionItem } from '../items/api-client';
 import { ItemCard } from '../items/components/ItemCard';
+import { NOINDEX } from '../seo';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
   title: '관심 물건 - 부동산 경매 플랫폼',
   description: '내가 등록한 관심 물건 목록이에요',
+  robots: NOINDEX, // 로그인 벽 뒤 개인화 페이지 (WP-10 §1-3)
 };
 
 const API_BASE_URL = process.env.API_BASE_URL ?? 'http://localhost:4000';

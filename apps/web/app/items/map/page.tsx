@@ -2,10 +2,12 @@
 // (naver 지도 SDK가 window 전역에 의존해 SSR 불가, WP-07 범위 제외 §)
 import type { Metadata } from 'next';
 import { MapView } from './MapView';
+import { NOINDEX } from '../../seo';
 
 export const metadata: Metadata = {
   title: '경매 지도',
   description: '지도에서 경매 물건을 탐색해요',
+  robots: NOINDEX, // 지도는 클라이언트 JS 렌더라 색인할 본문이 없다 (WP-10 §1-3)
 };
 
 export default function ItemMapPage() {

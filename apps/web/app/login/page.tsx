@@ -2,11 +2,13 @@
 // returnTo 쿼리를 유지한 채 이 화면으로 오고, 로그인 성공 후 서버가 그 경로로 돌려보낸다 (WP-08 §1-8)
 import type { Metadata } from 'next';
 import { buildProviderHref } from './provider-href';
+import { NOINDEX } from '../seo';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
   title: '로그인 - 부동산 경매 플랫폼',
   description: '카카오 또는 네이버 계정으로 로그인해요',
+  robots: NOINDEX, // 인증 페이지 — 색인 가치 없음 (WP-10 §1-3)
 };
 
 export default async function LoginPage({
