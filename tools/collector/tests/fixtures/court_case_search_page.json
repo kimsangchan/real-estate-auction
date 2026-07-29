@@ -1,0 +1,74 @@
+{
+  "status": 200,
+  "message": "정상적으로 조회되었습니다.",
+  "timestamp": 1785300000000,
+  "errors": null,
+  "data": {
+    "ipcheck": true,
+    "dma_csBasInf": {
+      "cortOfcCd": "B000210",
+      "cortOfcNm": "서울중앙지방법원",
+      "csNo": "20230130004722",
+      "userCsNo": "2023타경4722",
+      "csNm": "부동산임의경매",
+      "csRcptYmd": "20230427",
+      "csCmdcYmd": "20230428",
+      "ultmtDvsCd": "000",
+      "csUltmtYmd": null,
+      "csProgStatCd": "0002100001",
+      "auctnSuspStatCd": "00"
+    },
+    "dlt_dspslGdsDspslObjctLst": [
+      {
+        "cortOfcCd": "B000210",
+        "csNo": "20230130004722",
+        "dspslGdsSeq": 1,
+        "dspslObjctSeq": 1,
+        "auctnGdsUsgCd": "20110",
+        "aeeEvlAmt": 231000000,
+        "auctnGdsStatCd": "04",
+        "bidDvsCd": "000331",
+        "dspslDxdyYmd": "20260716",
+        "fstDspslHm": "1000",
+        "scndDspslHm": null,
+        "thrdDspslHm": null,
+        "fothDspslHm": null,
+        "dspslAmt": 5210000,
+        "fstPbancLwsDspslPrc": 5201000,
+        "scndPbancLwsDspslPrc": null,
+        "thrdPbancLwsDspslPrc": null,
+        "fothPbancLwsDspslPrc": null,
+        "dspslDxdyDnum": 19,
+        "auctnDxdyGdsStatCd": "02",
+        "gdsDspslProgYn": "Y"
+      }
+    ],
+    "dlt_rletCsGdsDtsDxdyInf": [
+      {
+        "cortOfcCd": "B000210",
+        "csNo": "20230130004722",
+        "dspslGdsSeq": 1,
+        "auctnDxdyKndCd": "01",
+        "dxdyYmd": "20260716",
+        "dxdyHm": "1000",
+        "ipgiganFday": null,
+        "ipgiganTday": null,
+        "dxdyPlcNm": "4별관  211호 경매법정",
+        "auctnDxdyRsltCd": "001"
+      },
+      {
+        "cortOfcCd": "B000210",
+        "csNo": "20230130004722",
+        "dspslGdsSeq": 1,
+        "auctnDxdyKndCd": "02",
+        "dxdyYmd": "20260723",
+        "dxdyHm": "1400",
+        "ipgiganFday": null,
+        "ipgiganTday": null,
+        "dxdyPlcNm": "4별관 7호 법정(3층)",
+        "auctnDxdyRsltCd": "003"
+      }
+    ],
+    "dlt_rletCsIntrpsLst": []
+  }
+}

@@ -104,3 +104,47 @@ def test_urllib_transport_sends_real_courtauction_contract(monkeypatch):
     assert captured["headers"]["submissionid"] == court_client.SUBMISSION_ID
     assert captured["headers"]["referer"] == court_client.REFERER
     assert captured["headers"]["accept"] == "application/json"
+
+
+def test_client_routes_each_search_method_to_its_endpoint():
+    urls: list[str] = []
+
+    def transport(url: str, payload: dict) -> FakeResponse:
+        urls.append(url)
+        return FakeResponse(200, {"data": {}})
+
+    client = CourtAuctionClient(
+        base_url="https://www.courtauction.go.kr",
+        request_interval_ms=0,
+        max_retry=1,
+        transport=transport,
+    )
+
+    client.search_items({})
+    client.search_sale_results({})
+    client.search_case({})
+
+    assert urls == [
+        "https://www.courtauction.go.kr" + court_client.SEARCH_PATH,
+        "https://www.courtauction.go.kr" + court_client.SALE_RESULT_PATH,
+        "https://www.courtauction.go.kr" + court_client.CASE_SEARCH_PATH,
+    ]
+
+
+def test_urllib_transport_switches_headers_by_endpoint(monkeypatch):
+    captured: list[dict] = []
+
+    def fake_urlopen(req, timeout):
+        captured.append({k.lower(): v for k, v in req.headers.items()})
+        return _FakeUrlopenResponse({"data": {}})
+
+    monkeypatch.setattr(court_client.request, "urlopen", fake_urlopen)
+
+    base = "https://www.courtauction.go.kr"
+    court_client._urllib_transport(base + court_client.SALE_RESULT_PATH, {})
+    court_client._urllib_transport(base + court_client.CASE_SEARCH_PATH, {})
+
+    assert captured[0]["submissionid"] == court_client.SALE_RESULT_SUBMISSION_ID
+    assert captured[0]["referer"] == court_client.SALE_RESULT_REFERER
+    assert captured[1]["submissionid"] == court_client.CASE_SEARCH_SUBMISSION_ID
+    assert captured[1]["referer"] == court_client.CASE_SEARCH_REFERER

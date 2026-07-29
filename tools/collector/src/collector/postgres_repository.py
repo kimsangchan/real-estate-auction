@@ -7,7 +7,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from collector.court_parser import AuctionItem
+from collector.court_parser import AuctionItem, SaleResult
 from collector.repository import UpsertResult
 
 
@@ -43,6 +43,47 @@ class PostgresAuctionRepository:
                     _insert_raw_snapshot(cur, auction_item_id, item)
 
         return UpsertResult(inserted=inserted, updated=updated, skipped=skipped)
+
+    def upsert_sale_results(self, results: list[SaleResult]) -> UpsertResult:
+        """기일 결과 관측값을 멱등 저장한다 — 같은 관측 튜플은 재실행해도 늘지 않는다."""
+        inserted = 0
+        skipped = 0
+
+        with psycopg.connect(self._database_url) as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                for result in results:
+                    if _insert_sale_result(cur, result):
+                        inserted += 1
+                    else:
+                        skipped += 1
+
+        return UpsertResult(inserted=inserted, updated=0, skipped=skipped)
+
+    def find_items_pending_sale_result(self) -> list[dict[str, Any]]:
+        """매각기일이 지났는데 그 기일 이후 결과 행이 없는 물건 목록 — backfill 대상."""
+        with psycopg.connect(self._database_url) as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    """
+                    SELECT ac.court_office_code, ac.case_no, ai.item_no
+                    FROM auction_item ai
+                    JOIN auction_case ac ON ac.id = ai.auction_case_id
+                    JOIN LATERAL (
+                      SELECT max(s.bid_datetime) AS latest_bid
+                      FROM auction_schedule s
+                      WHERE s.auction_item_id = ai.id AND s.bid_datetime IS NOT NULL
+                    ) sched ON sched.latest_bid IS NOT NULL
+                    WHERE sched.latest_bid < now()
+                      AND NOT EXISTS (
+                        SELECT 1
+                        FROM auction_sale_result r
+                        WHERE r.auction_item_id = ai.id
+                          AND r.dxdy_date >= (sched.latest_bid AT TIME ZONE 'Asia/Seoul')::date
+                      )
+                    ORDER BY ac.court_office_code, ac.case_no, ai.item_no
+                    """
+                )
+                return list(cur.fetchall())
 
     def find_items_in_bbox(
         self,
@@ -206,6 +247,62 @@ def _upsert_item(cur: psycopg.Cursor[Any], case_id: int, item: AuctionItem) -> d
     if row is None:
         raise RuntimeError("auction_item upsert returned no row")
     return dict(row)
+
+
+def _insert_sale_result(cur: psycopg.Cursor[Any], result: SaleResult) -> bool:
+    """자연키로 물건을 찾아 결과 행을 넣는다. 물건이 없거나 이미 같은 관측이 있으면 넣지 않는다.
+
+    UNIQUE 제약(auction_item_id, dxdy_date, dxdy_kind_code, result_code, sale_amount)은
+    NULL 낙찰가(유찰 등)를 서로 다른 값으로 취급해 중복을 막지 못하므로,
+    IS NOT DISTINCT FROM으로 직접 중복 검사를 한 뒤 ON CONFLICT DO NOTHING을 겸용한다.
+    """
+    cur.execute(
+        """
+        INSERT INTO auction_sale_result (
+          auction_item_id,
+          dxdy_date,
+          dxdy_kind_code,
+          result_code,
+          sale_amount,
+          minimum_sale_price,
+          failed_bid_count,
+          source
+        )
+        SELECT ai.id, %s, %s, %s, %s, %s, %s, %s
+        FROM auction_item ai
+        JOIN auction_case ac ON ac.id = ai.auction_case_id
+        WHERE ac.court_office_code = %s
+          AND ac.case_no = %s
+          AND ai.item_no = %s
+          AND NOT EXISTS (
+            SELECT 1
+            FROM auction_sale_result r
+            WHERE r.auction_item_id = ai.id
+              AND r.dxdy_date = %s
+              AND r.dxdy_kind_code = %s
+              AND r.result_code IS NOT DISTINCT FROM %s
+              AND r.sale_amount IS NOT DISTINCT FROM %s
+          )
+        ON CONFLICT DO NOTHING
+        """,
+        (
+            result.dxdy_date,
+            result.dxdy_kind_code,
+            result.result_code,
+            result.sale_amount,
+            result.minimum_sale_price,
+            result.failed_bid_count,
+            result.source,
+            result.court_office_code,
+            result.case_no,
+            result.item_no,
+            result.dxdy_date,
+            result.dxdy_kind_code,
+            result.result_code,
+            result.sale_amount,
+        ),
+    )
+    return cur.rowcount > 0
 
 
 def _insert_schedule_snapshot(cur: psycopg.Cursor[Any], auction_item_id: int, item: AuctionItem) -> None:

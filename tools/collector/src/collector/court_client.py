@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 from urllib import request
+from urllib.parse import urlsplit
 
 from collector.backoff import backoff_delay_ms
 
@@ -13,6 +14,27 @@ from collector.backoff import backoff_delay_ms
 SEARCH_PATH = "/pgj/pgjsearch/searchControllerMain.on"
 SUBMISSION_ID = "mf_wfm_mainFrame_sbm_selectGdsDtlSrch"
 REFERER = "https://www.courtauction.go.kr/pgj/index.on?w2xPath=/pgj/ui/pgj100/PGJ151F00.xml"
+
+# 매각결과검색(PGJ158M00) — 매각기일 다음날부터 7일간의 결과만 제공하는 스냅샷 엔드포인트
+SALE_RESULT_PATH = "/pgj/pgjsearch/selectDspslSchdRsltSrch.on"
+SALE_RESULT_SUBMISSION_ID = "mf_wfm_mainFrame_sbm_selectDspslSchdRsltSrch"
+SALE_RESULT_REFERER = (
+    "https://www.courtauction.go.kr/pgj/index.on?w2xPath=/pgj/ui/pgj100/PGJ158M00.xml"
+)
+
+# 경매사건검색(PGJ159M00) — 진행 중 사건의 기일 이력·물건별 결과 (종국 사건은 조회 불가)
+CASE_SEARCH_PATH = "/pgj/pgj15A/selectAuctnCsSrchRslt.on"
+CASE_SEARCH_SUBMISSION_ID = "mf_wfm_mainFrame_sbm_selectAuctnCsSrchRslt"
+CASE_SEARCH_REFERER = (
+    "https://www.courtauction.go.kr/pgj/index.on?w2xPath=/pgj/ui/pgj15A/PGJ159M00.xml"
+)
+
+# 엔드포인트 경로별 WebSquare 제출 헤더 (submissionid, Referer) — 기본 transport가 참조한다
+_ENDPOINT_HEADERS = {
+    SEARCH_PATH: (SUBMISSION_ID, REFERER),
+    SALE_RESULT_PATH: (SALE_RESULT_SUBMISSION_ID, SALE_RESULT_REFERER),
+    CASE_SEARCH_PATH: (CASE_SEARCH_SUBMISSION_ID, CASE_SEARCH_REFERER),
+}
 
 
 class BlockedByCourtError(RuntimeError):
@@ -58,7 +80,18 @@ class CourtAuctionClient:
         self._sleep_ms = sleep_ms or _sleep_ms
 
     def search_items(self, payload: dict[str, Any]) -> dict[str, Any]:
-        url = f"{self._base_url}{SEARCH_PATH}"
+        return self._request(SEARCH_PATH, payload)
+
+    def search_sale_results(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """매각결과검색(PGJ158M00)을 호출한다 — 최근 7일 매각/유찰 결과 스냅샷."""
+        return self._request(SALE_RESULT_PATH, payload)
+
+    def search_case(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """경매사건검색(PGJ159M00)을 호출한다 — 사건 단위 기일 이력·물건별 결과."""
+        return self._request(CASE_SEARCH_PATH, payload)
+
+    def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        url = f"{self._base_url}{path}"
         last_status: int | None = None
 
         for attempt in range(1, self._max_retry + 1):
@@ -85,6 +118,8 @@ class CourtAuctionClient:
 
 
 def _urllib_transport(url: str, payload: dict[str, Any]) -> HttpResponse:
+    # 요청 경로에 맞는 submissionid/Referer를 고른다 (transport 시그니처는 기존 그대로 유지)
+    submission_id, referer = _ENDPOINT_HEADERS.get(urlsplit(url).path, (SUBMISSION_ID, REFERER))
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = request.Request(
         url,
@@ -92,9 +127,9 @@ def _urllib_transport(url: str, payload: dict[str, Any]) -> HttpResponse:
         headers={
             "Content-Type": "application/json;charset=UTF-8",
             "Accept": "application/json",
-            "Referer": REFERER,
+            "Referer": referer,
             "sc-userid": "SYSTEM",
-            "submissionid": SUBMISSION_ID,
+            "submissionid": submission_id,
             "User-Agent": "real-estate-auction-collector/0.1",
         },
         method="POST",

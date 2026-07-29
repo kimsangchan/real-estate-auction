@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from datetime import date
 from typing import Any
 
 from collector.geo import katec_to_wgs84
@@ -75,6 +76,185 @@ def _parse_item(row: Any, index: int) -> AuctionItem:
         location=katec_to_wgs84(x, y) if x is not None and y is not None else None,
         raw=dict(row),
     )
+
+
+# 수집 출처 코드 — auction_sale_result.source 컬럼 값
+SOURCE_SCHEDULE_RESULT_SEARCH = "SCHEDULE_RESULT_SEARCH"
+SOURCE_CASE_SEARCH = "CASE_SEARCH"
+
+# 매각결과검색 mulStatcd → 기일 결과코드(LJH-AUCTN_DXDY_RSLT_CD) 대응 (04=매각→001, 03=유찰→002)
+_MUL_STAT_TO_RESULT_CODE = {"04": "001", "03": "002"}
+
+
+@dataclass(frozen=True)
+class SaleResult:
+    """auction_sale_result 한 행에 해당하는 기일 결과 관측값."""
+
+    court_office_code: str
+    case_no: str
+    item_no: str
+    dxdy_date: date
+    dxdy_kind_code: str
+    result_code: str
+    sale_amount: int | None
+    minimum_sale_price: int | None
+    failed_bid_count: int | None
+    source: str
+
+
+@dataclass(frozen=True)
+class SaleResultPage:
+    total_count: int
+    page_no: int
+    results: list[SaleResult]
+
+
+def parse_sale_result_page(payload: dict[str, Any]) -> SaleResultPage:
+    """매각결과검색(PGJ158M00) 응답을 매각 결과 행으로 변환한다.
+
+    결과가 아닌 행(진행 중 등)과 필드가 깨진 행은 그 행만 건너뛴다 — 전체 실패로 만들지 않는다.
+    """
+    data = _object_at(payload, "data")
+    page_info = _object_at(data, "dma_pageInfo")
+    results = []
+    for row in _list_at(data, "dlt_srchResult"):
+        parsed = _parse_sale_result_row(row)
+        if parsed is not None:
+            results.append(parsed)
+    return SaleResultPage(
+        total_count=_optional_int(page_info.get("totalCnt")) or 0,
+        page_no=_optional_int(page_info.get("pageNo")) or 1,
+        results=results,
+    )
+
+
+def _parse_sale_result_row(row: Any) -> SaleResult | None:
+    if not isinstance(row, dict):
+        return None
+    try:
+        result_code = _MUL_STAT_TO_RESULT_CODE.get(_optional_str(row.get("mulStatcd")) or "")
+        court_office_code = _optional_str(row.get("boCd"))
+        case_no = _optional_str(row.get("srnSaNo"))
+        item_no = _optional_str(row.get("mokmulSer"))
+        dxdy_date = _date_from_yyyymmdd(row.get("maeGiil"))
+        if None in (result_code, court_office_code, case_no, item_no, dxdy_date):
+            return None
+        return SaleResult(
+            court_office_code=court_office_code,
+            case_no=case_no,
+            item_no=item_no,
+            dxdy_date=dxdy_date,
+            dxdy_kind_code="01",  # 매각결과검색 행은 매각기일 결과다
+            result_code=result_code,
+            sale_amount=_amount_or_none(row.get("maeAmt")),
+            minimum_sale_price=_amount_or_none(row.get("minmaePrice")),
+            failed_bid_count=_optional_int(row.get("yuchalCnt")),
+            source=SOURCE_SCHEDULE_RESULT_SEARCH,
+        )
+    except CourtPayloadError:
+        return None
+
+
+def parse_case_sale_results(
+    payload: dict[str, Any],
+    *,
+    court_office_code: str,
+    case_no: str,
+) -> list[SaleResult]:
+    """경매사건검색(PGJ159M00) 응답의 기일내역을 매각 결과 행으로 변환한다.
+
+    종국 사건 등으로 사건 기본정보가 없으면 빈 목록을 돌려준다.
+    기일 행의 dspslGdsSeq(물건번호)는 물건별 목록의 dspslObjctSeq(목적물번호=우리 item_no)로
+    바꿔 매핑한다 — 실측: 2024타경109389에서 물건 2번=목적물 3번으로 두 체계가 갈라진다.
+    """
+    data = payload.get("data")
+    if not isinstance(data, dict) or not isinstance(data.get("dma_csBasInf"), dict):
+        return []
+
+    goods_by_seq: dict[str, list[dict[str, Any]]] = {}
+    goods_list = data.get("dlt_dspslGdsDspslObjctLst")
+    for entry in goods_list if isinstance(goods_list, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        seq = _optional_str(entry.get("dspslGdsSeq"))
+        if seq is not None:
+            goods_by_seq.setdefault(seq, []).append(entry)
+
+    results = []
+    dxdy_list = data.get("dlt_rletCsGdsDtsDxdyInf")
+    for row in dxdy_list if isinstance(dxdy_list, list) else []:
+        results.extend(
+            _parse_case_dxdy_row(
+                row, goods_by_seq, court_office_code=court_office_code, case_no=case_no
+            )
+        )
+    return results
+
+
+def _parse_case_dxdy_row(
+    row: Any,
+    goods_by_seq: dict[str, list[dict[str, Any]]],
+    *,
+    court_office_code: str,
+    case_no: str,
+) -> list[SaleResult]:
+    if not isinstance(row, dict):
+        return []
+    try:
+        kind_code = _optional_str(row.get("auctnDxdyKndCd"))
+        result_code = _optional_str(row.get("auctnDxdyRsltCd"))  # 결과 없는 미래 기일은 스킵
+        dxdy_ymd = _optional_str(row.get("dxdyYmd"))
+        dxdy_date = _date_from_yyyymmdd(dxdy_ymd)
+        goods_seq = _optional_str(row.get("dspslGdsSeq"))
+        if None in (kind_code, result_code, dxdy_date, goods_seq):
+            return []
+
+        results = []
+        for goods in goods_by_seq.get(goods_seq, []):
+            item_no = _optional_str(goods.get("dspslObjctSeq"))
+            if item_no is None:
+                continue
+            # 물건별 목록의 낙찰가·최저가는 현재 공고의 매각기일(dspslDxdyYmd) 것만 신뢰한다
+            same_dxdy = _optional_str(goods.get("dspslDxdyYmd")) == dxdy_ymd
+            results.append(
+                SaleResult(
+                    court_office_code=court_office_code,
+                    case_no=case_no,
+                    item_no=item_no,
+                    dxdy_date=dxdy_date,
+                    dxdy_kind_code=kind_code,
+                    result_code=result_code,
+                    sale_amount=(
+                        _amount_or_none(goods.get("dspslAmt"))
+                        if kind_code == "01" and same_dxdy
+                        else None
+                    ),
+                    minimum_sale_price=(
+                        _amount_or_none(goods.get("fstPbancLwsDspslPrc")) if same_dxdy else None
+                    ),
+                    failed_bid_count=None,  # 사건검색은 유찰 횟수를 제공하지 않는다
+                    source=SOURCE_CASE_SEARCH,
+                )
+            )
+        return results
+    except CourtPayloadError:
+        return []
+
+
+def _date_from_yyyymmdd(value: Any) -> date | None:
+    text = _optional_str(value)
+    if text is None or len(text) != 8 or not text.isdigit():
+        return None
+    try:
+        return date(int(text[0:4]), int(text[4:6]), int(text[6:8]))
+    except ValueError:
+        return None
+
+
+def _amount_or_none(value: Any) -> int | None:
+    """금액 필드 변환 — 법원 응답은 '없음'을 0/빈값으로 주므로 None으로 통일한다."""
+    amount = _optional_int(value)
+    return amount if amount else None
 
 
 def _combine_bid_datetime(row: dict[str, Any]) -> str | None:
