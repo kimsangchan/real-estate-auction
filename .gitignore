@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+# FCM (WP-09 §0) — Firebase 앱 설정과 서비스 계정 키
+google-services.json
+firebase-service-account*.json
 
 # 의존성/빌드
 node_modules/
