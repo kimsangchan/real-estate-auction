@@ -47,7 +47,9 @@ function withBudget(work: Promise<void>): Promise<void> {
     timer = setTimeout(resolve, LOGOUT_SIDE_EFFECT_BUDGET_MS);
   });
 
-  return Promise.race([work.catch(() => undefined), budget]).finally(() => clearTimeout(timer));
+  return Promise.race([work.catch(() => undefined), budget]).finally(() =>
+    clearTimeout(timer),
+  );
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

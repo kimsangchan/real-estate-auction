@@ -125,8 +125,8 @@ export class NotificationsRepository {
   /** 사용자 요청 경로 — 반드시 본인 토큰만 지운다 */
   async deleteOwnDeviceToken(userId: string, token: string): Promise<void> {
     await this.pool.query(`DELETE FROM device_token WHERE token = $1 AND user_id = $2`, [
-      userId,
       token,
+      userId,
     ]);
   }
 

@@ -1,8 +1,15 @@
 // 푸시 등록 — 로그인하면 FCM 토큰을 서버에 올리고, 로그아웃·탈퇴 직전에 지운다 (WP-09 §1-6,9).
 // 권한을 거부해도 앱의 나머지 기능은 그대로 쓸 수 있어야 한다 (T-04).
-import { getMessaging, getToken, onTokenRefresh } from '@react-native-firebase/messaging';
+import {
+  getMessaging,
+  getToken,
+  onTokenRefresh,
+} from '@react-native-firebase/messaging';
 import { PermissionsAndroid, Platform } from 'react-native';
-import { registerDeviceToken, unregisterDeviceToken } from '../api/notifications';
+import {
+  registerDeviceToken,
+  unregisterDeviceToken,
+} from '../api/notifications';
 
 // Android 13(API 33)부터 알림 표시에 런타임 권한이 필요하다.
 const ANDROID_NOTIFICATION_PERMISSION_SDK = 33;
@@ -27,7 +34,10 @@ async function ensureNotificationPermission(): Promise<boolean> {
   const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
   if (await PermissionsAndroid.check(permission)) return true;
 
-  return (await PermissionsAndroid.request(permission)) === PermissionsAndroid.RESULTS.GRANTED;
+  return (
+    (await PermissionsAndroid.request(permission)) ===
+    PermissionsAndroid.RESULTS.GRANTED
+  );
 }
 
 async function upload(token: string): Promise<void> {
@@ -49,9 +59,12 @@ export async function syncPushRegistration(): Promise<void> {
     // FCM이 토큰을 갱신하면 서버 것이 죽는다 — 갱신분을 올리도록 구독한다.
     // 이전 구독은 해제해 중복 등록을 남기지 않는다.
     unsubscribeTokenRefresh?.();
-    unsubscribeTokenRefresh = onTokenRefresh(getMessaging(), (refreshed: string) => {
-      upload(refreshed).catch(() => {});
-    });
+    unsubscribeTokenRefresh = onTokenRefresh(
+      getMessaging(),
+      (refreshed: string) => {
+        upload(refreshed).catch(() => {});
+      },
+    );
   } catch {
     // 푸시가 안 붙어도 앱은 그대로 동작해야 한다.
   }

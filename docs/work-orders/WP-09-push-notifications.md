@@ -141,9 +141,19 @@ NULL"을 구분, 조회 상한(500), fetch 타임아웃, 발송 실패 시 종�
 새지 않게, `.gitignore`에 실제 adminsdk 파일명 패턴 추가, 모바일은 권한 재요청 방지·토큰 갱신 구독·
 등록 실패 시 캐시 오염 방지·로그아웃이 네트워크에 매달리지 않게 예산 부여.
 
+**통합 테스트 추가 (2026-07-29)** — 리뷰가 가장 크게 지적한 공백이라 메웠다.
+- `notifications.repository.integration.spec.ts` — **실 Postgres**로 감지 창·직전 관측 LATERAL·
+  관측 시각 동률·hasPrevious 구분·limit·소유자 재할당 금지·본인 토큰만 해제·기기 수 상한·
+  관심 등록자 기기만 조회·claim UNIQUE·리마인더 창을 검증한다 (16건).
+  실행: `API_RUN_DB_TESTS=1 DATABASE_URL=... pnpm --filter @auction/api test`
+  (수집기와 같은 opt-in 방식이라 플래그 없이는 skip된다. TRUNCATE하지 않고 고유 키 픽스처만
+  만들었다 지우므로 실데이터를 건드리지 않는다.)
+- `fcm.client.spec.ts` — 404/400 판정(대량 토큰 삭제 회귀), 네트워크 실패 처리, 토큰 캐시,
+  `expires_in` 누락 시 캐시 무력화 방지, 문구 절단 (9건).
+- **이때 실버그를 하나 잡았다**: `deleteOwnDeviceToken`의 바인딩 파라미터 순서가 뒤바뀌어 있어
+  토큰 해제가 아무 것도 지우지 못했다. 목 테스트로는 잡히지 않는 종류다.
+
 **남은 지적(미반영, 후속 판단 필요)**
-- 저장소 계층 SQL과 `fcm.client.ts`에 대한 **실 DB/실 API 통합 테스트가 없다**(수집기에는 있는 패턴).
-  현재는 실행 검증으로만 확인했다.
 - `usePushNavigation`에 테스트가 없고, App Links 도입 시 네비게이터 준비 전 탭이 유실될 수 있다.
 - 수집기의 `ON CONFLICT DO NOTHING` 특성상 **이전 상태로 되돌아가는 변경은 감지되지 않는다**.
 - `auction_schedule.observed_at` 인덱스 없음, `notification_delivery` 보존 정책 없음.

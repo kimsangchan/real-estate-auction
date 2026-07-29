@@ -1,6 +1,9 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import { getToken, onTokenRefresh } from '@react-native-firebase/messaging';
-import { registerDeviceToken, unregisterDeviceToken } from '../api/notifications';
+import {
+  registerDeviceToken,
+  unregisterDeviceToken,
+} from '../api/notifications';
 import { clearPushRegistration, syncPushRegistration } from './push';
 
 jest.mock('@react-native-firebase/messaging', () => ({
@@ -21,7 +24,10 @@ const mockedUnregister = unregisterDeviceToken as jest.Mock;
 // RN jest 프리셋의 Platform.OS 기본값은 ios라 안드로이드 경로를 명시적으로 켠다.
 function setPlatform(os: string, version: number): void {
   Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
-  Object.defineProperty(Platform, 'Version', { value: version, configurable: true });
+  Object.defineProperty(Platform, 'Version', {
+    value: version,
+    configurable: true,
+  });
 }
 
 beforeEach(() => {
@@ -31,7 +37,9 @@ beforeEach(() => {
   mockedRegister.mockResolvedValue(true);
   mockedUnregister.mockResolvedValue(true);
   jest.spyOn(PermissionsAndroid, 'check').mockResolvedValue(false);
-  jest.spyOn(PermissionsAndroid, 'request').mockResolvedValue(PermissionsAndroid.RESULTS.GRANTED);
+  jest
+    .spyOn(PermissionsAndroid, 'request')
+    .mockResolvedValue(PermissionsAndroid.RESULTS.GRANTED);
 });
 
 afterEach(() => {
@@ -56,7 +64,9 @@ describe('syncPushRegistration', () => {
   });
 
   it('권한을 거부하면 토큰을 요청하지도 등록하지도 않는다 (T-04)', async () => {
-    jest.spyOn(PermissionsAndroid, 'request').mockResolvedValue(PermissionsAndroid.RESULTS.DENIED);
+    jest
+      .spyOn(PermissionsAndroid, 'request')
+      .mockResolvedValue(PermissionsAndroid.RESULTS.DENIED);
 
     await syncPushRegistration();
 
@@ -78,7 +88,9 @@ describe('syncPushRegistration', () => {
     await syncPushRegistration();
 
     expect(mockedOnTokenRefresh).toHaveBeenCalled();
-    const handler = mockedOnTokenRefresh.mock.calls[0][1] as (token: string) => void;
+    const handler = mockedOnTokenRefresh.mock.calls[0][1] as (
+      token: string,
+    ) => void;
     handler('rotated-token');
     await Promise.resolve();
 
