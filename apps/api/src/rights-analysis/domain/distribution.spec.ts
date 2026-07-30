@@ -109,3 +109,127 @@ describe('computeDistribution', () => {
     ]);
   });
 });
+
+describe('computeDistribution — 당해세 (WP-11 §4)', () => {
+  // 대항력 있는 선순위 임차인: 전입이 말소기준보다 빠르고 확정일자·배당요구를 갖춤
+  const seniorTenant = tenant({
+    id: 't1',
+    moveInDate: '2024-01-01',
+    fixedDate: '2024-01-02',
+    depositAmount: 200_000_000,
+    demandedDistribution: true,
+    demandedDistributionDate: '2024-05-01',
+  });
+
+  it('당해세는 확정일자 임차인보다 먼저 배당돼 인수액을 키운다', () => {
+    // 낙찰대금 2억, 임차인 보증금 2억, 당해세 5천만 → 임차인은 1.5억만 받고 5천만이 인수된다
+    const result = computeDistribution(
+      baseInput({
+        saleAmount: 200_000_000,
+        tenants: [seniorTenant],
+        taxClaims: [
+          // 법정기일이 확정일자보다 앞서므로 특례가 적용되지 않는다
+          { id: 'tax1', isPropertyTax: true, statutoryDate: '2023-12-01', amount: 50_000_000 },
+        ],
+      }),
+    );
+
+    expect(result.entries).toContainEqual({
+      claimantId: 'tax1',
+      claimantKind: 'TAX_CLAIM',
+      amountPaid: 50_000_000,
+    });
+    expect(result.tenantOutcomes[0]).toMatchObject({
+      tenantId: 't1',
+      totalReceived: 150_000_000,
+      assumedAmount: 50_000_000,
+    });
+  });
+
+  it('당해세가 없으면 임차인이 전액 배당받아 인수액이 0이다 (위 케이스의 대조군)', () => {
+    const result = computeDistribution(
+      baseInput({ saleAmount: 200_000_000, tenants: [seniorTenant] }),
+    );
+
+    expect(result.tenantOutcomes[0]?.assumedAmount).toBe(0);
+  });
+
+  it('2023-04-01 특례: 확정일자보다 법정기일이 늦은 당해세는 임차인에게 먼저 배당된다', () => {
+    const result = computeDistribution(
+      baseInput({
+        saleAmount: 200_000_000,
+        tenants: [seniorTenant],
+        taxClaims: [
+          // 법정기일(2024-02-01)이 확정일자(2024-01-02)보다 늦다 → 임차인이 이긴다
+          { id: 'tax1', isPropertyTax: true, statutoryDate: '2024-02-01', amount: 50_000_000 },
+        ],
+        saleDecisionDate: '2026-07-30',
+      }),
+    );
+
+    expect(result.tenantOutcomes[0]?.assumedAmount).toBe(0);
+    expect(result.entries.filter((e) => e.claimantKind === 'TAX_CLAIM')).toHaveLength(0);
+  });
+
+  it('특례 시행일 전에 매각결정된 사건은 당해세가 여전히 임차인보다 우선한다', () => {
+    const result = computeDistribution(
+      baseInput({
+        saleAmount: 200_000_000,
+        tenants: [seniorTenant],
+        taxClaims: [
+          { id: 'tax1', isPropertyTax: true, statutoryDate: '2024-02-01', amount: 50_000_000 },
+        ],
+        saleDecisionDate: '2023-03-31',
+      }),
+    );
+
+    expect(result.tenantOutcomes[0]?.assumedAmount).toBe(50_000_000);
+  });
+
+  it('금액을 알 수 없는 조세채권은 배당에서 빠지고 인수액이 하한임을 표시한다', () => {
+    const result = computeDistribution(
+      baseInput({
+        saleAmount: 200_000_000,
+        tenants: [seniorTenant],
+        taxClaims: [{ id: 'tax1', isPropertyTax: true, statutoryDate: '2023-12-01' }],
+      }),
+    );
+
+    expect(result.unknownAmountTaxClaimCount).toBe(1);
+    // 금액을 모르니 배당에 반영하지 못한다 — 실제 인수액은 이보다 클 수 있다
+    expect(result.tenantOutcomes[0]?.assumedAmount).toBe(0);
+  });
+
+  it('일반 조세는 당해세가 아니라 법정기일로 우선변제 순위를 다툰다', () => {
+    // 낙찰대금을 보증금보다 크게 둬서 임차인·조세가 모두 배당받는 상황을 만든다
+    const result = computeDistribution(
+      baseInput({
+        saleAmount: 220_000_000,
+        registeredRights: [{ id: 'r1', type: 'MORTGAGE', receivedDate: BASELINE_DATE }],
+        tenants: [seniorTenant],
+        taxClaims: [
+          // 일반 조세(부가세 등): 법정기일이 확정일자보다 늦으므로 임차인이 먼저 받는다
+          { id: 'tax1', isPropertyTax: false, statutoryDate: '2024-05-01', amount: 50_000_000 },
+        ],
+      }),
+    );
+
+    expect(result.tenantOutcomes[0]?.assumedAmount).toBe(0);
+    const order = result.entries.map((entry) => entry.claimantId);
+    expect(order.indexOf('t1')).toBeLessThan(order.indexOf('tax1'));
+    // 임차인 완제 후 남은 2천만원만 조세에 간다 — 당해세처럼 앞지르지 않는다
+    expect(result.entries).toContainEqual({
+      claimantId: 'tax1',
+      claimantKind: 'TAX_CLAIM',
+      amountPaid: 20_000_000,
+    });
+  });
+
+  it('조세채권을 넣지 않으면 기존 배당 결과가 바뀌지 않는다', () => {
+    const withoutField = computeDistribution(baseInput({ tenants: [seniorTenant] }));
+    const withEmpty = computeDistribution(baseInput({ tenants: [seniorTenant], taxClaims: [] }));
+
+    expect(withEmpty.entries).toEqual(withoutField.entries);
+    expect(withEmpty.tenantOutcomes).toEqual(withoutField.tenantOutcomes);
+  });
+});

@@ -41,6 +41,26 @@ export interface RegisteredRight {
   demandedDistribution?: boolean;
 }
 
+/**
+ * 조세채권. 배당 순위는 등기 접수일이 아니라 **법정기일**로 정해지므로 등기 권리와 따로 다룬다.
+ *
+ * 당해세(그 부동산 자체에 부과된 세금)는 확정일자를 갖춘 임차인보다 **먼저** 배당받는다.
+ * 국세: 종합부동산세·상속세·증여세 / 지방세: 재산세·지역자원시설세 등.
+ * 소득세·부가가치세·취득세는 당해세가 아니다 — 일반 조세로 법정기일에 따라 순위가 정해진다.
+ */
+export interface TaxClaim {
+  id: string;
+  /** 당해세 여부 — true면 최우선변제 다음 순위로 올라간다 */
+  isPropertyTax: boolean;
+  /** 법정기일 (YYYY-MM-DD) */
+  statutoryDate: string;
+  /**
+   * 체납액. **외부에서 알 수 없는 것이 정상이다** — 등기부에도 금액은 없다.
+   * 없으면 배당 계산에서 제외하되 인수액이 하한임을 표시한다 (WP-11 §4).
+   */
+  amount?: number;
+}
+
 export interface Tenant {
   id: string;
   /** 전입신고일 (YYYY-MM-DD) */

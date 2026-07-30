@@ -4,6 +4,7 @@ import { Type } from 'class-transformer';
 import { ArrayMinSize, IsArray, IsIn, IsISO8601, IsNumber, IsOptional, ValidateNested } from 'class-validator';
 import type { RegionTier } from '../domain/types';
 import { RegisteredRightDto } from './registered-right.dto';
+import { TaxClaimDto } from './tax-claim.dto';
 import { TenantDto } from './tenant.dto';
 import { UnregisteredRiskDto } from './unregistered-risk.dto';
 
@@ -27,8 +28,20 @@ export class RightsAnalysisRequestDto {
   @Type(() => UnregisteredRiskDto)
   unregisteredRisks?: UnregisteredRiskDto[];
 
+  /** 조세채권 — 당해세는 확정일자 임차인보다 앞서 배당된다 */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TaxClaimDto)
+  taxClaims?: TaxClaimDto[];
+
   @IsIn(REGION_TIERS)
   region!: RegionTier;
+
+  /** 매각결정기일 — 당해세 우선 특례(2023-04-01 시행) 적용 여부 판정용 */
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  saleDecisionDate?: string;
 
   /** 배당요구종기 (YYYY-MM-DD) */
   @IsISO8601({ strict: true })

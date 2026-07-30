@@ -60,9 +60,11 @@ export class RightsAnalysisService {
             auctionCost: request.auctionCost ?? 0,
             registeredRights,
             tenants,
+            taxClaims: request.taxClaims,
             region: request.region,
             baselineDate: baselineRight.receivedDate,
             distributionDemandDeadline: request.distributionDemandDeadline,
+            saleDecisionDate: request.saleDecisionDate,
           });
 
     const tenantClassifications = tenants.map((tenant) =>
