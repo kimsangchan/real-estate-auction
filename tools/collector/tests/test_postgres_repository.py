@@ -146,9 +146,9 @@ def test_postgres_notice_upsert_is_idempotent_and_updates_changed_fields():
         baseline_raw="집합건물 : 2008.07.09 근저당권",
         baseline_date=date(2008, 7, 9),
         distribution_demand_deadline=date(2025, 3, 10),
-        assumed_rights_note=None,
-        superficies_note=None,
-        remarks="토지 별도등기 있음",
+        assumed_rights_kind="NONE",
+        risk_flags=["LAND_SEPARATE_REGISTRATION"],
+        lien_claim_amount=None,
     )
     # 작성일이 없는 명세서도 재실행 시 중복되면 안 된다 (UNIQUE 제약은 NULL을 구분 못한다)
     undated = ItemNotice(
@@ -159,9 +159,9 @@ def test_postgres_notice_upsert_is_idempotent_and_updates_changed_fields():
         baseline_raw="2024.12.11. 경매개시결정",
         baseline_date=date(2024, 12, 11),
         distribution_demand_deadline=None,
-        assumed_rights_note=None,
-        superficies_note=None,
-        remarks=None,
+        assumed_rights_kind=None,
+        risk_flags=[],
+        lien_claim_amount=None,
     )
     # DB에 없는 물건 — 조용히 건너뛴다
     unknown = ItemNotice(
@@ -172,14 +172,25 @@ def test_postgres_notice_upsert_is_idempotent_and_updates_changed_fields():
         baseline_raw=None,
         baseline_date=None,
         distribution_demand_deadline=None,
-        assumed_rights_note=None,
-        superficies_note=None,
-        remarks=None,
+        assumed_rights_kind=None,
+        risk_flags=[],
+        lien_claim_amount=None,
     )
 
     first = repository.upsert_notices([notice, undated, unknown])
     second = repository.upsert_notices([notice, undated, unknown])
-    third = repository.upsert_notices([replace(notice, remarks="유치권 신고 있음"), undated, unknown])
+    # risk_flags 배열 변경·유치권 금액 추가가 updated로 잡혀야 한다 (TEXT[]는 Python 리스트로 비교)
+    third = repository.upsert_notices(
+        [
+            replace(
+                notice,
+                risk_flags=["LAND_SEPARATE_REGISTRATION", "LIEN_CLAIM"],
+                lien_claim_amount=879_596_895,
+            ),
+            undated,
+            unknown,
+        ]
+    )
 
     assert (first.inserted, first.updated, first.skipped) == (2, 0, 1)
     assert (second.inserted, second.updated, second.skipped) == (0, 0, 3)

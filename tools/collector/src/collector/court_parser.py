@@ -246,8 +246,10 @@ def _parse_case_dxdy_row(
 class ItemNotice:
     """auction_item_notice 한 행에 해당하는 매각물건명세서 기재사항.
 
-    개인정보(A-08): 임차인·신고인 실명을 담는 필드를 두지 않는다. 점유자 표는 명세서 PDF에만
-    있고 이 응답에는 없다.
+    개인정보(A-08): 자유서술 3란(인수권리·지상권·비고)에는 신고인·가등기권자 실명이 마스킹
+    없이 실린다. 정규식 마스킹은 실측에서 양방향으로 실패해(006 마이그레이션 주석 참조)
+    원문을 아예 저장하지 않는다 — 키워드 판정을 메모리에서만 하고 구조화 결과 3개
+    (assumed_rights_kind, risk_flags, lien_claim_amount)만 남긴다.
     """
 
     court_office_code: str
@@ -257,58 +259,75 @@ class ItemNotice:
     baseline_raw: str | None
     baseline_date: date | None
     distribution_demand_deadline: date | None
-    assumed_rights_note: str | None
-    superficies_note: str | None
-    remarks: str | None
+    assumed_rights_kind: str | None
+    risk_flags: list[str]
+    lien_claim_amount: int | None
 
 
 # 최선순위 설정 원문의 날짜 표기 — "2008.07.09", "2022.1.12.", "2024. 12. 11." 모두 실측된 형태다
 _BASELINE_DATE_PATTERN = re.compile(r"(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})")
 
-# 비고란 등 자유서술에 신고인·점유자 실명이 마스킹 없이 실린다 (실측: "2008.11.28. 이재선
-# 유치권신고(879,596,895원)"). 우리는 이름을 쓰지 않으므로 저장 전에 지운다 (A-08).
-# 사람 이름은 신고·제출 같은 행위 명사 앞에 온다는 실측 패턴만 좁게 잡는다.
-_PERSON_ACTION = r"(?:유치권신고|권리신고|배당요구|신고|제출|접수)"
-_PERSON_NAME_PATTERN = re.compile(rf"(?<![가-힣])([가-힣]{{2,4}})(\s*{_PERSON_ACTION})")
-
-# 사람 이름이 아니라 역할·지위를 가리키는 낱말 — 마스킹하면 문장 뜻이 망가진다
-_NOT_PERSON_NAMES = frozenset(
-    {
-        "임차인",
-        "점유자",
-        "소유자",
-        "채권자",
-        "채무자",
-        "신청인",
-        "대리인",
-        "관리인",
-        "공유자",
-        "매수인",
-        "세입자",
-        "임대인",
-        "전세권자",
-        "유치권",
-        "근저당",
-        "가압류",
-    }
+# 인수권리 란 키워드 → 판정값. 한 서술에 여러 권리가 같이 적힐 수 있어 심각한 순서로 먼저
+# 판정한다 — 가등기(소유권 상실 위험) > 주택임차권등기 > 지상권. "주택임차권 등기"처럼
+# 띄어쓰기 변형이 실측돼 키워드 안 공백만 허용한다.
+_ASSUMED_RIGHTS_PATTERNS = (
+    (re.compile("가등기"), "PROVISIONAL_REGISTRATION"),
+    (re.compile(r"주택임차권\s*등기"), "LEASEHOLD_REGISTRATION"),
+    (re.compile("지상권"), "SUPERFICIES"),
 )
 
+# risk_flags 코드 → 판정 키워드(하나라도 있으면 해당). 비고·인수권리·지상권 3란을 합쳐 검사한다.
+# HUG_PRIORITY_WAIVER는 두 조건이 동시에 필요해 별도 처리한다.
+_RISK_FLAG_KEYWORDS = (
+    ("LIEN_CLAIM", ("유치권신고", "유치권 신고")),
+    ("PREEMPTIVE_PURCHASE", ("우선매수",)),
+    ("SENIOR_TAX", ("선순위 조세",)),
+    ("TITLE_LOSS_RISK", ("소유권을 상실",)),
+    ("RESALE", ("재매각",)),
+    ("LAND_SEPARATE_REGISTRATION", ("별도등기",)),
+    ("UNAUTHORIZED_EXTENSION", ("무단증축", "미준공")),
+    ("SITE_RIGHT_UNREGISTERED", ("대지권 미등기",)),
+    ("WATER_LEAK", ("누수",)),
+)
 
-def mask_person_names(text: str | None) -> str | None:
-    """자유서술에서 사람 이름을 법원 표기 방식(첫 글자 + OO)으로 가린다.
+# 유치권 신고액 표기 — 실측: "유치권신고(879,596,895원)"
+_LIEN_AMOUNT_PATTERN = re.compile(r"유치권\s*신고\s*\(\s*([0-9][0-9,]*)\s*원")
 
-    휴리스틱이므로 완벽하지 않다. 새로운 표기가 나오면 패턴을 넓혀야 한다 (WP-11 §5).
+
+def _classify_assumed_rights(text: str | None) -> str | None:
+    """인수권리 란 서술을 유형 코드로 판정한다.
+
+    공란(None)은 미작성이므로 None, "해당사항없음"은 법원의 명시적 판단이므로 NONE —
+    둘을 구분한다. 실측상 "해당사항없음"은 단독으로만 나오므로 최우선으로 확정한다.
     """
     if text is None:
         return None
+    if "해당사항없음" in text:
+        return "NONE"
+    for pattern, kind in _ASSUMED_RIGHTS_PATTERNS:
+        if pattern.search(text):
+            return kind
+    return "OTHER"
 
-    def replace(match: re.Match[str]) -> str:
-        name, tail = match.group(1), match.group(2)
-        if name in _NOT_PERSON_NAMES:
-            return match.group(0)
-        return f"{name[0]}OO{tail}"
 
-    return _PERSON_NAME_PATTERN.sub(replace, text)
+def _detect_risk_flags(combined: str) -> list[str]:
+    """합쳐진 자유서술에서 위험·조건 신호 코드를 뽑는다 — 정렬된 중복 없는 리스트."""
+    flags = set()
+    # HUG 대항력 포기: 공사 이름과 포기 문구가 모두 있어야 한다 — 이름만으로는 알 수 없다
+    if "주택도시보증공사" in combined and (
+        "대항력을 포기" in combined or "대항력은 포기" in combined
+    ):
+        flags.add("HUG_PRIORITY_WAIVER")
+    for code, keywords in _RISK_FLAG_KEYWORDS:
+        if any(keyword in combined for keyword in keywords):
+            flags.add(code)
+    return sorted(flags)
+
+
+def _parse_lien_claim_amount(combined: str) -> int | None:
+    """유치권 신고액을 뽑는다. 금액 표기가 없으면 None."""
+    match = _LIEN_AMOUNT_PATTERN.search(combined)
+    return int(match.group(1).replace(",", "")) if match else None
 
 
 def parse_item_notice(
@@ -338,6 +357,16 @@ def parse_item_notice(
     if document_date is None and baseline_raw is None:
         return None
 
+    # 자유서술 3란은 실명이 실릴 수 있어 어떤 필드에도 담지 않는다 (A-08).
+    # 여기서 메모리로만 읽어 키워드 판정 결과만 남긴다.
+    assumed_rights_text = _optional_str(dxdy.get("ndstrcRghCtt"))
+    free_texts = (
+        assumed_rights_text,
+        _optional_str(dxdy.get("sprfcExstcDts")),
+        _optional_str(dxdy.get("gdsSpcfcRmk")),
+    )
+    combined = "\n".join(text for text in free_texts if text is not None)
+
     return ItemNotice(
         court_office_code=court_office_code,
         case_no=case_no,
@@ -346,10 +375,9 @@ def parse_item_notice(
         baseline_raw=baseline_raw,
         baseline_date=_baseline_date(baseline_raw),
         distribution_demand_deadline=_distribution_demand_deadline(result),
-        # 자유서술 3종은 실명이 실릴 수 있어 저장 전에 이름을 가린다 (A-08)
-        assumed_rights_note=mask_person_names(_optional_str(dxdy.get("ndstrcRghCtt"))),
-        superficies_note=mask_person_names(_optional_str(dxdy.get("sprfcExstcDts"))),
-        remarks=mask_person_names(_optional_str(dxdy.get("gdsSpcfcRmk"))),
+        assumed_rights_kind=_classify_assumed_rights(assumed_rights_text),
+        risk_flags=_detect_risk_flags(combined),
+        lien_claim_amount=_parse_lien_claim_amount(combined),
     )
 
 

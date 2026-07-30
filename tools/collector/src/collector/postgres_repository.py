@@ -324,13 +324,15 @@ def _insert_sale_result(cur: psycopg.Cursor[Any], result: SaleResult) -> bool:
     return cur.rowcount > 0
 
 
+# risk_flags(TEXT[])는 psycopg가 Python list로 왕복 변환하므로 아래 변경 검사도
+# SQL이 아닌 Python에서 리스트 동등 비교로 한다 — 배열 NULL/순서 문제를 피한다(항상 정렬 저장).
 _NOTICE_FIELDS = (
     "baseline_raw",
     "baseline_date",
     "distribution_demand_deadline",
-    "assumed_rights_note",
-    "superficies_note",
-    "remarks",
+    "assumed_rights_kind",
+    "risk_flags",
+    "lien_claim_amount",
 )
 
 
