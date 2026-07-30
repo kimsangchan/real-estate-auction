@@ -110,6 +110,21 @@
   margin: 0 0 var(--spacing-base);
 }
 
+.photoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.photo {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-hairline-soft);
+  background-color: var(--color-surface-soft);
+}
+
 .specsTable {
   background-color: var(--color-canvas);
   border-radius: var(--radius-lg);

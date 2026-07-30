@@ -16,6 +16,8 @@
     "app/items/item-id.test.ts",
     "app/items/favorite-match.ts",
     "app/items/favorite-match.test.ts",
+    "app/items/photo.ts",
+    "app/items/photo.test.ts",
     "app/items/map/cluster.ts",
     "app/items/map/cluster.test.ts",
     "app/login/provider-href.ts",

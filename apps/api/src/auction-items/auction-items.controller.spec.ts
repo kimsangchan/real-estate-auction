@@ -89,4 +89,65 @@ describe('AuctionItemsController', () => {
     await expect(controller.bbox(undefined, '37.4', '127.1', '37.6')).rejects.toThrow(BadRequestException);
     await expect(controller.bbox('abc', '37.4', '127.1', '37.6')).rejects.toThrow(BadRequestException);
   });
+
+  it('photos는 물건이 있으면 사진 메타 배열을(빈 배열 포함) 그대로 반환한다', async () => {
+    const meta = [
+      { id: 93, source: 'ITEM', seq: 1, categoryName: '전경도', caption: '건물 전경', contentType: 'image/jpeg', byteSize: 289045 },
+    ];
+    const repository = { findPhotos: jest.fn().mockResolvedValue(meta) };
+    const controller = new AuctionItemsController(repository as never);
+
+    expect(await controller.photos('B000210', '2022타경101244', '1')).toBe(meta);
+
+    repository.findPhotos.mockResolvedValue([]);
+    expect(await controller.photos('B000210', '2022타경101244', '1')).toEqual([]);
+  });
+
+  it('photos는 물건이 없으면(null) NotFoundException을 던진다', async () => {
+    const repository = { findPhotos: jest.fn().mockResolvedValue(null) };
+    const controller = new AuctionItemsController(repository as never);
+
+    await expect(controller.photos('B000210', '없는사건', '1')).rejects.toThrow(NotFoundException);
+  });
+
+  it('photoImage는 바이너리를 Content-Type·캐시 헤더와 함께 내려준다', async () => {
+    const bytes = Buffer.from([1, 2, 3]);
+    const repository = { findPhotoBytes: jest.fn().mockResolvedValue({ contentType: 'image/jpeg', bytes }) };
+    const controller = new AuctionItemsController(repository as never);
+    const res = { statusCode: 0, setHeader: jest.fn(), end: jest.fn() };
+
+    await controller.photoImage('93', res as never);
+
+    expect(repository.findPhotoBytes).toHaveBeenCalledWith('93');
+    expect(res.statusCode).toBe(200);
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/jpeg');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'public, max-age=86400, immutable');
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Length', 3);
+    expect(res.end).toHaveBeenCalledWith(bytes);
+  });
+
+  it('photoImage는 content_type이 없으면 application/octet-stream을 쓴다', async () => {
+    const repository = {
+      findPhotoBytes: jest.fn().mockResolvedValue({ contentType: null, bytes: Buffer.alloc(1) }),
+    };
+    const controller = new AuctionItemsController(repository as never);
+    const res = { statusCode: 0, setHeader: jest.fn(), end: jest.fn() };
+
+    await controller.photoImage('93', res as never);
+
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/octet-stream');
+  });
+
+  it('photoImage는 없는 id·숫자가 아닌 id에 NotFoundException을 던진다', async () => {
+    const repository = { findPhotoBytes: jest.fn().mockResolvedValue(null) };
+    const controller = new AuctionItemsController(repository as never);
+    const res = { statusCode: 0, setHeader: jest.fn(), end: jest.fn() };
+
+    await expect(controller.photoImage('999999', res as never)).rejects.toThrow(NotFoundException);
+
+    // 숫자가 아니면 DB 조회 없이 404 — bigint 캐스팅 에러(500) 방지
+    await expect(controller.photoImage('abc', res as never)).rejects.toThrow(NotFoundException);
+    expect(repository.findPhotoBytes).toHaveBeenCalledTimes(1);
+    expect(res.end).not.toHaveBeenCalled();
+  });
 });

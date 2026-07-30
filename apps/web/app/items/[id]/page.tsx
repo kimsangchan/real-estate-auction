@@ -3,10 +3,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { fetchAuctionItem } from '../api-client';
+import { fetchAuctionItem, fetchAuctionItemPhotos } from '../api-client';
 import { FavoriteButton } from '../components/FavoriteButton';
 import { computeMinimumBidRate, formatBidDatetime, formatWon } from '../format';
 import { decodeItemId, encodeItemId } from '../item-id';
+import { photoAlt, photoProxySrc } from '../photo';
 import {
   buildBreadcrumbJsonLd,
   buildItemDescription,
@@ -49,6 +50,9 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
 
   const item = await fetchAuctionItem(key);
   if (!item) notFound();
+
+  // 사진은 사건 단위라 물건 → 사건 조인으로 조회된다 (008_item_photos.sql)
+  const photos = await fetchAuctionItemPhotos(key);
 
   const minimumBidRate = computeMinimumBidRate(item.appraisalAmount, item.minimumSalePrice);
   const bidDatetimeLabel = formatBidDatetime(item.bidDatetime);
@@ -99,6 +103,24 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
           ) : null}
         </div>
       </section>
+
+      {photos.length > 0 ? (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>물건 사진</h2>
+          <div className={styles.photoGrid}>
+            {photos.map((photo) => (
+              // next/image 대신 <img> — 외부 로더 설정 없이 프록시 경로를 그대로 쓰는 게 단순하다
+              <img
+                key={photo.id}
+                className={styles.photo}
+                src={photoProxySrc(photo.id)}
+                alt={photoAlt(photo)}
+                loading="lazy"
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>물건 개요</h2>

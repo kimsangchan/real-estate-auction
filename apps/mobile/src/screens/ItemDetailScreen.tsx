@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,7 +11,13 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { fetchAuctionItem, type AuctionItem } from '../api/auctionItems';
+import {
+  fetchAuctionItem,
+  fetchAuctionItemPhotos,
+  photoImageUrl,
+  type AuctionItem,
+  type AuctionItemPhoto,
+} from '../api/auctionItems';
 import { FavoriteButton } from '../components/FavoriteButton';
 import {
   computeMinimumBidRate,
@@ -26,6 +33,7 @@ type Status = 'loading' | 'error' | 'notfound' | 'ok';
 export function ItemDetailScreen({ route, navigation }: Props) {
   const { courtOfficeCode, caseNo, itemNo } = route.params;
   const [item, setItem] = useState<AuctionItem | null>(null);
+  const [photos, setPhotos] = useState<AuctionItemPhoto[]>([]);
   const [status, setStatus] = useState<Status>('loading');
 
   const load = useCallback(async () => {
@@ -37,6 +45,14 @@ export function ItemDetailScreen({ route, navigation }: Props) {
         return;
       }
       setItem(data);
+      // 사진은 부가 정보라 조회에 실패해도 상세 화면을 막지 않는다
+      try {
+        setPhotos(
+          await fetchAuctionItemPhotos({ courtOfficeCode, caseNo, itemNo }),
+        );
+      } catch {
+        setPhotos([]);
+      }
       setStatus('ok');
     } catch {
       setStatus('error');
@@ -121,6 +137,30 @@ export function ItemDetailScreen({ route, navigation }: Props) {
             </View>
           ) : null}
         </View>
+
+        {photos.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>물건 사진</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.photoRow}
+            >
+              {photos.map(photo => (
+                <Image
+                  key={photo.id}
+                  source={{ uri: photoImageUrl(photo.id) }}
+                  style={styles.photo}
+                  accessibilityLabel={
+                    photo.caption?.trim() ||
+                    photo.categoryName?.trim() ||
+                    '경매물건 사진'
+                  }
+                />
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>물건 개요</Text>
@@ -212,6 +252,14 @@ const styles = StyleSheet.create({
   chipFailedText: { ...text.captionBold, color: colors.canvas },
   chipDate: { backgroundColor: colors.inkDeep },
   chipDateText: { ...text.captionBold, color: colors.canvas },
+
+  photoRow: { gap: space.sm },
+  photo: {
+    width: 200,
+    height: 150,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceSoft,
+  },
 
   section: { marginTop: space.xl },
   sectionTitle: {

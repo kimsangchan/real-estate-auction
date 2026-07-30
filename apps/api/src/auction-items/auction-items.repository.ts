@@ -2,6 +2,7 @@
 // usageName/deptName/시도/시군구는 별도 컬럼이 없어 WP-02가 저장해 둔 원문 스냅샷(auction_item_raw.payload)에서 읽는다.
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
+import type { AuctionCasePhotoDto } from './dto/auction-case-photo.dto';
 import type { AuctionItemDto } from './dto/auction-item.dto';
 import type { Bbox } from './dto/bbox.dto';
 import type { RegionCountDto } from './dto/region-count.dto';
@@ -71,6 +72,26 @@ interface RegionCountRow extends QueryResultRow {
   count: string;
 }
 
+interface CaseIdRow extends QueryResultRow {
+  caseId: string;
+}
+
+// id는 BIGSERIAL이라 pg가 문자열로 돌려준다 — DTO 변환 시 숫자로 바꾼다
+interface PhotoMetaRow extends QueryResultRow {
+  id: string;
+  source: string;
+  seq: number;
+  categoryName: string | null;
+  caption: string | null;
+  contentType: string | null;
+  byteSize: number;
+}
+
+interface PhotoBytesRow extends QueryResultRow {
+  contentType: string | null;
+  bytes: Buffer;
+}
+
 @Injectable()
 export class AuctionItemsRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
@@ -120,6 +141,49 @@ export class AuctionItemsRepository {
       [sido],
     );
     return result.rows.map((row) => ({ name: row.region, count: Number(row.count) }));
+  }
+
+  /**
+   * 물건 → 사건으로 조인해 그 사건의 사진 메타를 돌려준다 (사진은 사건 단위 — 008_item_photos.sql).
+   * 물건이 없으면 null, 사진이 없으면 빈 배열. 현장 전경(ITEM)이 먼저 보이도록 ITEM → APPRAISAL 순으로 정렬한다.
+   */
+  async findPhotos(
+    courtOfficeCode: string,
+    caseNo: string,
+    itemNo: string,
+  ): Promise<AuctionCasePhotoDto[] | null> {
+    const itemResult = await this.pool.query<CaseIdRow>(
+      `SELECT ac.id AS "caseId"
+       FROM auction_item ai
+       JOIN auction_case ac ON ac.id = ai.auction_case_id
+       WHERE ac.court_office_code = $1 AND ac.case_no = $2 AND ai.item_no = $3`,
+      [courtOfficeCode, caseNo, itemNo],
+    );
+    const caseId = itemResult.rows[0]?.caseId;
+    if (caseId === undefined) return null;
+
+    const photoResult = await this.pool.query<PhotoMetaRow>(
+      `SELECT id, source, seq,
+              category_name AS "categoryName",
+              caption,
+              content_type AS "contentType",
+              byte_size AS "byteSize"
+       FROM auction_case_photo
+       WHERE auction_case_id = $1
+       ORDER BY CASE WHEN source = 'ITEM' THEN 0 ELSE 1 END, seq`,
+      [caseId],
+    );
+    return photoResult.rows.map((row) => ({ ...row, id: Number(row.id) }));
+  }
+
+  /** 사진 바이너리 단건 조회 — 이미지 응답용. 없으면 null */
+  async findPhotoBytes(id: string): Promise<{ contentType: string | null; bytes: Buffer } | null> {
+    const result = await this.pool.query<PhotoBytesRow>(
+      `SELECT content_type AS "contentType", bytes FROM auction_case_photo WHERE id = $1`,
+      [id],
+    );
+    const row = result.rows[0];
+    return row ? { contentType: row.contentType, bytes: row.bytes } : null;
   }
 
   /** 지도 뷰포트(경위도 사각형) 안의 물건을 찾는다 — 지도 홈(F-01, RN)의 팬/줌 갱신용 */

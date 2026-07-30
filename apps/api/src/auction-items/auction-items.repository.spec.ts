@@ -117,6 +117,91 @@ describe('AuctionItemsRepository', () => {
     ]);
   });
 
+  it('findPhotos는 물건 → 사건 조인 후 사진 메타를 ITEM 우선·seq 순으로 조회하고 id를 숫자로 변환한다', async () => {
+    const pool = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ caseId: '7' }] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: '93',
+              source: 'ITEM',
+              seq: 1,
+              categoryName: '전경도',
+              caption: '건물 전경',
+              contentType: 'image/jpeg',
+              byteSize: 289045,
+            },
+          ],
+        }),
+    };
+    const repository = new AuctionItemsRepository(pool as never);
+
+    const result = await repository.findPhotos('B000210', '2022타경101244', '1');
+
+    expect(result).toEqual([
+      {
+        id: 93,
+        source: 'ITEM',
+        seq: 1,
+        categoryName: '전경도',
+        caption: '건물 전경',
+        contentType: 'image/jpeg',
+        byteSize: 289045,
+      },
+    ]);
+    expect(pool.query).toHaveBeenNthCalledWith(1, expect.stringContaining('WHERE ac.court_office_code = $1'), [
+      'B000210',
+      '2022타경101244',
+      '1',
+    ]);
+    expect(pool.query).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("ORDER BY CASE WHEN source = 'ITEM' THEN 0 ELSE 1 END, seq"),
+      ['7'],
+    );
+  });
+
+  it('findPhotos는 물건이 없으면 사진 조회 없이 null을 반환한다', async () => {
+    const pool = createMockPool([]);
+    const repository = new AuctionItemsRepository(pool as never);
+
+    const result = await repository.findPhotos('B000210', '없는사건', '1');
+
+    expect(result).toBeNull();
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('findPhotos는 물건은 있는데 사진이 없으면 빈 배열을 반환한다', async () => {
+    const pool = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ caseId: '7' }] })
+        .mockResolvedValueOnce({ rows: [] }),
+    };
+    const repository = new AuctionItemsRepository(pool as never);
+
+    const result = await repository.findPhotos('B000210', '2022타경101244', '1');
+
+    expect(result).toEqual([]);
+  });
+
+  it('findPhotoBytes는 content_type과 바이트를 돌려주고, 없으면 null이다', async () => {
+    const bytes = Buffer.from([1, 2, 3]);
+    const pool = createMockPool([{ contentType: 'image/jpeg', bytes }]);
+    const repository = new AuctionItemsRepository(pool as never);
+
+    expect(await repository.findPhotoBytes('93')).toEqual({ contentType: 'image/jpeg', bytes });
+    expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('FROM auction_case_photo WHERE id = $1'), [
+      '93',
+    ]);
+
+    const emptyPool = createMockPool([]);
+    const emptyRepository = new AuctionItemsRepository(emptyPool as never);
+    expect(await emptyRepository.findPhotoBytes('999999')).toBeNull();
+  });
+
   it('단건 조회 결과의 좌표(lng/lat)는 그대로 통과시킨다', async () => {
     const pool = createMockPool([
       {

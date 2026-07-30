@@ -1,6 +1,8 @@
-// 물건 조회 컨트롤러 — 목록/단건/지역 집계/지도 뷰포트 읽기 전용 엔드포인트 (WP-02 수집 데이터 소비)
-import { BadRequestException, Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
+// 물건 조회 컨트롤러 — 목록/단건/지역 집계/지도 뷰포트/사건 사진 읽기 전용 엔드포인트 (WP-02 수집 데이터 소비)
+import type { ServerResponse } from 'node:http';
+import { BadRequestException, Controller, Get, NotFoundException, Param, Query, Res } from '@nestjs/common';
 import { AuctionItemsRepository } from './auction-items.repository';
+import type { AuctionCasePhotoDto } from './dto/auction-case-photo.dto';
 import type { AuctionItemDto } from './dto/auction-item.dto';
 import type { RegionCountDto } from './dto/region-count.dto';
 
@@ -46,6 +48,22 @@ export class AuctionItemsController {
     );
   }
 
+  // 상세 라우트(:courtOfficeCode/:caseNo/:itemNo)보다 먼저 선언해야 한다 — NestJS는 선언 순서로 매칭한다
+  @Get('photos/:id')
+  async photoImage(@Param('id') id: string, @Res() res: ServerResponse): Promise<void> {
+    // 숫자가 아닌 id는 DB bigint 캐스팅 에러(500)가 나므로 먼저 걸러 404로 처리한다
+    const photo = /^\d+$/.test(id) ? await this.repository.findPhotoBytes(id) : null;
+    if (!photo) {
+      throw new NotFoundException(`사진을 찾을 수 없어요: ${id}`);
+    }
+    res.statusCode = 200;
+    res.setHeader('Content-Type', photo.contentType ?? 'application/octet-stream');
+    // 사진은 변하지 않고 바이트가 커서 캐싱이 중요하다 — 하루 캐시 + immutable
+    res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+    res.setHeader('Content-Length', photo.bytes.length);
+    res.end(photo.bytes);
+  }
+
   @Get()
   async list(
     @Query('limit') limit?: string,
@@ -56,6 +74,19 @@ export class AuctionItemsController {
     const parsedLimit = Math.min(Math.max(Number(limit) || DEFAULT_LIMIT, 1), MAX_LIMIT);
     const parsedOffset = Math.max(Number(offset) || 0, 0);
     return this.repository.findMany(parsedLimit, parsedOffset, { sido, sigungu });
+  }
+
+  @Get(':courtOfficeCode/:caseNo/:itemNo/photos')
+  async photos(
+    @Param('courtOfficeCode') courtOfficeCode: string,
+    @Param('caseNo') caseNo: string,
+    @Param('itemNo') itemNo: string,
+  ): Promise<AuctionCasePhotoDto[]> {
+    const photos = await this.repository.findPhotos(courtOfficeCode, caseNo, itemNo);
+    if (!photos) {
+      throw new NotFoundException(`물건을 찾을 수 없어요: ${courtOfficeCode}/${caseNo}/${itemNo}`);
+    }
+    return photos;
   }
 
   @Get(':courtOfficeCode/:caseNo/:itemNo')
