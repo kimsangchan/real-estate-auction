@@ -53,8 +53,10 @@ _TABLE_END_MARKERS = ("<비고>", "비고란", "※")
 
 _DATE_PATTERN = re.compile(r"(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})")
 _DIGIT_AMOUNT_PATTERN = re.compile(r"^[0-9][0-9,]*$")
-# 구사건은 보증금을 "천만원"·"1억 5천만원" 같은 한글로 적는다 (실측)
-_KOREAN_UNITS = (("억", 100_000_000), ("만", 10_000), ("천", 1_000))
+# 구사건은 보증금을 "천만원"·"1억5천만원" 같은 한글로 적는다 (실측).
+# 억·만은 앞의 값을 묶는 큰 단위, 천·백·십은 그 안에서 더해지는 작은 단위다
+_KOREAN_BIG_UNITS = {"억": 100_000_000, "만": 10_000}
+_KOREAN_SMALL_UNITS = {"천": 1_000, "백": 100, "십": 10}
 _UNKNOWN_VALUES = ("미상", "불명", "없음", "-")
 
 # 행 기준선을 묶는 허용 오차와, 조각을 가장 가까운 기준선에 붙일 때의 최대 거리 (실측 줄높이 ~13pt)
@@ -122,7 +124,8 @@ def _fragments(lines: list[Any]) -> list[dict[str, Any]]:
         rects = line.get("rect")
         if not isinstance(text, str) or not isinstance(rects, list):
             continue
-        for char, rect in zip(text, rects, strict=False):
+        last_index = len(text) - 1
+        for index, (char, rect) in enumerate(zip(text, rects, strict=False)):
             if not isinstance(rect, dict):
                 continue
             fragments.append(
@@ -132,6 +135,8 @@ def _fragments(lines: list[Any]) -> list[dict[str, Any]]:
                     "x2": _number(rect.get("right")),
                     "y1": _number(rect.get("bottom")),
                     "y2": _number(rect.get("top")),
+                    # 원문 라인의 마지막 문자인지 — 셀 사이를 벌리는 공백과 셀 안의 공백을 가른다
+                    "at_line_end": index == last_index,
                 }
             )
     return fragments
@@ -228,11 +233,14 @@ def _row_anchors(region: list[dict[str, Any]]) -> list[float]:
 def _cells(fragments: list[dict[str, Any]]) -> dict[str, str]:
     """한 행의 조각을 컬럼별 문자열로 만든다.
 
-    셀 안에서 줄바꿈된 값은 위에서 아래 순으로 이어붙인다. 원문의 공백을 그대로 살려
-    "주거 " + "주택임차권자" 가 "주거 주택임차권자"가 되게 한다.
+    셀 안에서 줄바꿈된 값은 위에서 아래 순으로 이어붙인다. 이때 원문 라인 끝의 공백만 살린다 —
+    한 라인에 여러 셀이 함께 렌더링되므로, 라인 중간의 공백은 셀 사이를 벌리는 간격이라
+    이어붙일 때 붙여 쓰면 "주거 주택임차권자"가 "주거 주택임 차권자"로 어긋난다.
     """
     by_column: dict[str, list[dict[str, Any]]] = {}
     for fragment in fragments:
+        if fragment["char"].isspace() and not fragment["at_line_end"]:
+            continue
         column = _column_of(fragment)
         if column is not None:
             by_column.setdefault(column, []).append(fragment)
@@ -315,24 +323,23 @@ def _parse_amount(text: str | None) -> int | None:
 def _parse_korean_amount(text: str) -> int | None:
     """"천만", "1억5천만", "2억" 같은 한글 금액 표기를 정수로 바꾼다. 해석 못하면 None."""
     total = 0
-    rest = text
-    for unit, multiplier in _KOREAN_UNITS:
-        head, separator, tail = rest.partition(unit)
-        if not separator:
+    section = 0
+    digits = ""
+    for char in text.replace(",", ""):
+        if char.isdigit():
+            digits += char
             continue
-        digits = head.replace(",", "")
-        if digits and not digits.isdigit():
-            return None
-        total += (int(digits) if digits else 1) * multiplier
-        rest = tail
-    if total == 0:
-        return None
-    remainder = rest.replace(",", "")
-    if remainder:
-        if not remainder.isdigit():
-            return None
-        total += int(remainder)
-    return total
+        value = int(digits) if digits else 1
+        digits = ""
+        if char in _KOREAN_SMALL_UNITS:
+            section += value * _KOREAN_SMALL_UNITS[char]
+        elif char in _KOREAN_BIG_UNITS:
+            total += (section + value if section == 0 else section) * _KOREAN_BIG_UNITS[char]
+            section = 0
+        else:
+            return None  # 해석할 수 없는 글자가 섞이면 금액을 지어내지 않는다
+    result = total + section + (int(digits) if digits else 0)
+    return result or None
 
 
 def _parse_demanded(text: str | None, parsed_date: date | None) -> bool | None:

@@ -336,6 +336,22 @@ _NOTICE_FIELDS = (
 )
 
 
+_TENANT_FIELDS = (
+    "tenant_seq",
+    "tenant_name",
+    "source_kind",
+    "occupied_part",
+    "possession_basis",
+    "lease_period",
+    "deposit_amount",
+    "monthly_rent",
+    "move_in_date",
+    "fixed_date",
+    "demanded_distribution",
+    "demanded_distribution_date",
+)
+
+
 def _upsert_notice(cur: psycopg.Cursor[Any], notice: ItemNotice) -> str:
     """명세서 한 건을 저장하고 inserted/updated/skipped를 돌려준다.
 
@@ -374,10 +390,14 @@ def _upsert_notice(cur: psycopg.Cursor[Any], notice: ItemNotice) -> str:
               auction_item_id, document_date, {", ".join(_NOTICE_FIELDS)}
             )
             VALUES (%s, %s, {", ".join(["%s"] * len(_NOTICE_FIELDS))})
+            RETURNING id
             """,
             (auction_item_id, notice.document_date, *values),
         )
+        _replace_notice_tenants(cur, int(cur.fetchone()["id"]), notice)
         return "inserted"
+
+    _replace_notice_tenants(cur, int(existing["id"]), notice)
 
     if all(existing[field] == value for field, value in zip(_NOTICE_FIELDS, values, strict=True)):
         return "skipped"
@@ -391,6 +411,26 @@ def _upsert_notice(cur: psycopg.Cursor[Any], notice: ItemNotice) -> str:
         (*values, int(existing["id"])),
     )
     return "updated"
+
+
+def _replace_notice_tenants(cur: psycopg.Cursor[Any], notice_id: int, notice: ItemNotice) -> None:
+    """점유자 표를 통째로 다시 쓴다 — 같은 문서를 재파싱해도 행이 늘지 않게 한다.
+
+    tenants가 비어 있으면 손대지 않는다. PDF 열람 창 밖에서 기재사항만 재수집할 때
+    이미 받아둔 점유자 표를 지우면 안 된다 (표는 열람 창 안에서만 얻을 수 있다).
+    """
+    if not notice.tenants:
+        return
+
+    cur.execute("DELETE FROM auction_item_notice_tenant WHERE notice_id = %s", (notice_id,))
+    for tenant in notice.tenants:
+        cur.execute(
+            f"""
+            INSERT INTO auction_item_notice_tenant (notice_id, {", ".join(_TENANT_FIELDS)})
+            VALUES (%s, {", ".join(["%s"] * len(_TENANT_FIELDS))})
+            """,
+            (notice_id, *(getattr(tenant, field) for field in _TENANT_FIELDS)),
+        )
 
 
 def _insert_schedule_snapshot(cur: psycopg.Cursor[Any], auction_item_id: int, item: AuctionItem) -> None:

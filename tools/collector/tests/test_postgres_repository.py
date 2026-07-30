@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
+import psycopg
 import pytest
 
 from collector.court_parser import (
@@ -12,6 +13,7 @@ from collector.court_parser import (
     SaleResult,
     parse_search_page,
 )
+from collector.notice_tenant_parser import NoticeTenant
 from collector.postgres_repository import PostgresAuctionRepository, run_migrations
 
 
@@ -195,3 +197,79 @@ def test_postgres_notice_upsert_is_idempotent_and_updates_changed_fields():
     assert (first.inserted, first.updated, first.skipped) == (2, 0, 1)
     assert (second.inserted, second.updated, second.skipped) == (0, 0, 3)
     assert (third.inserted, third.updated, third.skipped) == (0, 1, 2)
+
+
+@pytest.mark.skipif(
+    os.getenv("COLLECTOR_RUN_DB_TESTS") != "1",
+    reason="set COLLECTOR_RUN_DB_TESTS=1 to run PostGIS integration tests",
+)
+def test_postgres_notice_tenants_are_replaced_not_appended():
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        pytest.skip("DATABASE_URL is required")
+
+    repository = PostgresAuctionRepository(database_url)
+    run_migrations(database_url)
+    repository.truncate_for_test()
+    page = parse_search_page(json.loads(FIXTURE_PATH.read_text(encoding="utf-8")))
+    repository.upsert_items(page.items)
+
+    tenants = (
+        NoticeTenant(
+            tenant_seq=1,
+            tenant_name="홍길동",
+            source_kind="등기사항전부증명서",
+            occupied_part="206호",
+            possession_basis="주거 주택임차권자",
+            lease_period="2021.06.04~",
+            deposit_amount=230_000_000,
+            monthly_rent=None,
+            move_in_date=date(2021, 6, 4),
+            fixed_date=date(2021, 6, 4),
+            demanded_distribution=None,
+            demanded_distribution_date=None,
+        ),
+        NoticeTenant(
+            tenant_seq=1,
+            tenant_name="홍길동",
+            source_kind="권리신고",
+            occupied_part="206호",
+            possession_basis="주거 임차인",
+            lease_period=None,
+            deposit_amount=230_000_000,
+            monthly_rent=None,
+            move_in_date=date(2021, 6, 4),
+            fixed_date=None,
+            demanded_distribution=True,
+            demanded_distribution_date=date(2023, 11, 30),
+        ),
+    )
+    notice = ItemNotice(
+        court_office_code="B000210",
+        case_no="2022타경101244",
+        item_no="1",
+        document_date=date(2026, 7, 3),
+        baseline_raw=None,
+        baseline_date=None,
+        distribution_demand_deadline=None,
+        assumed_rights_kind="NONE",
+        risk_flags=[],
+        lien_claim_amount=None,
+        tenants=tenants,
+    )
+
+    repository.upsert_notices([notice])
+    repository.upsert_notices([notice])
+    # 같은 임차인이 정보출처별로 두 행이고, 재실행해도 행이 늘지 않는다
+    assert _tenant_rows(database_url) == 2
+
+    # 기재사항만 재수집(tenants 비어 있음)해도 이미 받아둔 표를 지우지 않는다
+    repository.upsert_notices([replace(notice, tenants=())])
+    assert _tenant_rows(database_url) == 2
+
+
+def _tenant_rows(database_url: str) -> int:
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM auction_item_notice_tenant")
+            return int(cur.fetchone()[0])

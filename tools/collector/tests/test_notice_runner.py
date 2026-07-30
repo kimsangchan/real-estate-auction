@@ -1,4 +1,4 @@
-# notices 실행 로직 테스트 — 물건번호 매핑, limit, 멱등성, 부분 실패 계속, 차단 전파
+# notices 실행 로직 테스트 — 물건번호 매핑, limit, 멱등성, 부분 실패 계속, 차단 전파, 점유자 표 수집
 import json
 import logging
 from pathlib import Path
@@ -6,12 +6,14 @@ from pathlib import Path
 import pytest
 
 from collector.court_client import BlockedByCourtError, CourtRequestError
+from collector.notice_document_client import NoticeDocumentSession
 from collector.repository import InMemoryNoticeRepository
 from collector.runner import CollectionTarget, build_item_detail_payload, run_notice_collection
 
 
 SEARCH_FIXTURE = Path(__file__).parent / "fixtures" / "court_search_page.json"
 DETAIL_FIXTURE = Path(__file__).parent / "fixtures" / "court_item_detail_page.json"
+TEXTS_FIXTURE = Path(__file__).parent / "fixtures" / "notice_pdf_texts_page0.json"
 
 TARGET = CollectionTarget(court_office_code="B000210")
 
@@ -130,6 +132,83 @@ def test_notice_collection_stores_nothing_when_notice_absent():
 
     assert result.inserted == 0
     assert repository.notices == {}
+
+
+class FakeDocumentReader:
+    """명세서 PDF 경로를 흉내낸다 — 문서 열기 1회, 페이지별 텍스트 1회."""
+
+    def __init__(self, *, available: bool = True):
+        self.opened: list[str] = []
+        self.pages_read: list[int] = []
+        self._available = available
+
+    def open_document(self, ref):
+        self.opened.append(ref.ecdoc_id)
+        if not self._available:
+            return None
+        return NoticeDocumentSession(streamdocs_id="doc-1", access_token="token-1")
+
+    def fetch_text_page(self, session, page: int):
+        self.pages_read.append(page)
+        if page == 0:
+            return json.loads(TEXTS_FIXTURE.read_text(encoding="utf-8"))
+        return []
+
+
+def test_notice_collection_fills_tenant_table_when_document_reader_given(caplog):
+    caplog.set_level(logging.INFO)
+    reader = FakeDocumentReader()
+    repository = InMemoryNoticeRepository()
+
+    run_notice_collection(
+        run_id="run-nt",
+        target=TARGET,
+        client=FakeDetailClient(),
+        repository=repository,
+        limit=1,
+        document_reader=reader,
+    )
+
+    notice = next(iter(repository.notices.values()))
+    assert [t.tenant_name for t in notice.tenants] == ["홍길동", "주택도시보증공사"]
+    assert notice.tenants[0].deposit_amount == 230_000_000
+    # 표가 비고란으로 끝나므로 다음 쪽은 받지 않는다 (법원 요청 절약)
+    assert reader.pages_read == [0]
+    assert "tenants=2" in "\n".join(record.getMessage() for record in caplog.records)
+
+
+def test_notice_collection_keeps_notice_when_document_unavailable(caplog):
+    caplog.set_level(logging.INFO)
+    reader = FakeDocumentReader(available=False)
+    repository = InMemoryNoticeRepository()
+
+    result = run_notice_collection(
+        run_id="run-nt",
+        target=TARGET,
+        client=FakeDetailClient(),
+        repository=repository,
+        limit=1,
+        document_reader=reader,
+    )
+
+    # 열람 창 밖이면 표만 비어 있고 기재사항 수집은 그대로 성공한다
+    assert result.inserted == 1
+    assert next(iter(repository.notices.values())).tenants == ()
+    assert "notice_document_unavailable" in "\n".join(r.getMessage() for r in caplog.records)
+
+
+def test_notice_collection_skips_document_path_by_default():
+    reader = FakeDocumentReader()
+
+    run_notice_collection(
+        run_id="run-nt",
+        target=TARGET,
+        client=FakeDetailClient(),
+        repository=InMemoryNoticeRepository(),
+        limit=1,
+    )
+
+    assert reader.opened == []
 
 
 def test_build_item_detail_payload_uses_detail_search_context():

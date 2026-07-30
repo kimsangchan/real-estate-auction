@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import Any, Protocol
 
@@ -15,10 +15,19 @@ from collector.court_parser import (
     parse_item_notice,
     parse_sale_result_page,
 )
+from collector.notice_document_client import (
+    NoticeDocumentRef,
+    NoticeDocumentSession,
+    notice_document_ref,
+)
+from collector.notice_tenant_parser import NoticeTenant, parse_tenant_table
 from collector.repository import UpsertResult
 
 
 logger = logging.getLogger(__name__)
+
+# 점유자 표는 명세서 1쪽에 있고, 점유자가 많으면 다음 쪽으로 이어진다 — 이어질 때만 더 받는다
+NOTICE_TEXT_MAX_PAGES = 2
 
 # 물건상세검색 화면(PGJ151F01) 기본값 — 부동산·기일입찰·법원별검색, 오늘부터 2주 후 매각기일까지
 SEARCH_PERIOD_DAYS = 14
@@ -62,6 +71,12 @@ class ItemDetailClient(Protocol):
 
 class NoticeRepository(Protocol):
     def upsert_notices(self, notices: list[ItemNotice]) -> UpsertResult: ...
+
+
+class NoticeDocumentReader(Protocol):
+    def open_document(self, ref: NoticeDocumentRef) -> NoticeDocumentSession | None: ...
+
+    def fetch_text_page(self, session: NoticeDocumentSession, page: int) -> list[Any]: ...
 
 
 ParseSearchPage = Callable[[dict[str, Any]], SearchPage]
@@ -245,12 +260,16 @@ def run_notice_collection(
     client: ItemDetailClient,
     repository: NoticeRepository,
     limit: int | None = None,
+    document_reader: NoticeDocumentReader | None = None,
 ) -> UpsertResult:
     """지금 공고 중인 물건의 매각물건명세서 기재사항을 수집한다.
 
     검색 결과 한 페이지의 물건을 하나씩 상세조회한다 — 상세조회가 물건당 1회 요청이므로
     limit으로 한 번에 도는 물건 수를 제한한다. 물건 하나가 실패해도 다음 물건을 계속
     처리하되, 차단 신호는 즉시 전파한다.
+
+    `document_reader`를 주면 명세서 PDF까지 열어 점유자(임차인) 표를 함께 채운다.
+    물건당 요청이 3회 이상 늘어나므로 필요한 실행에서만 넘긴다.
     """
     rows = _search_result_rows(client.search_items(build_search_payload(target)))
     if limit is not None:
@@ -258,6 +277,7 @@ def run_notice_collection(
 
     notices: list[ItemNotice] = []
     failed_items = 0
+    tenant_rows = 0
 
     for row_index, row in enumerate(rows):
         case_no = str(row.get("srnSaNo") or "")
@@ -290,18 +310,27 @@ def run_notice_collection(
             case_no=case_no,
             item_no=item_no,
         )
-        if notice is not None:
-            notices.append(notice)
+        if notice is None:
+            continue
+
+        if document_reader is not None:
+            tenants = _collect_notice_tenants(
+                run_id=run_id, reader=document_reader, detail_payload=response, case_no=case_no
+            )
+            notice = replace(notice, tenants=tenants)
+            tenant_rows += len(tenants)
+        notices.append(notice)
 
     result = repository.upsert_notices(notices)
 
     logger.info(
-        "notice_collection run_id=%s court=%s items=%s parsed=%s "
+        "notice_collection run_id=%s court=%s items=%s parsed=%s tenants=%s "
         "inserted=%s updated=%s skipped=%s failed=%s",
         run_id,
         target.court_office_code,
         len(rows),
         len(notices),
+        tenant_rows,
         result.inserted,
         result.updated,
         result.skipped,
@@ -309,6 +338,36 @@ def run_notice_collection(
     )
 
     return result
+
+
+def _collect_notice_tenants(
+    *,
+    run_id: str,
+    reader: NoticeDocumentReader,
+    detail_payload: dict[str, Any],
+    case_no: str,
+) -> tuple[NoticeTenant, ...]:
+    """명세서 PDF에서 점유자 표를 읽는다.
+
+    열람 창(매각기일 1주 전~기일) 밖이면 문서를 열 수 없어 빈 값을 돌려준다 — 기재사항 수집은
+    그대로 진행한다. 표가 다음 쪽으로 이어질 때만 쪽을 더 받는다.
+    """
+    ref = notice_document_ref(detail_payload)
+    if ref is None:
+        return ()
+
+    session = reader.open_document(ref)
+    if session is None:
+        logger.info("notice_document_unavailable run_id=%s case=%s", run_id, case_no)
+        return ()
+
+    pages: list[list[Any]] = []
+    for page in range(NOTICE_TEXT_MAX_PAGES):
+        pages.append(reader.fetch_text_page(session, page))
+        table = parse_tenant_table(pages)
+        if not table.continued:
+            return table.tenants
+    return parse_tenant_table(pages).tenants
 
 
 def _search_result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:

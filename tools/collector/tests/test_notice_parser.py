@@ -124,14 +124,15 @@ def test_parse_item_notice_returns_none_for_broken_payload():
     assert _parse({"data": {"dma_result": []}}) is None
 
 
-def test_item_notice_stores_no_free_text_and_no_personal_name_field():
-    """개인정보(A-08): 자유서술 원문(비고·인수권리·지상권)을 담는 필드가 아예 없어야 한다.
+def test_item_notice_stores_no_free_text():
+    """자유서술 원문(비고·인수권리·지상권)을 담는 필드가 아예 없어야 한다.
 
-    이름 필드 금지 검사에 더해 필드 집합 자체를 고정한다 — 원문 필드가 다시 생기면 실패한다.
+    필드 집합 자체를 고정한다 — 원문 필드가 다시 생기면 실패한다. 정규식 마스킹이
+    양방향으로 실패해 원문을 버린 결정(마이그레이션 006)을 코드로 못박는 검사다.
+    점유자 성명은 여기가 아니라 점유자 표(NoticeTenant)에 저장한다.
     """
     field_names = {field.name for field in fields(ItemNotice)}
 
-    assert not {name for name in field_names if "name" in name or "nm" in name.lower()}
     assert field_names == {
         "court_office_code",
         "case_no",
@@ -143,6 +144,7 @@ def test_item_notice_stores_no_free_text_and_no_personal_name_field():
         "assumed_rights_kind",
         "risk_flags",
         "lien_claim_amount",
+        "tenants",
     }
 
 

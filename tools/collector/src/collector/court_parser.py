@@ -6,6 +6,7 @@ from datetime import date
 from typing import Any
 
 from collector.geo import katec_to_wgs84
+from collector.notice_tenant_parser import NoticeTenant
 
 
 class CourtPayloadError(ValueError):
@@ -262,6 +263,9 @@ class ItemNotice:
     assumed_rights_kind: str | None
     risk_flags: list[str]
     lien_claim_amount: int | None
+    # 점유자(임차인) 표는 명세서 PDF에만 있어 별도 경로로 받는다 — 열람 창(기일 1주 전~기일) 밖에서는
+    # 비어 있다. JSON 기재사항만 수집할 때는 이 필드를 채우지 않는다
+    tenants: tuple[NoticeTenant, ...] = ()
 
 
 # 최선순위 설정 원문의 날짜 표기 — "2008.07.09", "2022.1.12.", "2024. 12. 11." 모두 실측된 형태다

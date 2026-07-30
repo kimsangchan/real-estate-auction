@@ -8,6 +8,7 @@ import uuid
 from collector.config import load_config
 from collector.court_client import CourtAuctionClient
 from collector.court_parser import parse_search_page
+from collector.notice_document_client import NoticeDocumentClient
 from collector.postgres_repository import PostgresAuctionRepository, run_migrations
 from collector.runner import (
     CollectionTarget,
@@ -106,16 +107,30 @@ def _run_notices(argv: list[str]) -> None:
         default=10,
         help="이번 실행에서 상세조회할 최대 물건 수 (물건당 요청 1회)",
     )
+    parser.add_argument(
+        "--with-tenants",
+        action="store_true",
+        help="명세서 PDF까지 열어 점유자(임차인) 표를 함께 수집한다 (물건당 요청 3회 이상 추가)",
+    )
     parser.add_argument("--migrate", action="store_true")
     args = parser.parse_args(argv)
 
     client, repository = _bootstrap(migrate=args.migrate)
+    document_reader = None
+    if args.with_tenants:
+        config = load_config()
+        document_reader = NoticeDocumentClient(
+            request_interval_ms=config.request_interval_ms,
+            max_retry=config.max_retry,
+        )
+
     run_notice_collection(
         run_id=str(uuid.uuid4()),
         target=CollectionTarget(court_office_code=args.court_office_code, page_no=args.page_no),
         client=client,
         repository=repository,
         limit=args.limit,
+        document_reader=document_reader,
     )
 
 
