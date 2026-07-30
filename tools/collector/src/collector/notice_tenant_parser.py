@@ -88,10 +88,31 @@ class NoticeTenant:
 
 @dataclass(frozen=True)
 class TenantTable:
-    """파싱 결과. `continued`는 표가 다음 페이지로 이어질 수 있음을 뜻한다."""
+    """파싱 결과. `continued`는 표가 다음 페이지로 이어질 수 있음을 뜻한다.
+
+    `rejected`는 검증 게이트에서 버린 행 수다. 좌표 기반 표 복원이 양식에 따라 셀 조각을
+    별개 행으로 쪼개는 경우가 있어(실측: 10개 문서에서 20행 중 15행이 조각), 최소 요건을
+    못 갖춘 행은 저장하지 않고 세기만 한다 — 쓰레기를 DB에 넣는 것보다 낫다 (WP-11 §4-6).
+    """
 
     tenants: tuple[NoticeTenant, ...]
     continued: bool
+    rejected: int = 0
+
+
+# 정보출처 정상값 — 이 셋 중 하나가 아니면 행 경계 자체가 잘못 잡힌 것으로 본다
+_VALID_SOURCE_KINDS = ("현황조사", "권리신고", "등기사항전부증명서")
+
+
+def _is_usable(tenant: NoticeTenant) -> bool:
+    """저장할 가치가 있는 행인지 판정한다.
+
+    정보출처가 정상값이어야 하고(행 경계가 제대로 잡혔다는 신호), 그 위에 권리분석에 쓸 값이
+    하나라도 있어야 한다. 전입일은 엔진 `Tenant`의 필수 입력이고, 보증금은 인수액 계산의 기초다.
+    """
+    if tenant.source_kind not in _VALID_SOURCE_KINDS:
+        return False
+    return tenant.move_in_date is not None or tenant.deposit_amount is not None
 
 
 def parse_tenant_table(pages: list[list[Any]]) -> TenantTable:
@@ -111,7 +132,11 @@ def parse_tenant_table(pages: list[list[Any]]) -> TenantTable:
         rows.extend(_rows_in_region(fragments, top=top, bottom=bottom))
         continued = not has_end_marker
 
-    return TenantTable(tenants=_to_tenants(rows), continued=continued)
+    parsed = _to_tenants(rows)
+    usable = tuple(tenant for tenant in parsed if _is_usable(tenant))
+    return TenantTable(
+        tenants=usable, continued=continued, rejected=len(parsed) - len(usable)
+    )
 
 
 def _fragments(lines: list[Any]) -> list[dict[str, Any]]:

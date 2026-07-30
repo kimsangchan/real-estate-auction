@@ -278,6 +278,7 @@ def run_notice_collection(
     notices: list[ItemNotice] = []
     failed_items = 0
     tenant_rows = 0
+    tenant_rejected = 0
 
     for row_index, row in enumerate(rows):
         case_no = str(row.get("srnSaNo") or "")
@@ -314,23 +315,25 @@ def run_notice_collection(
             continue
 
         if document_reader is not None:
-            tenants = _collect_notice_tenants(
+            tenants, rejected = _collect_notice_tenants(
                 run_id=run_id, reader=document_reader, detail_payload=response, case_no=case_no
             )
             notice = replace(notice, tenants=tenants)
             tenant_rows += len(tenants)
+            tenant_rejected += rejected
         notices.append(notice)
 
     result = repository.upsert_notices(notices)
 
     logger.info(
         "notice_collection run_id=%s court=%s items=%s parsed=%s tenants=%s "
-        "inserted=%s updated=%s skipped=%s failed=%s",
+        "tenants_rejected=%s inserted=%s updated=%s skipped=%s failed=%s",
         run_id,
         target.court_office_code,
         len(rows),
         len(notices),
         tenant_rows,
+        tenant_rejected,
         result.inserted,
         result.updated,
         result.skipped,
@@ -346,28 +349,29 @@ def _collect_notice_tenants(
     reader: NoticeDocumentReader,
     detail_payload: dict[str, Any],
     case_no: str,
-) -> tuple[NoticeTenant, ...]:
-    """명세서 PDF에서 점유자 표를 읽는다.
+) -> tuple[tuple[NoticeTenant, ...], int]:
+    """명세서 PDF에서 점유자 표를 읽어 (저장할 행, 검증에서 버린 행 수)를 돌려준다.
 
     열람 창(매각기일 1주 전~기일) 밖이면 문서를 열 수 없어 빈 값을 돌려준다 — 기재사항 수집은
     그대로 진행한다. 표가 다음 쪽으로 이어질 때만 쪽을 더 받는다.
     """
     ref = notice_document_ref(detail_payload)
     if ref is None:
-        return ()
+        return ((), 0)
 
     session = reader.open_document(ref)
     if session is None:
         logger.info("notice_document_unavailable run_id=%s case=%s", run_id, case_no)
-        return ()
+        return ((), 0)
 
     pages: list[list[Any]] = []
     for page in range(NOTICE_TEXT_MAX_PAGES):
         pages.append(reader.fetch_text_page(session, page))
         table = parse_tenant_table(pages)
         if not table.continued:
-            return table.tenants
-    return parse_tenant_table(pages).tenants
+            return (table.tenants, table.rejected)
+    final = parse_tenant_table(pages)
+    return (final.tenants, final.rejected)
 
 
 def _search_result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
