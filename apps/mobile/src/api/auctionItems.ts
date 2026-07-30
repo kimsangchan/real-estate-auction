@@ -78,9 +78,7 @@ export async function fetchAuctionItemPhotos(
   const path = `${encodeURIComponent(key.courtOfficeCode)}/${encodeURIComponent(
     key.caseNo,
   )}/${encodeURIComponent(key.itemNo)}`;
-  const response = await fetch(
-    `${API_BASE_URL}/auction-items/${path}/photos`,
-  );
+  const response = await fetch(`${API_BASE_URL}/auction-items/${path}/photos`);
   if (response.status === 404) return [];
   if (!response.ok) {
     throw new Error(`물건 사진 조회 실패: ${response.status}`);

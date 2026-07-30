@@ -13,7 +13,11 @@ function response(status: number, body: unknown = []): Response {
   } as Response;
 }
 
-const KEY = { courtOfficeCode: 'B000210', caseNo: '2022타경101244', itemNo: '1' };
+const KEY = {
+  courtOfficeCode: 'B000210',
+  caseNo: '2022타경101244',
+  itemNo: '1',
+};
 
 describe('fetchAuctionItemPhotos', () => {
   it('물건 키를 인코딩해 /photos를 호출하고 메타 배열을 반환한다', async () => {
