@@ -12,6 +12,7 @@ from collector.postgres_repository import PostgresAuctionRepository, run_migrati
 from collector.runner import (
     CollectionTarget,
     run_collection,
+    run_notice_collection,
     run_sale_result_backfill,
     run_sale_result_sweep,
 )
@@ -24,6 +25,8 @@ def main() -> None:
         _run_backfill(argv[1:])
     elif argv and argv[0] == "sweep":
         _run_sweep(argv[1:])
+    elif argv and argv[0] == "notices":
+        _run_notices(argv[1:])
     else:
         _run_collect(argv)
 
@@ -87,6 +90,32 @@ def _run_sweep(argv: list[str]) -> None:
         repository=repository,
         status_code=args.status,
         max_pages=args.max_pages,
+    )
+
+
+def _run_notices(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(
+        prog="collector notices",
+        description="지금 공고 중인 물건의 매각물건명세서 기재사항을 수집한다",
+    )
+    parser.add_argument("--court-office-code", required=True)
+    parser.add_argument("--page-no", type=int, default=1)
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="이번 실행에서 상세조회할 최대 물건 수 (물건당 요청 1회)",
+    )
+    parser.add_argument("--migrate", action="store_true")
+    args = parser.parse_args(argv)
+
+    client, repository = _bootstrap(migrate=args.migrate)
+    run_notice_collection(
+        run_id=str(uuid.uuid4()),
+        target=CollectionTarget(court_office_code=args.court_office_code, page_no=args.page_no),
+        client=client,
+        repository=repository,
+        limit=args.limit,
     )
 
 

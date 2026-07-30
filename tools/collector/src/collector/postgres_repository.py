@@ -7,7 +7,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from collector.court_parser import AuctionItem, SaleResult
+from collector.court_parser import AuctionItem, ItemNotice, SaleResult
 from collector.repository import UpsertResult
 
 
@@ -58,6 +58,25 @@ class PostgresAuctionRepository:
                         skipped += 1
 
         return UpsertResult(inserted=inserted, updated=0, skipped=skipped)
+
+    def upsert_notices(self, notices: list[ItemNotice]) -> UpsertResult:
+        """매각물건명세서 기재사항을 멱등 저장한다 — 같은 물건·작성일은 재실행해도 늘지 않는다."""
+        inserted = 0
+        updated = 0
+        skipped = 0
+
+        with psycopg.connect(self._database_url) as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                for notice in notices:
+                    state = _upsert_notice(cur, notice)
+                    if state == "inserted":
+                        inserted += 1
+                    elif state == "updated":
+                        updated += 1
+                    else:
+                        skipped += 1
+
+        return UpsertResult(inserted=inserted, updated=updated, skipped=skipped)
 
     def find_items_pending_sale_result(self) -> list[dict[str, Any]]:
         """매각기일이 지났는데 그 기일 이후 결과 행이 없는 물건 목록 — backfill 대상."""
@@ -303,6 +322,73 @@ def _insert_sale_result(cur: psycopg.Cursor[Any], result: SaleResult) -> bool:
         ),
     )
     return cur.rowcount > 0
+
+
+_NOTICE_FIELDS = (
+    "baseline_raw",
+    "baseline_date",
+    "distribution_demand_deadline",
+    "assumed_rights_note",
+    "superficies_note",
+    "remarks",
+)
+
+
+def _upsert_notice(cur: psycopg.Cursor[Any], notice: ItemNotice) -> str:
+    """명세서 한 건을 저장하고 inserted/updated/skipped를 돌려준다.
+
+    UNIQUE (auction_item_id, document_date)는 PostgreSQL이 NULL을 서로 다른 값으로 취급해
+    작성일 없는 행의 중복을 막지 못하므로, IS NOT DISTINCT FROM으로 직접 기존 행을 찾는다.
+    """
+    cur.execute(
+        """
+        SELECT ai.id
+        FROM auction_item ai
+        JOIN auction_case ac ON ac.id = ai.auction_case_id
+        WHERE ac.court_office_code = %s AND ac.case_no = %s AND ai.item_no = %s
+        """,
+        (notice.court_office_code, notice.case_no, notice.item_no),
+    )
+    item_row = cur.fetchone()
+    if item_row is None:
+        return "skipped"  # 아직 수집되지 않은 물건 — 조용히 건너뛴다
+    auction_item_id = int(item_row["id"])
+
+    values = tuple(getattr(notice, field) for field in _NOTICE_FIELDS)
+    cur.execute(
+        f"""
+        SELECT id, {", ".join(_NOTICE_FIELDS)}
+        FROM auction_item_notice
+        WHERE auction_item_id = %s AND document_date IS NOT DISTINCT FROM %s
+        """,
+        (auction_item_id, notice.document_date),
+    )
+    existing = cur.fetchone()
+
+    if existing is None:
+        cur.execute(
+            f"""
+            INSERT INTO auction_item_notice (
+              auction_item_id, document_date, {", ".join(_NOTICE_FIELDS)}
+            )
+            VALUES (%s, %s, {", ".join(["%s"] * len(_NOTICE_FIELDS))})
+            """,
+            (auction_item_id, notice.document_date, *values),
+        )
+        return "inserted"
+
+    if all(existing[field] == value for field, value in zip(_NOTICE_FIELDS, values, strict=True)):
+        return "skipped"
+
+    cur.execute(
+        f"""
+        UPDATE auction_item_notice
+        SET {", ".join(f"{field} = %s" for field in _NOTICE_FIELDS)}, observed_at = now()
+        WHERE id = %s
+        """,
+        (*values, int(existing["id"])),
+    )
+    return "updated"
 
 
 def _insert_schedule_snapshot(cur: psycopg.Cursor[Any], auction_item_id: int, item: AuctionItem) -> None:

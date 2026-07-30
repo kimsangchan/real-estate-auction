@@ -123,11 +123,13 @@ def test_client_routes_each_search_method_to_its_endpoint():
     client.search_items({})
     client.search_sale_results({})
     client.search_case({})
+    client.search_item_detail({})
 
     assert urls == [
         "https://www.courtauction.go.kr" + court_client.SEARCH_PATH,
         "https://www.courtauction.go.kr" + court_client.SALE_RESULT_PATH,
         "https://www.courtauction.go.kr" + court_client.CASE_SEARCH_PATH,
+        "https://www.courtauction.go.kr" + court_client.ITEM_DETAIL_PATH,
     ]
 
 
@@ -143,8 +145,12 @@ def test_urllib_transport_switches_headers_by_endpoint(monkeypatch):
     base = "https://www.courtauction.go.kr"
     court_client._urllib_transport(base + court_client.SALE_RESULT_PATH, {})
     court_client._urllib_transport(base + court_client.CASE_SEARCH_PATH, {})
+    court_client._urllib_transport(base + court_client.ITEM_DETAIL_PATH, {})
 
     assert captured[0]["submissionid"] == court_client.SALE_RESULT_SUBMISSION_ID
     assert captured[0]["referer"] == court_client.SALE_RESULT_REFERER
     assert captured[1]["submissionid"] == court_client.CASE_SEARCH_SUBMISSION_ID
     assert captured[1]["referer"] == court_client.CASE_SEARCH_REFERER
+    # 물건상세는 사건검색과 경로가 다르고 물건상세검색 화면에서 제출된다
+    assert captured[2]["submissionid"] == court_client.ITEM_DETAIL_SUBMISSION_ID
+    assert captured[2]["referer"] == court_client.REFERER

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any
@@ -239,6 +240,145 @@ def _parse_case_dxdy_row(
         return results
     except CourtPayloadError:
         return []
+
+
+@dataclass(frozen=True)
+class ItemNotice:
+    """auction_item_notice 한 행에 해당하는 매각물건명세서 기재사항.
+
+    개인정보(A-08): 임차인·신고인 실명을 담는 필드를 두지 않는다. 점유자 표는 명세서 PDF에만
+    있고 이 응답에는 없다.
+    """
+
+    court_office_code: str
+    case_no: str
+    item_no: str
+    document_date: date | None
+    baseline_raw: str | None
+    baseline_date: date | None
+    distribution_demand_deadline: date | None
+    assumed_rights_note: str | None
+    superficies_note: str | None
+    remarks: str | None
+
+
+# 최선순위 설정 원문의 날짜 표기 — "2008.07.09", "2022.1.12.", "2024. 12. 11." 모두 실측된 형태다
+_BASELINE_DATE_PATTERN = re.compile(r"(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})")
+
+# 비고란 등 자유서술에 신고인·점유자 실명이 마스킹 없이 실린다 (실측: "2008.11.28. 이재선
+# 유치권신고(879,596,895원)"). 우리는 이름을 쓰지 않으므로 저장 전에 지운다 (A-08).
+# 사람 이름은 신고·제출 같은 행위 명사 앞에 온다는 실측 패턴만 좁게 잡는다.
+_PERSON_ACTION = r"(?:유치권신고|권리신고|배당요구|신고|제출|접수)"
+_PERSON_NAME_PATTERN = re.compile(rf"(?<![가-힣])([가-힣]{{2,4}})(\s*{_PERSON_ACTION})")
+
+# 사람 이름이 아니라 역할·지위를 가리키는 낱말 — 마스킹하면 문장 뜻이 망가진다
+_NOT_PERSON_NAMES = frozenset(
+    {
+        "임차인",
+        "점유자",
+        "소유자",
+        "채권자",
+        "채무자",
+        "신청인",
+        "대리인",
+        "관리인",
+        "공유자",
+        "매수인",
+        "세입자",
+        "임대인",
+        "전세권자",
+        "유치권",
+        "근저당",
+        "가압류",
+    }
+)
+
+
+def mask_person_names(text: str | None) -> str | None:
+    """자유서술에서 사람 이름을 법원 표기 방식(첫 글자 + OO)으로 가린다.
+
+    휴리스틱이므로 완벽하지 않다. 새로운 표기가 나오면 패턴을 넓혀야 한다 (WP-11 §5).
+    """
+    if text is None:
+        return None
+
+    def replace(match: re.Match[str]) -> str:
+        name, tail = match.group(1), match.group(2)
+        if name in _NOT_PERSON_NAMES:
+            return match.group(0)
+        return f"{name[0]}OO{tail}"
+
+    return _PERSON_NAME_PATTERN.sub(replace, text)
+
+
+def parse_item_notice(
+    payload: dict[str, Any],
+    *,
+    court_office_code: str,
+    case_no: str,
+    item_no: str,
+) -> ItemNotice | None:
+    """물건상세(PGJ15BM01) 응답에서 매각물건명세서 기재사항을 뽑는다.
+
+    항목이 없으면 그 필드만 None으로 두고 전체를 실패시키지 않는다. 명세서 자체가 아직
+    작성되지 않은 물건(작성일 없음)이면 None을 돌려준다.
+    """
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return None
+    result = data.get("dma_result")
+    if not isinstance(result, dict):
+        return None
+    dxdy = result.get("dspslGdsDxdyInfo")
+    if not isinstance(dxdy, dict):
+        return None
+
+    document_date = _date_from_yyyymmdd(dxdy.get("gdsSpcfcWrtYmd"))
+    baseline_raw = _optional_str(dxdy.get("tprtyRnkHypthcStngDts"))
+    if document_date is None and baseline_raw is None:
+        return None
+
+    return ItemNotice(
+        court_office_code=court_office_code,
+        case_no=case_no,
+        item_no=item_no,
+        document_date=document_date,
+        baseline_raw=baseline_raw,
+        baseline_date=_baseline_date(baseline_raw),
+        distribution_demand_deadline=_distribution_demand_deadline(result),
+        # 자유서술 3종은 실명이 실릴 수 있어 저장 전에 이름을 가린다 (A-08)
+        assumed_rights_note=mask_person_names(_optional_str(dxdy.get("ndstrcRghCtt"))),
+        superficies_note=mask_person_names(_optional_str(dxdy.get("sprfcExstcDts"))),
+        remarks=mask_person_names(_optional_str(dxdy.get("gdsSpcfcRmk"))),
+    )
+
+
+def _baseline_date(baseline_raw: str | None) -> date | None:
+    """최선순위 설정 원문에서 가장 이른 날짜를 고른다.
+
+    토지와 집합건물의 최선순위를 따로 적는 사건이 있어 날짜가 여러 개다. 말소기준은 그중
+    가장 이른 날짜다.
+    """
+    if baseline_raw is None:
+        return None
+    parsed = []
+    for year, month, day in _BASELINE_DATE_PATTERN.findall(baseline_raw):
+        try:
+            parsed.append(date(int(year), int(month), int(day)))
+        except ValueError:
+            continue
+    return min(parsed) if parsed else None
+
+
+def _distribution_demand_deadline(result: dict[str, Any]) -> date | None:
+    entries = result.get("dstrtDemnInfo")
+    for entry in entries if isinstance(entries, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        deadline = _date_from_yyyymmdd(entry.get("dstrtDemnLstprdYmd"))
+        if deadline is not None:
+            return deadline
+    return None
 
 
 def _date_from_yyyymmdd(value: Any) -> date | None:

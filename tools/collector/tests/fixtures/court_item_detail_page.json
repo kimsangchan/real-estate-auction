@@ -1,0 +1,49 @@
+{
+  "status": 200,
+  "message": "정상적으로 조회되었습니다.",
+  "timestamp": 1785315000000,
+  "errors": null,
+  "data": {
+    "ipcheck": true,
+    "dma_result": {
+      "csBaseInfo": {
+        "cortOfcCd": "B000210",
+        "cortOfcNm": "서울중앙지방법원",
+        "csNo": "20220130101244",
+        "userCsNo": "2022타경101244"
+      },
+      "dstrtDemnInfo": [
+        {
+          "orddcsDvsCd": "021",
+          "dstrtDemnLstprdYmd": "20250310"
+        }
+      ],
+      "dspslGdsDxdyInfo": {
+        "cortOfcCd": "B000210",
+        "csNo": "20220130101244",
+        "dspslGdsSeq": 1,
+        "auctnGdsStatCd": "01",
+        "gdsSpcfcWrtYmd": "20260703",
+        "ndstrcRghCtt": null,
+        "sprfcExstcDts": null,
+        "gdsSpcfcRmk": "-토지 별도등기 있음(가등기, 근저당권)\n-유치권 신고 있으나 성립여부 불분명함",
+        "tprtyRnkHypthcStngDts": "1188-9번지 토지 : 2003.05.23. 근저당권\n집합건물 : 2008.07.09 근저당권",
+        "dspslGdsRmk": null,
+        "flbdNcnt": 2,
+        "aeeEvlAmt": 88184767,
+        "dspslDxdyYmd": "20260730",
+        "dspslGdsSpcfcEcdocId": "0000000000000000TESTECDOCID00000",
+        "realMulKind": "1",
+        "orvParam": "TESTORVPARAM"
+      },
+      "gdsDspslObjctLst": [
+        {
+          "cortOfcCd": "B000210",
+          "csNo": "20220130101244",
+          "dspslGdsSeq": 1,
+          "dspslObjctSeq": 1
+        }
+      ]
+    }
+  }
+}

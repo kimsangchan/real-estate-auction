@@ -29,11 +29,17 @@ CASE_SEARCH_REFERER = (
     "https://www.courtauction.go.kr/pgj/index.on?w2xPath=/pgj/ui/pgj15A/PGJ159M00.xml"
 )
 
+# 물건상세(PGJ15BM01) — 매각물건명세서 기재사항(최선순위 설정·인수권리·비고)이 이 응답에 들어 있다.
+# 사건검색(pgj15A)과 이름은 같지만 경로·submissionid가 다른 별개 엔드포인트다.
+ITEM_DETAIL_PATH = "/pgj/pgj15B/selectAuctnCsSrchRslt.on"
+ITEM_DETAIL_SUBMISSION_ID = "mf_wfm_mainFrame_sbm_selectGdsDtlSrchDtlInfo"
+
 # 엔드포인트 경로별 WebSquare 제출 헤더 (submissionid, Referer) — 기본 transport가 참조한다
 _ENDPOINT_HEADERS = {
     SEARCH_PATH: (SUBMISSION_ID, REFERER),
     SALE_RESULT_PATH: (SALE_RESULT_SUBMISSION_ID, SALE_RESULT_REFERER),
     CASE_SEARCH_PATH: (CASE_SEARCH_SUBMISSION_ID, CASE_SEARCH_REFERER),
+    ITEM_DETAIL_PATH: (ITEM_DETAIL_SUBMISSION_ID, REFERER),
 }
 
 
@@ -89,6 +95,10 @@ class CourtAuctionClient:
     def search_case(self, payload: dict[str, Any]) -> dict[str, Any]:
         """경매사건검색(PGJ159M00)을 호출한다 — 사건 단위 기일 이력·물건별 결과."""
         return self._request(CASE_SEARCH_PATH, payload)
+
+    def search_item_detail(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """물건상세(PGJ15BM01)를 호출한다 — 매각물건명세서 기재사항이 함께 온다."""
+        return self._request(ITEM_DETAIL_PATH, payload)
 
     def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         url = f"{self._base_url}{path}"

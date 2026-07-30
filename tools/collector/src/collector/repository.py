@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from collector.court_parser import AuctionItem, SaleResult
+from collector.court_parser import AuctionItem, ItemNotice, SaleResult
 
 
 @dataclass(frozen=True)
@@ -35,6 +35,32 @@ class InMemoryAuctionRepository:
                 continue
             self._items = {**self._items, item.natural_key: item}
             updated += 1
+
+        return UpsertResult(inserted=inserted, updated=updated, skipped=skipped)
+
+
+class InMemoryNoticeRepository:
+    """명세서 멱등 저장 규칙(같은 물건·작성일 중복 금지)을 검증하기 위한 테스트용 저장소."""
+
+    def __init__(self) -> None:
+        self.notices: dict[tuple[str, str, str, Any], ItemNotice] = {}
+
+    def upsert_notices(self, notices: list[ItemNotice]) -> UpsertResult:
+        inserted = 0
+        updated = 0
+        skipped = 0
+
+        for notice in notices:
+            key = (notice.court_office_code, notice.case_no, notice.item_no, notice.document_date)
+            current = self.notices.get(key)
+            if current is None:
+                inserted += 1
+            elif current == notice:
+                skipped += 1
+                continue
+            else:
+                updated += 1
+            self.notices = {**self.notices, key: notice}
 
         return UpsertResult(inserted=inserted, updated=updated, skipped=skipped)
 

@@ -8,9 +8,11 @@ from typing import Any, Protocol
 
 from collector.court_client import CourtRequestError
 from collector.court_parser import (
+    ItemNotice,
     SaleResult,
     SearchPage,
     parse_case_sale_results,
+    parse_item_notice,
     parse_sale_result_page,
 )
 from collector.repository import UpsertResult
@@ -50,6 +52,16 @@ class BackfillRepository(Protocol):
     def find_items_pending_sale_result(self) -> list[dict[str, Any]]: ...
 
     def upsert_sale_results(self, results: list[SaleResult]) -> UpsertResult: ...
+
+
+class ItemDetailClient(Protocol):
+    def search_items(self, payload: dict[str, Any]) -> dict[str, Any]: ...
+
+    def search_item_detail(self, payload: dict[str, Any]) -> dict[str, Any]: ...
+
+
+class NoticeRepository(Protocol):
+    def upsert_notices(self, notices: list[ItemNotice]) -> UpsertResult: ...
 
 
 ParseSearchPage = Callable[[dict[str, Any]], SearchPage]
@@ -196,6 +208,113 @@ def build_sale_result_payload(
 def build_case_search_payload(court_office_code: str, case_no: str) -> dict[str, Any]:
     """경매사건검색(sbm_selectAuctnCsSrchRslt) 페이로드 — 사람이 읽는 사건번호 그대로 보낸다."""
     return {"dma_srchCsDtlInf": {"cortOfcCd": court_office_code, "csNo": case_no}}
+
+
+def build_item_detail_payload(
+    target: CollectionTarget,
+    *,
+    case_no: str,
+    goods_seq: str,
+    row_index: int = 0,
+) -> dict[str, Any]:
+    """물건상세(sbm_selectGdsDtlSrchDtlInfo) 페이로드를 만든다.
+
+    `goods_seq`는 물건번호(검색 결과의 maemulSer)다. 목적물번호(mokmulSer=우리 item_no)와
+    다른 사건이 있으므로 섞어 쓰면 다른 물건의 명세서를 받는다 (WP-11 §4-2).
+    """
+    search_info = build_search_payload(target)["dma_srchGdsDtlSrchInfo"]
+    search_info["sideDvsCd"] = "2"
+    search_info["srchRowIndex"] = row_index
+    search_info["menuNm"] = "물건상세검색"
+
+    return {
+        "dma_srchGdsDtlSrch": {
+            "csNo": case_no,
+            "cortOfcCd": target.court_office_code,
+            "dspslGdsSeq": goods_seq,
+            "pgmId": "PGJ151F01",
+            "srchInfo": search_info,
+        }
+    }
+
+
+def run_notice_collection(
+    *,
+    run_id: str,
+    target: CollectionTarget,
+    client: ItemDetailClient,
+    repository: NoticeRepository,
+    limit: int | None = None,
+) -> UpsertResult:
+    """지금 공고 중인 물건의 매각물건명세서 기재사항을 수집한다.
+
+    검색 결과 한 페이지의 물건을 하나씩 상세조회한다 — 상세조회가 물건당 1회 요청이므로
+    limit으로 한 번에 도는 물건 수를 제한한다. 물건 하나가 실패해도 다음 물건을 계속
+    처리하되, 차단 신호는 즉시 전파한다.
+    """
+    rows = _search_result_rows(client.search_items(build_search_payload(target)))
+    if limit is not None:
+        rows = rows[:limit]
+
+    notices: list[ItemNotice] = []
+    failed_items = 0
+
+    for row_index, row in enumerate(rows):
+        case_no = str(row.get("srnSaNo") or "")
+        goods_seq = str(row.get("maemulSer") or "")
+        item_no = str(row.get("mokmulSer") or "")
+        if not (case_no and goods_seq and item_no):
+            failed_items += 1
+            continue
+
+        payload = build_item_detail_payload(
+            target, case_no=case_no, goods_seq=goods_seq, row_index=row_index
+        )
+        try:
+            response = client.search_item_detail(payload)
+        except CourtRequestError as exc:
+            failed_items += 1
+            logger.warning(
+                "notice_item_failed run_id=%s court=%s case=%s item=%s error=%s",
+                run_id,
+                target.court_office_code,
+                case_no,
+                item_no,
+                exc,
+            )
+            continue
+
+        notice = parse_item_notice(
+            response,
+            court_office_code=target.court_office_code,
+            case_no=case_no,
+            item_no=item_no,
+        )
+        if notice is not None:
+            notices.append(notice)
+
+    result = repository.upsert_notices(notices)
+
+    logger.info(
+        "notice_collection run_id=%s court=%s items=%s parsed=%s "
+        "inserted=%s updated=%s skipped=%s failed=%s",
+        run_id,
+        target.court_office_code,
+        len(rows),
+        len(notices),
+        result.inserted,
+        result.updated,
+        result.skipped,
+        failed_items,
+    )
+
+    return result
+
+
+def _search_result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    data = payload.get("data")
+    rows = data.get("dlt_srchResult") if isinstance(data, dict) else None
+    return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
 
 
 def run_sale_result_sweep(
