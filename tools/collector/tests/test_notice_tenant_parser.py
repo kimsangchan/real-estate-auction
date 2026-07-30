@@ -142,3 +142,33 @@ def test_unknown_fixed_date_becomes_null():
     assert _parse_date("미상") is None
     assert _parse_date("2021.13.40") is None
     assert _parse_date(None) is None
+
+
+def test_rowspan_tenant_shares_one_seq():
+    """같은 점유자가 정보출처별로 두 행에 걸치면 성명은 병합 셀에 한 번만 렌더된다.
+
+    실측(52802-2): 현황조사 행에 성명이 있고 권리신고 행은 성명이 비어 있는데 같은 사람이다.
+    행 순번을 그대로 쓰면 1명이 2명으로 세어져 H3(임차인 수)이 어긋난다 (WP-11 §4-8).
+    """
+    table = parse_tenant_table(_pages("notice_pdf_texts_52802_2.json"))
+
+    assert len(table.tenants) >= 2
+    named = [t for t in table.tenants if t.tenant_name is not None]
+    nameless = [t for t in table.tenants if t.tenant_name is None]
+    assert named and nameless, "이 픽스처는 rowspan 사례여야 한다"
+    # 성명 없는 행은 직전 점유자의 순번을 잇는다 — 서로 다른 사람으로 갈리면 안 된다
+    assert {t.tenant_seq for t in table.tenants} == {t.tenant_seq for t in named}
+
+
+def test_distinct_named_tenants_get_distinct_seq():
+    """서로 다른 성명은 각자 다른 순번을 받는다 — 연속 규칙이 다른 사람까지 묶으면 안 된다."""
+    rows = [
+        {"tenant_name": "김철수", "source_kind": "권리신고", "deposit_amount": "10,000,000"},
+        {"tenant_name": None, "source_kind": "현황조사", "deposit_amount": "10,000,000"},
+        {"tenant_name": "이영희", "source_kind": "권리신고", "deposit_amount": "20,000,000"},
+    ]
+    from collector.notice_tenant_parser import _to_tenants
+
+    tenants = _to_tenants(rows)
+
+    assert [t.tenant_seq for t in tenants] == [1, 1, 2]

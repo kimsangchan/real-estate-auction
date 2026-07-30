@@ -309,16 +309,24 @@ def _column_of(fragment: dict[str, Any]) -> str | None:
 
 
 def _to_tenants(rows: list[dict[str, str]]) -> tuple[NoticeTenant, ...]:
-    """셀 문자열 행을 저장용 값으로 바꾸고 이름으로 동일인 순번(tenant_seq)을 부여한다."""
+    """셀 문자열 행을 저장용 값으로 바꾸고 동일인 순번(tenant_seq)을 부여한다.
+
+    한 점유자가 정보출처별로 여러 행에 걸칠 때(rowspan) 성명은 **병합 셀에 한 번만** 렌더된다.
+    따라서 성명이 없는 행은 직전 점유자의 연속으로 보고 같은 순번을 잇는다 —
+    행 순번을 그대로 쓰면 한 사람이 여럿으로 세어져 H3(임차인 수)이 어긋난다 (WP-11 §4-8).
+    """
     seq_by_name: dict[str, int] = {}
     tenants: list[NoticeTenant] = []
+    previous_seq: int | None = None
 
-    for index, row in enumerate(rows, start=1):
+    for row in rows:
         name = row.get("tenant_name")
         if name is None:
-            seq = index
+            # 첫 행부터 성명이 없으면 이을 앞 행이 없으므로 새 순번을 연다
+            seq = previous_seq if previous_seq is not None else len(seq_by_name) + 1
         else:
             seq = seq_by_name.setdefault(name, len(seq_by_name) + 1)
+        previous_seq = seq
 
         demanded_text = row.get("demanded_distribution")
         demanded_date = _parse_date(demanded_text)
