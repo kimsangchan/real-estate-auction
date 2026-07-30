@@ -1,0 +1,2158 @@
+[
+{
+"rotate": 0,
+"isVertical": false,
+"text": "구 여부와 그 일자, 전입신고일자 또는 사업자등록신청일자와 확정일자의 유무와 그 일자",
+"rect": [
+{
+"left": 34,
+"bottom": 543,
+"right": 43,
+"top": 554
+},
+{
+"left": 43,
+"bottom": 543,
+"right": 47,
+"top": 554
+},
+{
+"left": 47,
+"bottom": 543,
+"right": 56,
+"top": 554
+},
+{
+"left": 56,
+"bottom": 543,
+"right": 65,
+"top": 554
+},
+{
+"left": 65,
+"bottom": 543,
+"right": 74,
+"top": 554
+},
+{
+"left": 74,
+"bottom": 543,
+"right": 79,
+"top": 554
+},
+{
+"left": 79,
+"bottom": 543,
+"right": 88,
+"top": 554
+},
+{
+"left": 88,
+"bottom": 543,
+"right": 92,
+"top": 554
+},
+{
+"left": 92,
+"bottom": 543,
+"right": 101,
+"top": 554
+},
+{
+"left": 101,
+"bottom": 543,
+"right": 110,
+"top": 554
+},
+{
+"left": 110,
+"bottom": 543,
+"right": 113,
+"top": 554
+},
+{
+"left": 113,
+"bottom": 543,
+"right": 117,
+"top": 554
+},
+{
+"left": 117,
+"bottom": 543,
+"right": 126,
+"top": 554
+},
+{
+"left": 126,
+"bottom": 543,
+"right": 135,
+"top": 554
+},
+{
+"left": 135,
+"bottom": 543,
+"right": 144,
+"top": 554
+},
+{
+"left": 144,
+"bottom": 543,
+"right": 153,
+"top": 554
+},
+{
+"left": 153,
+"bottom": 543,
+"right": 162,
+"top": 554
+},
+{
+"left": 162,
+"bottom": 543,
+"right": 171,
+"top": 554
+},
+{
+"left": 171,
+"bottom": 543,
+"right": 176,
+"top": 554
+},
+{
+"left": 176,
+"bottom": 543,
+"right": 185,
+"top": 554
+},
+{
+"left": 185,
+"bottom": 543,
+"right": 194,
+"top": 554
+},
+{
+"left": 194,
+"bottom": 543,
+"right": 198,
+"top": 554
+},
+{
+"left": 198,
+"bottom": 543,
+"right": 207,
+"top": 554
+},
+{
+"left": 207,
+"bottom": 543,
+"right": 216,
+"top": 554
+},
+{
+"left": 216,
+"bottom": 543,
+"right": 225,
+"top": 554
+},
+{
+"left": 225,
+"bottom": 543,
+"right": 234,
+"top": 554
+},
+{
+"left": 234,
+"bottom": 543,
+"right": 243,
+"top": 554
+},
+{
+"left": 243,
+"bottom": 543,
+"right": 252,
+"top": 554
+},
+{
+"left": 252,
+"bottom": 543,
+"right": 261,
+"top": 554
+},
+{
+"left": 261,
+"bottom": 543,
+"right": 270,
+"top": 554
+},
+{
+"left": 270,
+"bottom": 543,
+"right": 279,
+"top": 554
+},
+{
+"left": 279,
+"bottom": 543,
+"right": 288,
+"top": 554
+},
+{
+"left": 288,
+"bottom": 543,
+"right": 293,
+"top": 554
+},
+{
+"left": 293,
+"bottom": 543,
+"right": 301,
+"top": 554
+},
+{
+"left": 301,
+"bottom": 543,
+"right": 310,
+"top": 554
+},
+{
+"left": 310,
+"bottom": 543,
+"right": 319,
+"top": 554
+},
+{
+"left": 319,
+"bottom": 543,
+"right": 328,
+"top": 554
+},
+{
+"left": 328,
+"bottom": 543,
+"right": 337,
+"top": 554
+},
+{
+"left": 337,
+"bottom": 543,
+"right": 342,
+"top": 554
+},
+{
+"left": 342,
+"bottom": 543,
+"right": 351,
+"top": 554
+},
+{
+"left": 351,
+"bottom": 543,
+"right": 360,
+"top": 554
+},
+{
+"left": 360,
+"bottom": 543,
+"right": 369,
+"top": 554
+},
+{
+"left": 369,
+"bottom": 543,
+"right": 374,
+"top": 554
+},
+{
+"left": 373,
+"bottom": 543,
+"right": 382,
+"top": 554
+},
+{
+"left": 382,
+"bottom": 543,
+"right": 387,
+"top": 554
+},
+{
+"left": 387,
+"bottom": 543,
+"right": 396,
+"top": 554
+},
+{
+"left": 396,
+"bottom": 543,
+"right": 405,
+"top": 554
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "전입신고일자·",
+"rect": [
+{
+"left": 384,
+"bottom": 531,
+"right": 392,
+"top": 541
+},
+{
+"left": 392,
+"bottom": 531,
+"right": 400,
+"top": 541
+},
+{
+"left": 400,
+"bottom": 531,
+"right": 408,
+"top": 541
+},
+{
+"left": 408,
+"bottom": 531,
+"right": 416,
+"top": 541
+},
+{
+"left": 416,
+"bottom": 531,
+"right": 424,
+"top": 541
+},
+{
+"left": 424,
+"bottom": 531,
+"right": 432,
+"top": 541
+},
+{
+"left": 432,
+"bottom": 531,
+"right": 435,
+"top": 541
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "외국인등록(체 배당",
+"rect": [
+{
+"left": 384,
+"bottom": 519,
+"right": 392,
+"top": 529
+},
+{
+"left": 392,
+"bottom": 519,
+"right": 400,
+"top": 529
+},
+{
+"left": 400,
+"bottom": 519,
+"right": 408,
+"top": 529
+},
+{
+"left": 408,
+"bottom": 519,
+"right": 416,
+"top": 529
+},
+{
+"left": 416,
+"bottom": 519,
+"right": 424,
+"top": 529
+},
+{
+"left": 424,
+"bottom": 519,
+"right": 427,
+"top": 529
+},
+{
+"left": 427,
+"bottom": 519,
+"right": 435,
+"top": 529
+},
+{
+"left": 435,
+"bottom": 519,
+"right": 436,
+"top": 529
+},
+{
+"left": 525,
+"bottom": 519,
+"right": 533,
+"top": 529
+},
+{
+"left": 533,
+"bottom": 519,
+"right": 541,
+"top": 529
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "점유자 점유정보출처 점유의 임대차기간",
+"rect": [
+{
+"left": 36,
+"bottom": 512,
+"right": 44,
+"top": 522
+},
+{
+"left": 44,
+"bottom": 512,
+"right": 52,
+"top": 522
+},
+{
+"left": 52,
+"bottom": 512,
+"right": 60,
+"top": 522
+},
+{
+"left": 60,
+"bottom": 512,
+"right": 61,
+"top": 522
+},
+{
+"left": 78,
+"bottom": 512,
+"right": 86,
+"top": 522
+},
+{
+"left": 86,
+"bottom": 512,
+"right": 94,
+"top": 522
+},
+{
+"left": 114,
+"bottom": 512,
+"right": 122,
+"top": 522
+},
+{
+"left": 122,
+"bottom": 512,
+"right": 130,
+"top": 522
+},
+{
+"left": 130,
+"bottom": 512,
+"right": 139,
+"top": 522
+},
+{
+"left": 138,
+"bottom": 512,
+"right": 146,
+"top": 522
+},
+{
+"left": 146,
+"bottom": 512,
+"right": 148,
+"top": 522
+},
+{
+"left": 164,
+"bottom": 512,
+"right": 172,
+"top": 522
+},
+{
+"left": 172,
+"bottom": 512,
+"right": 180,
+"top": 522
+},
+{
+"left": 180,
+"bottom": 512,
+"right": 188,
+"top": 522
+},
+{
+"left": 188,
+"bottom": 512,
+"right": 190,
+"top": 522
+},
+{
+"left": 205,
+"bottom": 512,
+"right": 213,
+"top": 522
+},
+{
+"left": 213,
+"bottom": 512,
+"right": 221,
+"top": 522
+},
+{
+"left": 221,
+"bottom": 512,
+"right": 229,
+"top": 522
+},
+{
+"left": 229,
+"bottom": 512,
+"right": 237,
+"top": 522
+},
+{
+"left": 237,
+"bottom": 512,
+"right": 245,
+"top": 522
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "보 증 금 차 임 류지변경신고) 확정일자 요구여부",
+"rect": [
+{
+"left": 272,
+"bottom": 506,
+"right": 280,
+"top": 516
+},
+{
+"left": 280,
+"bottom": 506,
+"right": 284,
+"top": 516
+},
+{
+"left": 284,
+"bottom": 506,
+"right": 292,
+"top": 516
+},
+{
+"left": 292,
+"bottom": 506,
+"right": 296,
+"top": 516
+},
+{
+"left": 296,
+"bottom": 506,
+"right": 304,
+"top": 516
+},
+{
+"left": 304,
+"bottom": 506,
+"right": 305,
+"top": 516
+},
+{
+"left": 339,
+"bottom": 506,
+"right": 347,
+"top": 516
+},
+{
+"left": 347,
+"bottom": 506,
+"right": 351,
+"top": 516
+},
+{
+"left": 351,
+"bottom": 506,
+"right": 359,
+"top": 516
+},
+{
+"left": 359,
+"bottom": 506,
+"right": 360,
+"top": 516
+},
+{
+"left": 384,
+"bottom": 506,
+"right": 392,
+"top": 516
+},
+{
+"left": 392,
+"bottom": 506,
+"right": 400,
+"top": 516
+},
+{
+"left": 400,
+"bottom": 506,
+"right": 408,
+"top": 516
+},
+{
+"left": 408,
+"bottom": 506,
+"right": 416,
+"top": 516
+},
+{
+"left": 416,
+"bottom": 506,
+"right": 424,
+"top": 516
+},
+{
+"left": 424,
+"bottom": 506,
+"right": 432,
+"top": 516
+},
+{
+"left": 432,
+"bottom": 506,
+"right": 435,
+"top": 516
+},
+{
+"left": 435,
+"bottom": 506,
+"right": 436,
+"top": 516
+},
+{
+"left": 455,
+"bottom": 506,
+"right": 463,
+"top": 516
+},
+{
+"left": 463,
+"bottom": 506,
+"right": 471,
+"top": 516
+},
+{
+"left": 471,
+"bottom": 506,
+"right": 479,
+"top": 516
+},
+{
+"left": 479,
+"bottom": 506,
+"right": 487,
+"top": 516
+},
+{
+"left": 487,
+"bottom": 506,
+"right": 489,
+"top": 516
+},
+{
+"left": 517,
+"bottom": 506,
+"right": 525,
+"top": 516
+},
+{
+"left": 525,
+"bottom": 506,
+"right": 533,
+"top": 516
+},
+{
+"left": 533,
+"bottom": 506,
+"right": 541,
+"top": 516
+},
+{
+"left": 541,
+"bottom": 506,
+"right": 549,
+"top": 516
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "성  명 부분 구 분 권 원 (점유기간)",
+"rect": [
+{
+"left": 36,
+"bottom": 500,
+"right": 44,
+"top": 509
+},
+{
+"left": 44,
+"bottom": 500,
+"right": 48,
+"top": 509
+},
+{
+"left": 48,
+"bottom": 500,
+"right": 52,
+"top": 509
+},
+{
+"left": 52,
+"bottom": 500,
+"right": 60,
+"top": 509
+},
+{
+"left": 60,
+"bottom": 500,
+"right": 61,
+"top": 509
+},
+{
+"left": 78,
+"bottom": 500,
+"right": 86,
+"top": 509
+},
+{
+"left": 86,
+"bottom": 500,
+"right": 94,
+"top": 509
+},
+{
+"left": 94,
+"bottom": 500,
+"right": 95,
+"top": 509
+},
+{
+"left": 120,
+"bottom": 500,
+"right": 128,
+"top": 509
+},
+{
+"left": 128,
+"bottom": 500,
+"right": 133,
+"top": 509
+},
+{
+"left": 132,
+"bottom": 500,
+"right": 140,
+"top": 509
+},
+{
+"left": 140,
+"bottom": 500,
+"right": 142,
+"top": 509
+},
+{
+"left": 166,
+"bottom": 500,
+"right": 174,
+"top": 509
+},
+{
+"left": 174,
+"bottom": 500,
+"right": 178,
+"top": 509
+},
+{
+"left": 178,
+"bottom": 500,
+"right": 186,
+"top": 509
+},
+{
+"left": 186,
+"bottom": 500,
+"right": 188,
+"top": 509
+},
+{
+"left": 207,
+"bottom": 500,
+"right": 209,
+"top": 509
+},
+{
+"left": 209,
+"bottom": 500,
+"right": 217,
+"top": 509
+},
+{
+"left": 217,
+"bottom": 500,
+"right": 225,
+"top": 509
+},
+{
+"left": 225,
+"bottom": 500,
+"right": 233,
+"top": 509
+},
+{
+"left": 233,
+"bottom": 500,
+"right": 241,
+"top": 509
+},
+{
+"left": 241,
+"bottom": 500,
+"right": 244,
+"top": 509
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "일자·사업자등 (배당요구일자)",
+"rect": [
+{
+"left": 384,
+"bottom": 493,
+"right": 392,
+"top": 503
+},
+{
+"left": 392,
+"bottom": 493,
+"right": 400,
+"top": 503
+},
+{
+"left": 400,
+"bottom": 493,
+"right": 403,
+"top": 503
+},
+{
+"left": 403,
+"bottom": 493,
+"right": 411,
+"top": 503
+},
+{
+"left": 411,
+"bottom": 493,
+"right": 419,
+"top": 503
+},
+{
+"left": 419,
+"bottom": 493,
+"right": 427,
+"top": 503
+},
+{
+"left": 427,
+"bottom": 493,
+"right": 435,
+"top": 503
+},
+{
+"left": 435,
+"bottom": 493,
+"right": 436,
+"top": 503
+},
+{
+"left": 507,
+"bottom": 493,
+"right": 509,
+"top": 503
+},
+{
+"left": 509,
+"bottom": 493,
+"right": 517,
+"top": 503
+},
+{
+"left": 517,
+"bottom": 493,
+"right": 525,
+"top": 503
+},
+{
+"left": 525,
+"bottom": 493,
+"right": 533,
+"top": 503
+},
+{
+"left": 533,
+"bottom": 493,
+"right": 541,
+"top": 503
+},
+{
+"left": 541,
+"bottom": 493,
+"right": 549,
+"top": 503
+},
+{
+"left": 549,
+"bottom": 493,
+"right": 557,
+"top": 503
+},
+{
+"left": 557,
+"bottom": 493,
+"right": 560,
+"top": 503
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "록 신청일자",
+"rect": [
+{
+"left": 387,
+"bottom": 480,
+"right": 395,
+"top": 490
+},
+{
+"left": 395,
+"bottom": 480,
+"right": 400,
+"top": 490
+},
+{
+"left": 399,
+"bottom": 480,
+"right": 407,
+"top": 490
+},
+{
+"left": 407,
+"bottom": 480,
+"right": 415,
+"top": 490
+},
+{
+"left": 415,
+"bottom": 480,
+"right": 423,
+"top": 490
+},
+{
+"left": 423,
+"bottom": 480,
+"right": 431,
+"top": 490
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "주거 ",
+"rect": [
+{
+"left": 168,
+"bottom": 469,
+"right": 176,
+"top": 479
+},
+{
+"left": 176,
+"bottom": 469,
+"right": 184,
+"top": 479
+},
+{
+"left": 184,
+"bottom": 469,
+"right": 188,
+"top": 479
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "등기사항전",
+"rect": [
+{
+"left": 110,
+"bottom": 463,
+"right": 118,
+"top": 473
+},
+{
+"left": 118,
+"bottom": 463,
+"right": 127,
+"top": 473
+},
+{
+"left": 126,
+"bottom": 463,
+"right": 134,
+"top": 473
+},
+{
+"left": 134,
+"bottom": 463,
+"right": 142,
+"top": 473
+},
+{
+"left": 142,
+"bottom": 463,
+"right": 150,
+"top": 473
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "홍길동 206호 주택임 2021.06.04~ 230,000,000 2021.06.04 2021.06.04",
+"rect": [
+{
+"left": 36,
+"bottom": 457,
+"right": 44,
+"top": 467
+},
+{
+"left": 44,
+"bottom": 457,
+"right": 52,
+"top": 467
+},
+{
+"left": 52,
+"bottom": 457,
+"right": 60,
+"top": 467
+},
+{
+"left": 60,
+"bottom": 457,
+"right": 61,
+"top": 467
+},
+{
+"left": 75,
+"bottom": 457,
+"right": 80,
+"top": 467
+},
+{
+"left": 80,
+"bottom": 457,
+"right": 84,
+"top": 467
+},
+{
+"left": 84,
+"bottom": 457,
+"right": 88,
+"top": 467
+},
+{
+"left": 88,
+"bottom": 457,
+"right": 96,
+"top": 467
+},
+{
+"left": 96,
+"bottom": 457,
+"right": 98,
+"top": 467
+},
+{
+"left": 164,
+"bottom": 457,
+"right": 172,
+"top": 467
+},
+{
+"left": 172,
+"bottom": 457,
+"right": 180,
+"top": 467
+},
+{
+"left": 180,
+"bottom": 457,
+"right": 188,
+"top": 467
+},
+{
+"left": 188,
+"bottom": 457,
+"right": 190,
+"top": 467
+},
+{
+"left": 201,
+"bottom": 457,
+"right": 206,
+"top": 467
+},
+{
+"left": 206,
+"bottom": 457,
+"right": 210,
+"top": 467
+},
+{
+"left": 210,
+"bottom": 457,
+"right": 214,
+"top": 467
+},
+{
+"left": 214,
+"bottom": 457,
+"right": 219,
+"top": 467
+},
+{
+"left": 219,
+"bottom": 457,
+"right": 221,
+"top": 467
+},
+{
+"left": 221,
+"bottom": 457,
+"right": 225,
+"top": 467
+},
+{
+"left": 225,
+"bottom": 457,
+"right": 229,
+"top": 467
+},
+{
+"left": 229,
+"bottom": 457,
+"right": 232,
+"top": 467
+},
+{
+"left": 232,
+"bottom": 457,
+"right": 236,
+"top": 467
+},
+{
+"left": 236,
+"bottom": 457,
+"right": 240,
+"top": 467
+},
+{
+"left": 240,
+"bottom": 457,
+"right": 245,
+"top": 467
+},
+{
+"left": 245,
+"bottom": 457,
+"right": 246,
+"top": 467
+},
+{
+"left": 273,
+"bottom": 457,
+"right": 277,
+"top": 467
+},
+{
+"left": 277,
+"bottom": 457,
+"right": 281,
+"top": 467
+},
+{
+"left": 281,
+"bottom": 457,
+"right": 286,
+"top": 467
+},
+{
+"left": 286,
+"bottom": 457,
+"right": 288,
+"top": 467
+},
+{
+"left": 288,
+"bottom": 457,
+"right": 292,
+"top": 467
+},
+{
+"left": 292,
+"bottom": 457,
+"right": 297,
+"top": 467
+},
+{
+"left": 297,
+"bottom": 457,
+"right": 301,
+"top": 467
+},
+{
+"left": 301,
+"bottom": 457,
+"right": 303,
+"top": 467
+},
+{
+"left": 303,
+"bottom": 457,
+"right": 308,
+"top": 467
+},
+{
+"left": 307,
+"bottom": 457,
+"right": 312,
+"top": 467
+},
+{
+"left": 312,
+"bottom": 457,
+"right": 316,
+"top": 467
+},
+{
+"left": 316,
+"bottom": 457,
+"right": 318,
+"top": 467
+},
+{
+"left": 390,
+"bottom": 457,
+"right": 394,
+"top": 467
+},
+{
+"left": 394,
+"bottom": 457,
+"right": 399,
+"top": 467
+},
+{
+"left": 399,
+"bottom": 457,
+"right": 403,
+"top": 467
+},
+{
+"left": 403,
+"bottom": 457,
+"right": 407,
+"top": 467
+},
+{
+"left": 407,
+"bottom": 457,
+"right": 409,
+"top": 467
+},
+{
+"left": 409,
+"bottom": 457,
+"right": 414,
+"top": 467
+},
+{
+"left": 414,
+"bottom": 457,
+"right": 418,
+"top": 467
+},
+{
+"left": 418,
+"bottom": 457,
+"right": 420,
+"top": 467
+},
+{
+"left": 420,
+"bottom": 457,
+"right": 425,
+"top": 467
+},
+{
+"left": 425,
+"bottom": 457,
+"right": 429,
+"top": 467
+},
+{
+"left": 429,
+"bottom": 457,
+"right": 430,
+"top": 467
+},
+{
+"left": 452,
+"bottom": 457,
+"right": 456,
+"top": 467
+},
+{
+"left": 456,
+"bottom": 457,
+"right": 460,
+"top": 467
+},
+{
+"left": 460,
+"bottom": 457,
+"right": 465,
+"top": 467
+},
+{
+"left": 465,
+"bottom": 457,
+"right": 469,
+"top": 467
+},
+{
+"left": 469,
+"bottom": 457,
+"right": 471,
+"top": 467
+},
+{
+"left": 471,
+"bottom": 457,
+"right": 475,
+"top": 467
+},
+{
+"left": 475,
+"bottom": 457,
+"right": 480,
+"top": 467
+},
+{
+"left": 480,
+"bottom": 457,
+"right": 482,
+"top": 467
+},
+{
+"left": 482,
+"bottom": 457,
+"right": 486,
+"top": 467
+},
+{
+"left": 486,
+"bottom": 457,
+"right": 491,
+"top": 467
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "부증명서",
+"rect": [
+{
+"left": 114,
+"bottom": 450,
+"right": 122,
+"top": 460
+},
+{
+"left": 122,
+"bottom": 450,
+"right": 130,
+"top": 460
+},
+{
+"left": 130,
+"bottom": 450,
+"right": 139,
+"top": 460
+},
+{
+"left": 138,
+"bottom": 450,
+"right": 146,
+"top": 460
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "차권자",
+"rect": [
+{
+"left": 164,
+"bottom": 444,
+"right": 172,
+"top": 454
+},
+{
+"left": 172,
+"bottom": 444,
+"right": 180,
+"top": 454
+},
+{
+"left": 180,
+"bottom": 444,
+"right": 188,
+"top": 454
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "주택도",
+"rect": [
+{
+"left": 36,
+"bottom": 433,
+"right": 44,
+"top": 443
+},
+{
+"left": 44,
+"bottom": 433,
+"right": 52,
+"top": 443
+},
+{
+"left": 52,
+"bottom": 433,
+"right": 60,
+"top": 443
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "주거 ",
+"rect": [
+{
+"left": 168,
+"bottom": 427,
+"right": 176,
+"top": 437
+},
+{
+"left": 176,
+"bottom": 427,
+"right": 184,
+"top": 437
+},
+{
+"left": 184,
+"bottom": 427,
+"right": 188,
+"top": 437
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "시보증 206호 권리신고 230,000,000 2021.06.04 2021.06.04 2023.11.30.",
+"rect": [
+{
+"left": 36,
+"bottom": 420,
+"right": 44,
+"top": 430
+},
+{
+"left": 44,
+"bottom": 420,
+"right": 52,
+"top": 430
+},
+{
+"left": 52,
+"bottom": 420,
+"right": 60,
+"top": 430
+},
+{
+"left": 60,
+"bottom": 420,
+"right": 61,
+"top": 430
+},
+{
+"left": 75,
+"bottom": 420,
+"right": 80,
+"top": 430
+},
+{
+"left": 80,
+"bottom": 420,
+"right": 84,
+"top": 430
+},
+{
+"left": 84,
+"bottom": 420,
+"right": 88,
+"top": 430
+},
+{
+"left": 88,
+"bottom": 420,
+"right": 96,
+"top": 430
+},
+{
+"left": 96,
+"bottom": 420,
+"right": 98,
+"top": 430
+},
+{
+"left": 114,
+"bottom": 420,
+"right": 122,
+"top": 430
+},
+{
+"left": 122,
+"bottom": 420,
+"right": 130,
+"top": 430
+},
+{
+"left": 130,
+"bottom": 420,
+"right": 139,
+"top": 430
+},
+{
+"left": 138,
+"bottom": 420,
+"right": 146,
+"top": 430
+},
+{
+"left": 146,
+"bottom": 420,
+"right": 148,
+"top": 430
+},
+{
+"left": 273,
+"bottom": 420,
+"right": 277,
+"top": 430
+},
+{
+"left": 277,
+"bottom": 420,
+"right": 281,
+"top": 430
+},
+{
+"left": 281,
+"bottom": 420,
+"right": 286,
+"top": 430
+},
+{
+"left": 286,
+"bottom": 420,
+"right": 288,
+"top": 430
+},
+{
+"left": 288,
+"bottom": 420,
+"right": 292,
+"top": 430
+},
+{
+"left": 292,
+"bottom": 420,
+"right": 297,
+"top": 430
+},
+{
+"left": 297,
+"bottom": 420,
+"right": 301,
+"top": 430
+},
+{
+"left": 301,
+"bottom": 420,
+"right": 303,
+"top": 430
+},
+{
+"left": 303,
+"bottom": 420,
+"right": 308,
+"top": 430
+},
+{
+"left": 307,
+"bottom": 420,
+"right": 312,
+"top": 430
+},
+{
+"left": 312,
+"bottom": 420,
+"right": 316,
+"top": 430
+},
+{
+"left": 316,
+"bottom": 420,
+"right": 318,
+"top": 430
+},
+{
+"left": 390,
+"bottom": 420,
+"right": 394,
+"top": 430
+},
+{
+"left": 394,
+"bottom": 420,
+"right": 399,
+"top": 430
+},
+{
+"left": 399,
+"bottom": 420,
+"right": 403,
+"top": 430
+},
+{
+"left": 403,
+"bottom": 420,
+"right": 407,
+"top": 430
+},
+{
+"left": 407,
+"bottom": 420,
+"right": 409,
+"top": 430
+},
+{
+"left": 409,
+"bottom": 420,
+"right": 414,
+"top": 430
+},
+{
+"left": 414,
+"bottom": 420,
+"right": 418,
+"top": 430
+},
+{
+"left": 418,
+"bottom": 420,
+"right": 420,
+"top": 430
+},
+{
+"left": 420,
+"bottom": 420,
+"right": 425,
+"top": 430
+},
+{
+"left": 425,
+"bottom": 420,
+"right": 429,
+"top": 430
+},
+{
+"left": 429,
+"bottom": 420,
+"right": 430,
+"top": 430
+},
+{
+"left": 452,
+"bottom": 420,
+"right": 456,
+"top": 430
+},
+{
+"left": 456,
+"bottom": 420,
+"right": 460,
+"top": 430
+},
+{
+"left": 460,
+"bottom": 420,
+"right": 465,
+"top": 430
+},
+{
+"left": 465,
+"bottom": 420,
+"right": 469,
+"top": 430
+},
+{
+"left": 469,
+"bottom": 420,
+"right": 471,
+"top": 430
+},
+{
+"left": 471,
+"bottom": 420,
+"right": 475,
+"top": 430
+},
+{
+"left": 475,
+"bottom": 420,
+"right": 480,
+"top": 430
+},
+{
+"left": 480,
+"bottom": 420,
+"right": 482,
+"top": 430
+},
+{
+"left": 482,
+"bottom": 420,
+"right": 486,
+"top": 430
+},
+{
+"left": 486,
+"bottom": 420,
+"right": 491,
+"top": 430
+},
+{
+"left": 491,
+"bottom": 420,
+"right": 492,
+"top": 430
+},
+{
+"left": 513,
+"bottom": 420,
+"right": 517,
+"top": 430
+},
+{
+"left": 517,
+"bottom": 420,
+"right": 521,
+"top": 430
+},
+{
+"left": 521,
+"bottom": 420,
+"right": 526,
+"top": 430
+},
+{
+"left": 526,
+"bottom": 420,
+"right": 530,
+"top": 430
+},
+{
+"left": 530,
+"bottom": 420,
+"right": 532,
+"top": 430
+},
+{
+"left": 532,
+"bottom": 420,
+"right": 537,
+"top": 430
+},
+{
+"left": 537,
+"bottom": 420,
+"right": 541,
+"top": 430
+},
+{
+"left": 541,
+"bottom": 420,
+"right": 543,
+"top": 430
+},
+{
+"left": 543,
+"bottom": 420,
+"right": 547,
+"top": 430
+},
+{
+"left": 547,
+"bottom": 420,
+"right": 552,
+"top": 430
+},
+{
+"left": 552,
+"bottom": 420,
+"right": 554,
+"top": 430
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "임차인",
+"rect": [
+{
+"left": 164,
+"bottom": 414,
+"right": 172,
+"top": 424
+},
+{
+"left": 172,
+"bottom": 414,
+"right": 180,
+"top": 424
+},
+{
+"left": 180,
+"bottom": 414,
+"right": 188,
+"top": 424
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "공사",
+"rect": [
+{
+"left": 40,
+"bottom": 408,
+"right": 48,
+"top": 417
+},
+{
+"left": 48,
+"bottom": 408,
+"right": 56,
+"top": 417
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": "<비고>",
+"rect": [
+{
+"left": 34,
+"bottom": 395,
+"right": 38,
+"top": 406
+},
+{
+"left": 38,
+"bottom": 395,
+"right": 47,
+"top": 406
+},
+{
+"left": 47,
+"bottom": 395,
+"right": 56,
+"top": 406
+},
+{
+"left": 56,
+"bottom": 395,
+"right": 61,
+"top": 406
+}
+]
+},
+{
+"rotate": 0,
+"isVertical": false,
+"text": " 홍길동:주택임차권자로서 임차권등기일은 2023.04.26.임",
+"rect": [
+{
+"left": 34,
+"bottom": 381,
+"right": 38,
+"top": 392
+},
+{
+"left": 38,
+"bottom": 381,
+"right": 47,
+"top": 392
+},
+{
+"left": 47,
+"bottom": 381,
+"right": 56,
+"top": 392
+},
+{
+"left": 56,
+"bottom": 381,
+"right": 65,
+"top": 392
+},
+{
+"left": 65,
+"bottom": 381,
+"right": 68,
+"top": 392
+},
+{
+"left": 68,
+"bottom": 381,
+"right": 77,
+"top": 392
+},
+{
+"left": 77,
+"bottom": 381,
+"right": 86,
+"top": 392
+},
+{
+"left": 86,
+"bottom": 381,
+"right": 95,
+"top": 392
+},
+{
+"left": 95,
+"bottom": 381,
+"right": 104,
+"top": 392
+},
+{
+"left": 104,
+"bottom": 381,
+"right": 113,
+"top": 392
+},
+{
+"left": 113,
+"bottom": 381,
+"right": 122,
+"top": 392
+},
+{
+"left": 122,
+"bottom": 381,
+"right": 131,
+"top": 392
+},
+{
+"left": 131,
+"bottom": 381,
+"right": 140,
+"top": 392
+},
+{
+"left": 140,
+"bottom": 381,
+"right": 144,
+"top": 392
+},
+{
+"left": 144,
+"bottom": 381,
+"right": 153,
+"top": 392
+},
+{
+"left": 153,
+"bottom": 381,
+"right": 162,
+"top": 392
+},
+{
+"left": 162,
+"bottom": 381,
+"right": 171,
+"top": 392
+},
+{
+"left": 171,
+"bottom": 381,
+"right": 180,
+"top": 392
+},
+{
+"left": 180,
+"bottom": 381,
+"right": 189,
+"top": 392
+},
+{
+"left": 189,
+"bottom": 381,
+"right": 198,
+"top": 392
+},
+{
+"left": 198,
+"bottom": 381,
+"right": 207,
+"top": 392
+},
+{
+"left": 207,
+"bottom": 381,
+"right": 212,
+"top": 392
+},
+{
+"left": 212,
+"bottom": 381,
+"right": 217,
+"top": 392
+},
+{
+"left": 217,
+"bottom": 381,
+"right": 221,
+"top": 392
+},
+{
+"left": 221,
+"bottom": 381,
+"right": 226,
+"top": 392
+},
+{
+"left": 226,
+"bottom": 381,
+"right": 231,
+"top": 392
+},
+{
+"left": 231,
+"bottom": 381,
+"right": 234,
+"top": 392
+},
+{
+"left": 234,
+"bottom": 381,
+"right": 238,
+"top": 392
+},
+{
+"left": 238,
+"bottom": 381,
+"right": 243,
+"top": 392
+},
+{
+"left": 243,
+"bottom": 381,
+"right": 246,
+"top": 392
+},
+{
+"left": 246,
+"bottom": 381,
+"right": 251,
+"top": 392
+},
+{
+"left": 251,
+"bottom": 381,
+"right": 255,
+"top": 392
+},
+{
+"left": 255,
+"bottom": 381,
+"right": 258,
+"top": 392
+},
+{
+"left": 258,
+"bottom": 381,
+"right": 267,
+"top": 392
+}
+]
+}
+]
