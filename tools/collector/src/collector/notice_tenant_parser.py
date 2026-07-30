@@ -24,8 +24,9 @@ _COLUMNS: tuple[tuple[str, int, int], ...] = (
 
 # 값이 줄바꿈 없이 한 줄로만 적히는 컬럼들 — 행의 기준선(anchor)을 잡는 데 쓴다.
 # 금액·날짜는 감싸지지 않으므로 행마다 정확히 한 줄이다.
+# 점유부분은 앵커가 아니다 — "공부상 505호(실제표시 605호)"처럼 5줄로 감싸인 실측이 있다.
+# 앵커로 쓰면 감싸인 줄마다 가짜 행이 생긴다 (WP-11 §4-7의 수율 붕괴 원인).
 _ANCHOR_FIELDS = (
-    "occupied_part",
     "deposit_amount",
     "monthly_rent",
     "move_in_date",
@@ -59,9 +60,13 @@ _KOREAN_BIG_UNITS = {"억": 100_000_000, "만": 10_000}
 _KOREAN_SMALL_UNITS = {"천": 1_000, "백": 100, "십": 10}
 _UNKNOWN_VALUES = ("미상", "불명", "없음", "-")
 
-# 행 기준선을 묶는 허용 오차와, 조각을 가장 가까운 기준선에 붙일 때의 최대 거리 (실측 줄높이 ~13pt)
+# 같은 행의 앵커 후보(한 줄 컬럼 값들의 세로 중앙)를 하나로 묶는 허용 오차.
+# 실측 줄높이 ~10pt, 인접 행의 앵커 간격은 45pt 이상이라 8이면 안전하다
 _ANCHOR_MERGE_TOLERANCE = 8
-_ROW_ASSIGN_LIMIT = 30
+
+# 법원이 점유자 없음을 명시할 때 표 안에 이 문구 한 줄만 렌더된다 (실측: "조사된 임차내역없음").
+# 행이 아니라 빈 표이므로 파싱 대상에서 제외한다
+_NO_TENANT_MARKER = "임차내역없음"
 
 
 @dataclass(frozen=True)
@@ -219,7 +224,12 @@ def _group_lines(fragments: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _rows_in_region(
     fragments: list[dict[str, Any]], *, top: float, bottom: float
 ) -> list[dict[str, str]]:
-    """표 영역의 조각을 행으로 묶고 컬럼별 문자열 셀을 만든다."""
+    """표 영역의 조각을 행으로 묶고 컬럼별 문자열 셀을 만든다.
+
+    셀은 행 상자 안에서 세로 중앙정렬로 렌더된다 (실측). 앵커(한 줄 컬럼 값)가 행의 세로
+    중앙이므로, 행의 위 경계가 b이면 아래 경계는 2*앵커 - b다. 이 경계로 조각을 나누면
+    여러 줄로 감싸인 셀(점유부분·성명 등)이 인접 행으로 새거나 행을 쪼개지 않는다.
+    """
     region = [f for f in fragments if bottom < f["y2"] < top]
     if not region:
         return []
@@ -229,20 +239,31 @@ def _rows_in_region(
         return []
 
     buckets: list[list[dict[str, Any]]] = [[] for _ in anchors]
-    for fragment in region:
-        distances = [abs(fragment["y2"] - anchor) for anchor in anchors]
-        nearest = min(range(len(anchors)), key=distances.__getitem__)
-        if distances[nearest] <= _ROW_ASSIGN_LIMIT:
-            buckets[nearest].append(fragment)
+    upper = top
+    for index, anchor in enumerate(anchors):
+        lower = 2 * anchor - upper
+        following = anchors[index + 1] if index + 1 < len(anchors) else None
+        if following is not None and lower <= following:
+            # 중앙정렬 전제가 깨진 문서 — 다음 앵커를 침범하지 않게 두 앵커의 중점으로 물러선다
+            lower = (anchor + following) / 2
+        for fragment in region:
+            if lower < (fragment["y1"] + fragment["y2"]) / 2 <= upper:
+                buckets[index].append(fragment)
+        upper = lower
 
-    return [cells for cells in (_cells(bucket) for bucket in buckets) if cells]
+    rows = [cells for cells in (_cells(bucket) for bucket in buckets) if cells]
+    return [
+        row
+        for row in rows
+        if _NO_TENANT_MARKER not in "".join(row.values()).replace(" ", "")
+    ]
 
 
 def _row_anchors(region: list[dict[str, Any]]) -> list[float]:
-    """행 기준선 y 목록. 한 줄로만 적히는 컬럼에 값이 있는 라인을 기준선으로 삼는다."""
+    """행의 세로 중앙 y 목록. 한 줄로만 적히는 컬럼 값의 세로 중앙이 행의 중앙과 일치한다."""
     candidates = sorted(
         {
-            fragment["y2"]
+            (fragment["y1"] + fragment["y2"]) / 2
             for fragment in region
             if _column_of(fragment) in _ANCHOR_FIELDS and not fragment["char"].isspace()
         },

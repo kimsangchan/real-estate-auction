@@ -1,15 +1,23 @@
 # 명세서 PDF 텍스트 레이어 → 점유자 표 파싱 테스트 (실측 좌표 픽스처 + 경계값)
+# notice_pdf_texts_*.json은 서울동부 실측 응답이며 사람 이름만 같은 길이의 가명으로 바꿨다
 import json
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from collector.notice_tenant_parser import parse_tenant_table
 
-PAGE0_FIXTURE = Path(__file__).parent / "fixtures" / "notice_pdf_texts_page0.json"
+FIXTURES = Path(__file__).parent / "fixtures"
+PAGE0_FIXTURE = FIXTURES / "notice_pdf_texts_page0.json"
 
 
 def _page0() -> list[dict]:
     return json.loads(PAGE0_FIXTURE.read_text(encoding="utf-8"))
+
+
+def _pages(name: str) -> list[list[dict]]:
+    return [json.loads((FIXTURES / name).read_text(encoding="utf-8"))]
 
 
 def test_parses_two_source_rows_of_same_property():
@@ -53,6 +61,56 @@ def test_assigns_tenant_seq_per_person_not_per_row():
 
 def test_marks_table_as_terminated_when_remarks_section_present():
     assert parse_tenant_table([_page0()]).continued is False
+
+
+def test_multi_line_occupied_part_does_not_split_rows():
+    # 2022타경52802 물건2 — 점유부분이 5줄로 감싸이며 §4-7 수율 붕괴를 일으킨 실측 문서.
+    # 표의 실제 행은 3개: 현황조사(전부 미상 → 게이트 거부), 현황조사, 권리신고
+    table = parse_tenant_table(_pages("notice_pdf_texts_52802_2.json"))
+
+    assert len(table.tenants) == 2
+    assert table.rejected == 1  # 전입일·보증금이 모두 미상인 진짜 임차인 행 — 게이트 설계대로
+
+    survey, claim = table.tenants
+    assert survey.tenant_name == "이영희"
+    assert survey.source_kind == "현황조사"
+    assert survey.occupied_part == "공부상 505호(실제표시 605호)"
+    assert survey.move_in_date == date(2002, 2, 2)
+    assert survey.fixed_date is None  # 미상
+    assert survey.deposit_amount is None  # 미상
+
+    assert claim.source_kind == "권리신고"
+    assert claim.occupied_part == "505호"
+    assert claim.lease_period == "2002.02.01.~ 현재까지"
+    assert claim.deposit_amount == 50_000_000
+    assert claim.move_in_date == date(2002, 2, 2)
+    assert claim.fixed_date == date(2002, 2, 19)
+    assert claim.demanded_distribution is True
+    assert claim.demanded_distribution_date == date(2022, 7, 13)
+
+
+def test_corporate_name_wrapped_over_five_lines_stays_one_row():
+    # 2022타경2593 물건1 — 법인 성명이 5줄로 감싸인 1행 문서 (마지막 조각까지 붙어야 한다)
+    table = parse_tenant_table(_pages("notice_pdf_texts_2593_1.json"))
+
+    assert table.rejected == 0
+    (tenant,) = table.tenants
+    assert tenant.tenant_name == "에이파이낸셜대부주식회사"
+    assert tenant.source_kind == "등기사항전부증명서"
+    assert tenant.occupied_part == "302호"
+    assert tenant.possession_basis == "주거 전세권자"
+    assert tenant.lease_period == "2022.5.12.~2024.5.11."
+    assert tenant.deposit_amount == 5_000_000
+
+
+@pytest.mark.parametrize("goods_seq", [1, 2, 3, 4])
+def test_explicit_no_tenant_notice_is_empty_not_rejected(goods_seq):
+    # 2022타경55450 — 표 안에 "조사된 임차내역없음" 한 줄만 렌더되는 빈 표.
+    # 행이 아니므로 거부 카운트에도 넣지 않는다 (rejected>0을 파싱 불신 신호로 쓰기 위함)
+    table = parse_tenant_table(_pages(f"notice_pdf_texts_55450_{goods_seq}.json"))
+
+    assert table.tenants == ()
+    assert table.rejected == 0
 
 
 def test_returns_empty_when_header_absent():
