@@ -64,6 +64,10 @@ class InMemoryNoticeRepository:
 
         return UpsertResult(inserted=inserted, updated=updated, skipped=skipped)
 
+    def find_item_keys_with_notice(self) -> set[tuple[str, str, str]]:
+        """명세서가 한 건이라도 있는 물건의 자연키 집합 — daily 스킵 필터 검증용."""
+        return {(court, case_no, item_no) for (court, case_no, item_no, _) in self.notices}
+
 
 class InMemoryPhotoRepository:
     """사진 멱등 저장 규칙(같은 사건·출처·순번 중복 금지)을 검증하기 위한 테스트용 저장소."""

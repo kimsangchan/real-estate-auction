@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import Any, Protocol
 
-from collector.court_client import CourtRequestError
+from collector.court_client import BlockedByCourtError, CourtRequestError
 from collector.court_parser import (
     CasePhoto,
     ItemNotice,
@@ -108,6 +108,18 @@ class PhotoRepository(Protocol):
 ParseSearchPage = Callable[[dict[str, Any]], SearchPage]
 
 
+class DailyClient(ItemDetailClient, CaseSearchClient, PhotoSearchClient, Protocol):
+    """daily가 쓰는 법원 요청 모음 — 검색·물건상세·사건검색·사진조회."""
+
+
+class DailyRepository(
+    AuctionRepository, NoticeRepository, BackfillRepository, PhotoRepository, Protocol
+):
+    """daily가 쓰는 저장소 모음 — 물건·명세서·매각결과·사진."""
+
+    def find_item_keys_with_notice(self) -> set[tuple[str, str, str]]: ...
+
+
 @dataclass(frozen=True)
 class CollectionTarget:
     court_office_code: str
@@ -122,9 +134,26 @@ def run_collection(
     repository: AuctionRepository,
     parse_search_page: ParseSearchPage,
 ) -> UpsertResult:
-    payload = build_search_payload(target)
-    raw_page = client.search_items(payload)
-    page = parse_search_page(raw_page)
+    _, result = _collect_search_page(
+        run_id=run_id,
+        target=target,
+        client=client,
+        repository=repository,
+        parse_search_page=parse_search_page,
+    )
+    return result
+
+
+def _collect_search_page(
+    *,
+    run_id: str,
+    target: CollectionTarget,
+    client: SearchClient,
+    repository: AuctionRepository,
+    parse_search_page: ParseSearchPage,
+) -> tuple[SearchPage, UpsertResult]:
+    """검색 한 페이지를 수집·저장한다 — 기본 수집과 daily 1단계가 공유한다."""
+    page = parse_search_page(client.search_items(build_search_payload(target)))
     result = repository.upsert_items(page.items)
 
     logger.info(
@@ -138,7 +167,7 @@ def run_collection(
         result.skipped,
     )
 
-    return result
+    return page, result
 
 
 def build_search_payload(target: CollectionTarget, *, today: date | None = None) -> dict[str, Any]:
@@ -301,12 +330,60 @@ def run_notice_collection(
     if limit is not None:
         rows = rows[:limit]
 
+    batch = _collect_notices_for_rows(
+        run_id=run_id,
+        target=target,
+        client=client,
+        indexed_rows=list(enumerate(rows)),
+        document_reader=document_reader,
+    )
+    result = repository.upsert_notices(batch.notices)
+
+    logger.info(
+        "notice_collection run_id=%s court=%s items=%s parsed=%s tenants=%s "
+        "tenants_rejected=%s inserted=%s updated=%s skipped=%s failed=%s",
+        run_id,
+        target.court_office_code,
+        len(rows),
+        len(batch.notices),
+        batch.tenant_rows,
+        batch.tenant_rejected,
+        result.inserted,
+        result.updated,
+        result.skipped,
+        batch.failed,
+    )
+
+    return result
+
+
+@dataclass(frozen=True)
+class _NoticeBatch:
+    """검색 결과 행들을 상세조회한 결과 묶음 — unavailable은 명세서가 응답에 없던 물건 수."""
+
+    notices: list[ItemNotice]
+    failed: int
+    unavailable: int
+    tenant_rows: int
+    tenant_rejected: int
+
+
+def _collect_notices_for_rows(
+    *,
+    run_id: str,
+    target: CollectionTarget,
+    client: ItemDetailClient,
+    indexed_rows: list[tuple[int, dict[str, Any]]],
+    document_reader: NoticeDocumentReader | None,
+) -> _NoticeBatch:
+    """검색 결과 행을 물건당 1회 상세조회해 명세서를 모은다 — notices와 daily 2단계가 공유한다."""
     notices: list[ItemNotice] = []
     failed_items = 0
+    unavailable_items = 0
     tenant_rows = 0
     tenant_rejected = 0
 
-    for row_index, row in enumerate(rows):
+    for row_index, row in indexed_rows:
         case_no = str(row.get("srnSaNo") or "")
         goods_seq = str(row.get("maemulSer") or "")
         item_no = str(row.get("mokmulSer") or "")
@@ -338,6 +415,15 @@ def run_notice_collection(
             item_no=item_no,
         )
         if notice is None:
+            # 응답에 명세서가 없다 — 기일이 지났거나(영구 소실) 아직 작성 전이다 (WP-11 §4-3)
+            unavailable_items += 1
+            logger.info(
+                "notice_item_unavailable run_id=%s court=%s case=%s item=%s",
+                run_id,
+                target.court_office_code,
+                case_no,
+                item_no,
+            )
             continue
 
         if document_reader is not None:
@@ -349,24 +435,13 @@ def run_notice_collection(
             tenant_rejected += rejected
         notices.append(notice)
 
-    result = repository.upsert_notices(notices)
-
-    logger.info(
-        "notice_collection run_id=%s court=%s items=%s parsed=%s tenants=%s "
-        "tenants_rejected=%s inserted=%s updated=%s skipped=%s failed=%s",
-        run_id,
-        target.court_office_code,
-        len(rows),
-        len(notices),
-        tenant_rows,
-        tenant_rejected,
-        result.inserted,
-        result.updated,
-        result.skipped,
-        failed_items,
+    return _NoticeBatch(
+        notices=notices,
+        failed=failed_items,
+        unavailable=unavailable_items,
+        tenant_rows=tenant_rows,
+        tenant_rejected=tenant_rejected,
     )
-
-    return result
 
 
 def _collect_notice_tenants(
@@ -659,3 +734,271 @@ def run_sale_result_backfill(
     )
 
     return UpsertResult(inserted=total_inserted, updated=0, skipped=total_skipped)
+
+
+@dataclass(frozen=True)
+class DailySummary:
+    """daily 한 번의 결과 요약 — notice_unavailable이 0이 아니면 영구 손실이 발생한 것이다."""
+
+    requests_total: int
+    notice_unavailable: int
+    stage_failures: int
+
+
+class _CountingClient:
+    """법원 요청 수를 세는 래퍼 — daily 로그의 단계별 사용량이 여기서 나온다."""
+
+    def __init__(self, client: DailyClient) -> None:
+        self._client = client
+        self.requests = 0
+
+    def search_items(self, payload: dict[str, Any]) -> dict[str, Any]:
+        self.requests += 1
+        return self._client.search_items(payload)
+
+    def search_item_detail(self, payload: dict[str, Any]) -> dict[str, Any]:
+        self.requests += 1
+        return self._client.search_item_detail(payload)
+
+    def search_case(self, payload: dict[str, Any]) -> dict[str, Any]:
+        self.requests += 1
+        return self._client.search_case(payload)
+
+    def search_photos(self, payload: dict[str, Any]) -> dict[str, Any]:
+        self.requests += 1
+        return self._client.search_photos(payload)
+
+
+class _CountingDocumentReader:
+    """명세서 문서 요청 수를 세는 래퍼 — 문서 열기 3회 + 쪽당 1회 (NoticeDocumentClient 참조)."""
+
+    def __init__(self, reader: NoticeDocumentReader, counter: _CountingClient) -> None:
+        self._reader = reader
+        self._counter = counter
+
+    def open_document(self, ref: NoticeDocumentRef) -> NoticeDocumentSession | None:
+        self._counter.requests += 3
+        return self._reader.open_document(ref)
+
+    def fetch_text_page(self, session: NoticeDocumentSession, page: int) -> list[Any]:
+        self._counter.requests += 1
+        return self._reader.fetch_text_page(session, page)
+
+
+def run_daily(
+    *,
+    run_id: str,
+    court_office_codes: list[str],
+    client: DailyClient,
+    repository: DailyRepository,
+    parse_search_page: ParseSearchPage,
+    document_reader: NoticeDocumentReader | None = None,
+    max_search_pages: int = 50,
+    notice_limit: int | None = None,
+    backfill_limit: int | None = None,
+    photo_limit: int | None = None,
+) -> DailySummary:
+    """하루 1회 전체 수집 — 물건(전 페이지) → 명세서(없는 물건만) → 매각결과 → 사진 순서.
+
+    순서가 설계다: 명세서는 매각기일이 지나면 영영 못 받으므로(WP-11 §4-3) 물건 수집 직후
+    가장 먼저 채운다. 한 단계가 실패해도 다음 단계는 계속하되, 차단 신호(403/429,
+    BlockedByCourtError)는 우회하지 않고 즉시 전체를 중단한다 (D-007).
+    """
+    counting = _CountingClient(client)
+    counting_reader = (
+        _CountingDocumentReader(document_reader, counting) if document_reader is not None else None
+    )
+    stage_failures = 0
+
+    # 1단계 — 물건 수집: 법원별로 totalCnt 기준 마지막 페이지까지 순회. 새 물건이 여기서 들어온다.
+    # 검색 행(maemulSer 포함)을 페이지 내 순번과 함께 모아 2단계 명세서 수집에 재사용한다
+    # — 같은 검색을 두 번 돌리지 않기 위해서다.
+    indexed_rows_by_court: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+    items_processed = items_inserted = items_updated = items_skipped = 0
+    pages_fetched = 0
+    failed_courts = 0
+    for court in court_office_codes:
+        rows = indexed_rows_by_court.setdefault(court, [])
+        page_no = 1
+        total_count = 0
+        try:
+            while True:
+                page, result = _collect_search_page(
+                    run_id=run_id,
+                    target=CollectionTarget(court_office_code=court, page_no=page_no),
+                    client=counting,
+                    repository=repository,
+                    parse_search_page=parse_search_page,
+                )
+                pages_fetched += 1
+                items_processed += len(page.items)
+                items_inserted += result.inserted
+                items_updated += result.updated
+                items_skipped += result.skipped
+                rows.extend((index, item.raw) for index, item in enumerate(page.items))
+                if page_no == 1:
+                    total_count = page.total_count  # totalCnt는 1페이지(totalYn=Y) 응답에만 온다
+                if not page.items or page_no * PAGE_SIZE >= total_count:
+                    break
+                if page_no >= max_search_pages:
+                    break
+                page_no += 1
+        except BlockedByCourtError:
+            raise
+        except Exception as exc:  # 한 법원 실패가 다른 법원·다음 단계를 막으면 안 된다
+            failed_courts += 1
+            stage_failures += 1
+            logger.warning(
+                "daily_items_court_failed run_id=%s court=%s page=%s error=%s",
+                run_id,
+                court,
+                page_no,
+                exc,
+            )
+    logger.info(
+        "daily_items run_id=%s courts=%s pages=%s processed=%s inserted=%s updated=%s "
+        "skipped=%s failed_courts=%s requests=%s",
+        run_id,
+        len(court_office_codes),
+        pages_fetched,
+        items_processed,
+        items_inserted,
+        items_updated,
+        items_skipped,
+        failed_courts,
+        counting.requests,
+    )
+
+    # 2단계 — 명세서 수집: 가장 급하다. 이미 명세서가 있는 물건은 상세조회를 건너뛴다.
+    # 단순화: 명세서는 기일마다 새로 작성될 수 있지만(document_date가 다름) 물건에 한 건이라도
+    # 있으면 스킵한다 — 매일 전부 다시 받는 비용(물건당 1요청)이 그 가치를 넘는다.
+    requests_start = counting.requests
+    candidates = skipped_existing = detailed = 0
+    notices_parsed = notice_unavailable = notice_failed = 0
+    tenants_total = tenants_rejected = 0
+    notices_inserted = notices_updated = notices_skipped = 0
+    try:
+        have_notice = repository.find_item_keys_with_notice()  # 자연키 집합, DB 조회 1회
+    except Exception as exc:
+        have_notice = None
+        stage_failures += 1
+        logger.warning("daily_notices_failed run_id=%s error=%s", run_id, exc)
+    if have_notice is not None:
+        for court in court_office_codes:
+            missing: list[tuple[int, dict[str, Any]]] = []
+            seen: set[tuple[str, str, str]] = set()
+            for row_index, row in indexed_rows_by_court.get(court, []):
+                key = (court, str(row.get("srnSaNo") or ""), str(row.get("mokmulSer") or ""))
+                if key in seen:
+                    continue
+                seen.add(key)
+                candidates += 1
+                if key in have_notice:
+                    skipped_existing += 1
+                    continue
+                missing.append((row_index, row))
+            if notice_limit is not None:
+                missing = missing[: max(notice_limit - detailed, 0)]
+            detailed += len(missing)
+            try:
+                batch = _collect_notices_for_rows(
+                    run_id=run_id,
+                    target=CollectionTarget(court_office_code=court),
+                    client=counting,
+                    indexed_rows=missing,
+                    document_reader=counting_reader,
+                )
+                result = repository.upsert_notices(batch.notices)
+            except BlockedByCourtError:
+                raise
+            except Exception as exc:  # 한 법원 실패가 다른 법원 명세서 수집을 막으면 안 된다
+                stage_failures += 1
+                logger.warning(
+                    "daily_notices_court_failed run_id=%s court=%s error=%s", run_id, court, exc
+                )
+                continue
+            notices_parsed += len(batch.notices)
+            notice_unavailable += batch.unavailable
+            notice_failed += batch.failed
+            tenants_total += batch.tenant_rows
+            tenants_rejected += batch.tenant_rejected
+            notices_inserted += result.inserted
+            notices_updated += result.updated
+            notices_skipped += result.skipped
+    logger.info(
+        "daily_notices run_id=%s candidates=%s skipped_existing=%s detailed=%s parsed=%s "
+        "notice_unavailable=%s tenants=%s tenants_rejected=%s inserted=%s updated=%s "
+        "skipped=%s failed=%s requests=%s",
+        run_id,
+        candidates,
+        skipped_existing,
+        detailed,
+        notices_parsed,
+        notice_unavailable,
+        tenants_total,
+        tenants_rejected,
+        notices_inserted,
+        notices_updated,
+        notices_skipped,
+        notice_failed,
+        counting.requests - requests_start,
+    )
+
+    # 3단계 — 매각 결과 backfill: 기일이 지난 물건. 결과는 배당종결 전까지 받을 수 있어 덜 급하다.
+    requests_start = counting.requests
+    try:
+        result = run_sale_result_backfill(
+            run_id=run_id, client=counting, repository=repository, limit=backfill_limit
+        )
+        logger.info(
+            "daily_results run_id=%s inserted=%s skipped=%s requests=%s",
+            run_id,
+            result.inserted,
+            result.skipped,
+            counting.requests - requests_start,
+        )
+    except BlockedByCourtError:
+        raise
+    except Exception as exc:
+        stage_failures += 1
+        logger.warning("daily_results_failed run_id=%s error=%s", run_id, exc)
+
+    # 4단계 — 사진 수집: 창 제한이 없어 가장 덜 급하다.
+    requests_start = counting.requests
+    photo_court = court_office_codes[0] if len(court_office_codes) == 1 else None
+    try:
+        result = run_photo_collection(
+            run_id=run_id,
+            client=counting,
+            repository=repository,
+            court_office_code=photo_court,
+            limit=photo_limit,
+        )
+        logger.info(
+            "daily_photos run_id=%s inserted=%s updated=%s skipped=%s requests=%s",
+            run_id,
+            result.inserted,
+            result.updated,
+            result.skipped,
+            counting.requests - requests_start,
+        )
+    except BlockedByCourtError:
+        raise
+    except Exception as exc:
+        stage_failures += 1
+        logger.warning("daily_photos_failed run_id=%s error=%s", run_id, exc)
+
+    summary = DailySummary(
+        requests_total=counting.requests,
+        notice_unavailable=notice_unavailable,
+        stage_failures=stage_failures,
+    )
+    logger.info(
+        "daily_done run_id=%s courts=%s notice_unavailable=%s stage_failures=%s requests_total=%s",
+        run_id,
+        ",".join(court_office_codes),
+        summary.notice_unavailable,
+        summary.stage_failures,
+        summary.requests_total,
+    )
+    return summary

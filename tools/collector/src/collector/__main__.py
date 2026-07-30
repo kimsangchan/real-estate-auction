@@ -13,11 +13,16 @@ from collector.postgres_repository import PostgresAuctionRepository, run_migrati
 from collector.runner import (
     CollectionTarget,
     run_collection,
+    run_daily,
     run_notice_collection,
     run_photo_collection,
     run_sale_result_backfill,
     run_sale_result_sweep,
 )
+
+
+# daily 기본 대상 법원 — 서울중앙지방법원·서울동부지방법원
+DAILY_DEFAULT_COURTS = ["B000210", "B000211"]
 
 
 def main() -> None:
@@ -31,6 +36,8 @@ def main() -> None:
         _run_notices(argv[1:])
     elif argv and argv[0] == "photos":
         _run_photos(argv[1:])
+    elif argv and argv[0] == "daily":
+        _run_daily(argv[1:])
     else:
         _run_collect(argv)
 
@@ -160,6 +167,68 @@ def _run_photos(argv: list[str]) -> None:
         court_office_code=args.court_office_code,
         limit=args.limit,
     )
+
+
+def _daily_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="collector daily",
+        description="하루 1회 전체 수집 — 물건(전 페이지) → 명세서(없는 물건만) → 매각결과 → 사진",
+    )
+    parser.add_argument(
+        "--court-office-code",
+        default=None,
+        help="법원 1곳만 돌 때 지정 (기본: 서울중앙 B000210 + 서울동부 B000211)",
+    )
+    parser.add_argument(
+        "--max-pages", type=int, default=50, help="법원당 검색 페이지 상한 (안전장치)"
+    )
+    parser.add_argument(
+        "--notice-limit", type=int, default=None, help="명세서 상세조회할 최대 물건 수"
+    )
+    parser.add_argument(
+        "--backfill-limit", type=int, default=None, help="매각 결과를 조회할 최대 사건 수"
+    )
+    parser.add_argument(
+        "--photo-limit", type=int, default=None, help="사진을 조회할 최대 사건 수"
+    )
+    parser.add_argument(
+        "--with-tenants",
+        action="store_true",
+        help="명세서 PDF까지 열어 점유자(임차인) 표를 함께 수집한다 (문서당 3요청+쪽당 1요청 — 기본 비활성)",
+    )
+    parser.add_argument("--migrate", action="store_true")
+    return parser
+
+
+def _run_daily(argv: list[str]) -> None:
+    args = _daily_arg_parser().parse_args(argv)
+
+    client, repository = _bootstrap(migrate=args.migrate)
+    document_reader = None
+    if args.with_tenants:
+        config = load_config()
+        document_reader = NoticeDocumentClient(
+            request_interval_ms=config.request_interval_ms,
+            max_retry=config.max_retry,
+        )
+
+    summary = run_daily(
+        run_id=str(uuid.uuid4()),
+        court_office_codes=(
+            [args.court_office_code] if args.court_office_code else DAILY_DEFAULT_COURTS
+        ),
+        client=client,
+        repository=repository,
+        parse_search_page=parse_search_page,
+        document_reader=document_reader,
+        max_search_pages=args.max_pages,
+        notice_limit=args.notice_limit,
+        backfill_limit=args.backfill_limit,
+        photo_limit=args.photo_limit,
+    )
+    # 단계 실패를 0으로 끝내면 cron에 성공으로 보인다 — 종료 코드로 드러낸다 (WP-09 notify와 같은 패턴)
+    if summary.stage_failures:
+        sys.exit(1)
 
 
 def _bootstrap(*, migrate: bool) -> tuple[CourtAuctionClient, PostgresAuctionRepository]:

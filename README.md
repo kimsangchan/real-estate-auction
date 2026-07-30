@@ -76,6 +76,12 @@ cd tools/collector
 
 # 사진이 아직 없는 사건의 물건 사진 수집 (사건당 요청 1회, 사진은 사건당 수 MB일 수 있다)
 .venv/Scripts/python -m collector photos --court-office-code B000210 --limit 5
+
+# 하루 1회 전체 수집: 물건(전 페이지) → 명세서(없는 물건만 상세조회) → 매각결과 → 사진.
+# 명세서는 매각기일이 지나면 영영 못 받으므로 하루도 빠뜨리면 안 된다 (WP-11 §4-3).
+# cron 등록 예시 (WP-09 notify와 같은 패턴, 매일 07:00):
+#   0 7 * * * cd /path/to/tools/collector && DATABASE_URL=... .venv/Scripts/python -m collector daily
+.venv/Scripts/python -m collector daily
 ```
 
 ## 장애 확인

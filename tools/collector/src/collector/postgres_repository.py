@@ -104,6 +104,20 @@ class PostgresAuctionRepository:
                 )
                 return list(cur.fetchall())
 
+    def find_item_keys_with_notice(self) -> set[tuple[str, str, str]]:
+        """명세서가 한 건이라도 있는 물건의 자연키 집합 — daily가 상세조회를 건너뛰는 데 쓴다."""
+        with psycopg.connect(self._database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT DISTINCT ac.court_office_code, ac.case_no, ai.item_no
+                    FROM auction_item_notice n
+                    JOIN auction_item ai ON ai.id = n.auction_item_id
+                    JOIN auction_case ac ON ac.id = ai.auction_case_id
+                    """
+                )
+                return {(str(row[0]), str(row[1]), str(row[2])) for row in cur.fetchall()}
+
     def find_cases_missing_photos(
         self, court_office_code: str | None = None
     ) -> list[dict[str, Any]]:

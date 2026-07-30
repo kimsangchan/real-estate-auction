@@ -1,0 +1,378 @@
+# daily 실행 로직 테스트 — 전 페이지 순회, 명세서 스킵 필터, 단계 실패 계속, 차단 즉시 중단, 점유자 기본 비활성
+import json
+import logging
+from pathlib import Path
+
+import pytest
+
+from collector.__main__ import DAILY_DEFAULT_COURTS, _daily_arg_parser
+from collector.court_client import BlockedByCourtError, CourtRequestError
+from collector.court_parser import ItemNotice, parse_search_page
+from collector.notice_document_client import NoticeDocumentSession
+from collector.repository import (
+    InMemoryAuctionRepository,
+    InMemoryNoticeRepository,
+    InMemoryPhotoRepository,
+    InMemorySaleResultRepository,
+)
+from collector.runner import run_daily
+
+
+DETAIL_FIXTURE = Path(__file__).parent / "fixtures" / "court_item_detail_page.json"
+TEXTS_FIXTURE = Path(__file__).parent / "fixtures" / "notice_pdf_texts_page0.json"
+
+EMPTY_PHOTO_RESPONSE = {
+    "data": {"dma_pageInfo": {"pageNo": 1, "totalCnt": "0"}, "dlt_csPicLst": [], "picLst": []}
+}
+
+
+def _row(court: str, case_no: str, item_no: str = "1") -> dict:
+    return {"boCd": court, "srnSaNo": case_no, "maemulSer": item_no, "mokmulSer": item_no}
+
+
+def _search_response(rows: list[dict], *, page_no: int, total: str) -> dict:
+    # totalCnt는 1페이지(totalYn=Y)에만 오고 이후 페이지는 빈값이다 — 실서버 계약과 같게 만든다
+    return {
+        "status": 200,
+        "data": {
+            "dma_pageInfo": {"pageNo": page_no, "totalCnt": total},
+            "dlt_srchResult": rows,
+        },
+    }
+
+
+def _notice(court: str, case_no: str, item_no: str = "1") -> ItemNotice:
+    return ItemNotice(
+        court_office_code=court,
+        case_no=case_no,
+        item_no=item_no,
+        document_date=None,
+        baseline_raw="2020.01.01. 근저당권",
+        baseline_date=None,
+        distribution_demand_deadline=None,
+        assumed_rights_kind=None,
+        risk_flags=[],
+        lien_claim_amount=None,
+    )
+
+
+class FakeDailyClient:
+    """법원 4종 요청을 흉내낸다 — 검색 페이지 시나리오는 법원별 응답 목록으로 주입한다."""
+
+    def __init__(self, pages_by_court: dict[str, list[dict]]):
+        self._pages_by_court = pages_by_court
+        self.search_pages: list[tuple[str, int]] = []
+        self.detail_cases: list[str] = []
+        self.case_searches: list[str] = []
+        self.photo_searches: list[str] = []
+
+    def search_items(self, payload: dict) -> dict:
+        court = payload["dma_srchGdsDtlSrchInfo"]["cortOfcCd"]
+        page_no = payload["dma_pageInfo"]["pageNo"]
+        self.search_pages.append((court, page_no))
+        return self._pages_by_court[court][page_no - 1]
+
+    def search_item_detail(self, payload: dict) -> dict:
+        self.detail_cases.append(payload["dma_srchGdsDtlSrch"]["csNo"])
+        return json.loads(DETAIL_FIXTURE.read_text(encoding="utf-8"))
+
+    def search_case(self, payload: dict) -> dict:
+        self.case_searches.append(payload["dma_srchCsDtlInf"]["csNo"])
+        return {"status": 200, "data": {}}  # 종국 등 — 결과 행 없음
+
+    def search_photos(self, payload: dict) -> dict:
+        self.photo_searches.append(payload["dma_srchPicInf"]["csNo"])
+        return EMPTY_PHOTO_RESPONSE
+
+
+class FakeDailyRepository:
+    """네 저장소 프로토콜을 한 객체로 합친다 — PostgresAuctionRepository와 같은 사용면."""
+
+    def __init__(self, pending_sale=None, missing_photos=None):
+        self._items = InMemoryAuctionRepository()
+        self._notice_repo = InMemoryNoticeRepository()
+        self._sale = InMemorySaleResultRepository(pending_sale)
+        self._photos = InMemoryPhotoRepository(missing_photos)
+
+    def upsert_items(self, items):
+        return self._items.upsert_items(items)
+
+    def upsert_notices(self, notices):
+        return self._notice_repo.upsert_notices(notices)
+
+    def find_item_keys_with_notice(self):
+        return self._notice_repo.find_item_keys_with_notice()
+
+    def find_items_pending_sale_result(self):
+        return self._sale.find_items_pending_sale_result()
+
+    def upsert_sale_results(self, results):
+        return self._sale.upsert_sale_results(results)
+
+    def find_cases_missing_photos(self, court_office_code=None):
+        return self._photos.find_cases_missing_photos(court_office_code)
+
+    def upsert_case_photos(self, court_office_code, case_no, photos):
+        return self._photos.upsert_case_photos(court_office_code, case_no, photos)
+
+    @property
+    def notices(self):
+        return self._notice_repo.notices
+
+
+def _run(client, repository, **kwargs):
+    return run_daily(
+        run_id="run-daily",
+        court_office_codes=kwargs.pop("court_office_codes", ["B000210"]),
+        client=client,
+        repository=repository,
+        parse_search_page=parse_search_page,
+        **kwargs,
+    )
+
+
+def test_daily_walks_all_search_pages_until_total_count(caplog):
+    caplog.set_level(logging.INFO)
+    court = "B000210"
+    pages = [
+        _search_response(
+            [_row(court, f"2024타경{i}") for i in range(1, 11)], page_no=1, total="25"
+        ),
+        _search_response(
+            [_row(court, f"2024타경{i}") for i in range(11, 21)], page_no=2, total=""
+        ),
+        _search_response(
+            [_row(court, f"2024타경{i}") for i in range(21, 26)], page_no=3, total=""
+        ),
+    ]
+    client = FakeDailyClient({court: pages})
+    repository = FakeDailyRepository()
+
+    summary = _run(client, repository)
+
+    # totalCnt=25 → 3페이지에서 종료. 마지막 페이지 뒤를 더 요청하지 않는다
+    assert client.search_pages == [(court, 1), (court, 2), (court, 3)]
+    # 새 물건 25건 전부 명세서 상세조회 → 저장
+    assert len(client.detail_cases) == 25
+    assert len(repository.notices) == 25
+    # 요청 총합 = 검색 3 + 상세 25 (결과·사진 대상 없음)
+    assert summary.requests_total == 28
+    messages = "\n".join(record.getMessage() for record in caplog.records)
+    assert "daily_items run_id=run-daily courts=1 pages=3 processed=25" in messages
+    assert "requests_total=28" in messages
+
+
+def test_daily_respects_max_search_pages():
+    court = "B000210"
+    pages = [
+        _search_response(
+            [_row(court, f"2024타경{i}") for i in range(1, 11)], page_no=1, total="25"
+        ),
+    ]
+    client = FakeDailyClient({court: pages})
+
+    _run(client, FakeDailyRepository(), max_search_pages=1)
+
+    assert client.search_pages == [(court, 1)]
+
+
+def test_daily_collects_both_courts():
+    pages_a = [_search_response([_row("B000210", "2024타경1")], page_no=1, total="1")]
+    pages_b = [_search_response([_row("B000211", "2024타경2")], page_no=1, total="1")]
+    client = FakeDailyClient({"B000210": pages_a, "B000211": pages_b})
+
+    _run(client, FakeDailyRepository(), court_office_codes=["B000210", "B000211"])
+
+    assert client.search_pages == [("B000210", 1), ("B000211", 1)]
+    assert sorted(client.detail_cases) == ["2024타경1", "2024타경2"]
+
+
+def test_daily_skips_detail_for_items_already_having_notice(caplog):
+    caplog.set_level(logging.INFO)
+    court = "B000210"
+    rows = [_row(court, "2023타경100"), _row(court, "2023타경200")]
+    client = FakeDailyClient({court: [_search_response(rows, page_no=1, total="2")]})
+    repository = FakeDailyRepository()
+    # 2023타경100은 이미 명세서 보유 — 상세조회 없이 건너뛴다 (요청 낭비 제거)
+    repository.upsert_notices([_notice(court, "2023타경100")])
+
+    _run(client, repository)
+
+    assert client.detail_cases == ["2023타경200"]
+    messages = "\n".join(record.getMessage() for record in caplog.records)
+    assert "skipped_existing=1" in messages
+    assert "detailed=1" in messages
+
+
+def test_daily_second_run_details_nothing():
+    court = "B000210"
+    rows = [_row(court, "2023타경100"), _row(court, "2023타경200")]
+    pages = [_search_response(rows, page_no=1, total="2")]
+    repository = FakeDailyRepository()
+
+    first_client = FakeDailyClient({court: pages})
+    _run(first_client, repository)
+    second_client = FakeDailyClient({court: pages})
+    _run(second_client, repository)
+
+    # 첫 실행에서 명세서를 받았으므로 두 번째 실행은 상세조회가 0건이어야 한다
+    assert len(first_client.detail_cases) == 2
+    assert second_client.detail_cases == []
+
+
+def test_daily_respects_notice_limit():
+    court = "B000210"
+    rows = [_row(court, f"2024타경{i}") for i in range(1, 6)]
+    client = FakeDailyClient({court: [_search_response(rows, page_no=1, total="5")]})
+
+    _run(client, FakeDailyRepository(), notice_limit=2)
+
+    assert len(client.detail_cases) == 2
+
+
+def test_daily_counts_items_whose_notice_is_unavailable(caplog):
+    caplog.set_level(logging.INFO)
+    court = "B000210"
+
+    class EmptyDetailClient(FakeDailyClient):
+        def search_item_detail(self, payload: dict) -> dict:
+            self.detail_cases.append(payload["dma_srchGdsDtlSrch"]["csNo"])
+            # 기일이 지난 물건의 실측 응답 — dma_result가 빈 객체로 온다 (WP-11 §4-3)
+            return {"status": 200, "data": {"dma_result": {}}}
+
+    client = EmptyDetailClient(
+        {court: [_search_response([_row(court, "2023타경300")], page_no=1, total="1")]}
+    )
+
+    summary = _run(client, FakeDailyRepository())
+
+    assert summary.notice_unavailable == 1
+    messages = "\n".join(record.getMessage() for record in caplog.records)
+    assert "notice_unavailable=1" in messages
+    assert "notice_item_unavailable" in messages
+
+
+def test_daily_continues_to_next_stage_after_stage_failure(caplog):
+    caplog.set_level(logging.INFO)
+    court = "B000210"
+
+    class BrokenSaleRepository(FakeDailyRepository):
+        def find_items_pending_sale_result(self):
+            raise RuntimeError("db down")
+
+    client = FakeDailyClient(
+        {court: [_search_response([_row(court, "2024타경1")], page_no=1, total="1")]}
+    )
+    repository = BrokenSaleRepository(
+        missing_photos=[{"court_office_code": court, "case_no": "2024타경1"}]
+    )
+
+    summary = _run(client, repository)
+
+    # 3단계(결과) 실패에도 4단계(사진)는 계속 돈다
+    assert client.photo_searches == ["20240130000001"]
+    assert summary.stage_failures == 1
+    assert "daily_results_failed" in "\n".join(r.getMessage() for r in caplog.records)
+
+
+def test_daily_continues_to_other_court_and_stages_after_search_failure(caplog):
+    caplog.set_level(logging.INFO)
+
+    class FailingSearchClient(FakeDailyClient):
+        def search_items(self, payload: dict) -> dict:
+            if payload["dma_srchGdsDtlSrchInfo"]["cortOfcCd"] == "B000210":
+                raise CourtRequestError("courtauction request failed: HTTP 400")
+            return super().search_items(payload)
+
+    client = FailingSearchClient(
+        {"B000211": [_search_response([_row("B000211", "2024타경2")], page_no=1, total="1")]}
+    )
+
+    summary = _run(client, FakeDailyRepository(), court_office_codes=["B000210", "B000211"])
+
+    # 서울중앙 검색 실패에도 서울동부 수집·명세서는 계속된다
+    assert client.detail_cases == ["2024타경2"]
+    assert summary.stage_failures == 1
+    assert "daily_items_court_failed" in "\n".join(r.getMessage() for r in caplog.records)
+
+
+def test_daily_aborts_all_stages_on_block_signal():
+    court = "B000210"
+
+    class BlockedDetailClient(FakeDailyClient):
+        def search_item_detail(self, payload: dict) -> dict:
+            raise BlockedByCourtError("courtauction blocked collector: HTTP 403")
+
+    client = BlockedDetailClient(
+        {court: [_search_response([_row(court, "2024타경1")], page_no=1, total="1")]}
+    )
+    repository = FakeDailyRepository(
+        pending_sale=[{"court_office_code": court, "case_no": "2024타경1", "item_no": "1"}],
+        missing_photos=[{"court_office_code": court, "case_no": "2024타경1"}],
+    )
+
+    with pytest.raises(BlockedByCourtError):
+        _run(client, repository)
+
+    # 차단 신호는 즉시 전체 중단 — 이후 단계(결과·사진)는 요청하지 않는다
+    assert client.case_searches == []
+    assert client.photo_searches == []
+
+
+class FakeDocumentReader:
+    """명세서 PDF 경로를 흉내낸다 — 문서 열기 1회, 페이지별 텍스트 1회."""
+
+    def __init__(self):
+        self.opened: list[str] = []
+
+    def open_document(self, ref):
+        self.opened.append(ref.ecdoc_id)
+        return NoticeDocumentSession(streamdocs_id="doc-1", access_token="token-1")
+
+    def fetch_text_page(self, session, page: int):
+        if page == 0:
+            return json.loads(TEXTS_FIXTURE.read_text(encoding="utf-8"))
+        return []
+
+
+def test_daily_reads_tenant_documents_only_when_reader_given():
+    court = "B000210"
+    pages = [_search_response([_row(court, "2024타경1")], page_no=1, total="1")]
+    reader = FakeDocumentReader()
+
+    # 기본(reader 없음) — 문서 경로를 아예 타지 않는다
+    no_reader_summary = _run(FakeDailyClient({court: pages}), FakeDailyRepository())
+    assert reader.opened == []
+    # 검색 1 + 상세 1 (문서 요청 없음)
+    assert no_reader_summary.requests_total == 2
+
+    with_reader_summary = _run(
+        FakeDailyClient({court: pages}), FakeDailyRepository(), document_reader=reader
+    )
+    assert len(reader.opened) == 1
+    # 검색 1 + 상세 1 + 문서 열기 3 + 텍스트 1쪽 1
+    assert with_reader_summary.requests_total == 6
+
+
+def test_daily_cli_defaults_two_courts_and_tenants_disabled():
+    args = _daily_arg_parser().parse_args([])
+
+    assert args.with_tenants is False
+    assert args.court_office_code is None
+    assert args.notice_limit is None
+    assert DAILY_DEFAULT_COURTS == ["B000210", "B000211"]
+
+
+def test_daily_photo_stage_reuses_photo_runner():
+    court = "B000210"
+    client = FakeDailyClient(
+        {court: [_search_response([_row(court, "2024타경1")], page_no=1, total="1")]}
+    )
+    repository = FakeDailyRepository(
+        missing_photos=[{"court_office_code": court, "case_no": "2024타경1"}]
+    )
+
+    summary = _run(client, repository, photo_limit=1)
+
+    assert client.photo_searches == ["20240130000001"]
+    assert summary.stage_failures == 0

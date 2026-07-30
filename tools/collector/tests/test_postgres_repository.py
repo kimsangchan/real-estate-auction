@@ -198,6 +198,11 @@ def test_postgres_notice_upsert_is_idempotent_and_updates_changed_fields():
     assert (first.inserted, first.updated, first.skipped) == (2, 0, 1)
     assert (second.inserted, second.updated, second.skipped) == (0, 0, 3)
     assert (third.inserted, third.updated, third.skipped) == (0, 1, 2)
+    # daily 스킵 필터가 쓰는 자연키 집합 — 명세서를 저장한 두 물건만 나와야 한다
+    assert repository.find_item_keys_with_notice() == {
+        ("B000210", "2022타경101244", "1"),
+        ("B000210", "2023타경4722", "1"),
+    }
 
 
 @pytest.mark.skipif(
@@ -315,7 +320,9 @@ def test_postgres_photo_upsert_is_idempotent_and_updates_changed_fields():
 
     # DB에 없는 사건은 조용히 아무것도 하지 않는다
     unknown = repository.upsert_case_photos("B000210", "2024타경999999", photo_page.photos)
-    assert (unknown.inserted, unknown.updated, unknown.skipped) == (0, 0, 0)
+    # 저장은 하지 않되 건너뛴 장수를 센다 — _upsert_notice가 미수집 물건을 skipped로 세는 것과 같다.
+    # 0으로 뭉개면 "우리가 추적하지 않는 사건의 사진을 받아왔다"는 신호가 로그에서 사라진다
+    assert (unknown.inserted, unknown.updated, unknown.skipped) == (0, 0, len(photo_page.photos))
 
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
