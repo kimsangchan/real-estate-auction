@@ -14,6 +14,7 @@ from collector.runner import (
     CollectionTarget,
     run_collection,
     run_notice_collection,
+    run_photo_collection,
     run_sale_result_backfill,
     run_sale_result_sweep,
 )
@@ -28,6 +29,8 @@ def main() -> None:
         _run_sweep(argv[1:])
     elif argv and argv[0] == "notices":
         _run_notices(argv[1:])
+    elif argv and argv[0] == "photos":
+        _run_photos(argv[1:])
     else:
         _run_collect(argv)
 
@@ -131,6 +134,31 @@ def _run_notices(argv: list[str]) -> None:
         repository=repository,
         limit=args.limit,
         document_reader=document_reader,
+    )
+
+
+def _run_photos(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(
+        prog="collector photos",
+        description="사진이 아직 없는 사건의 물건 사진을 수집한다 (사건당 요청 1회)",
+    )
+    parser.add_argument("--court-office-code", default=None, help="법원 필터 (없으면 전체)")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help="이번 실행에서 조회할 최대 사건 수 (사건당 사진이 수 MB일 수 있다)",
+    )
+    parser.add_argument("--migrate", action="store_true")
+    args = parser.parse_args(argv)
+
+    client, repository = _bootstrap(migrate=args.migrate)
+    run_photo_collection(
+        run_id=str(uuid.uuid4()),
+        client=client,
+        repository=repository,
+        court_office_code=args.court_office_code,
+        limit=args.limit,
     )
 
 

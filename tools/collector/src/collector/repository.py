@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from collector.court_parser import AuctionItem, ItemNotice, SaleResult
+from collector.court_parser import AuctionItem, CasePhoto, ItemNotice, SaleResult
 
 
 @dataclass(frozen=True)
@@ -61,6 +61,48 @@ class InMemoryNoticeRepository:
             else:
                 updated += 1
             self.notices = {**self.notices, key: notice}
+
+        return UpsertResult(inserted=inserted, updated=updated, skipped=skipped)
+
+
+class InMemoryPhotoRepository:
+    """사진 멱등 저장 규칙(같은 사건·출처·순번 중복 금지)을 검증하기 위한 테스트용 저장소."""
+
+    def __init__(self, pending_cases: list[dict[str, Any]] | None = None) -> None:
+        self._pending_cases = list(pending_cases or [])
+        self.photos: dict[tuple[str, str, str, int], CasePhoto] = {}
+
+    def find_cases_missing_photos(
+        self, court_office_code: str | None = None
+    ) -> list[dict[str, Any]]:
+        rows = [
+            row
+            for row in self._pending_cases
+            if court_office_code is None or row["court_office_code"] == court_office_code
+        ]
+        collected = {(key[0], key[1]) for key in self.photos}
+        return [
+            row for row in rows if (row["court_office_code"], row["case_no"]) not in collected
+        ]
+
+    def upsert_case_photos(
+        self, court_office_code: str, case_no: str, photos: list[CasePhoto]
+    ) -> UpsertResult:
+        inserted = 0
+        updated = 0
+        skipped = 0
+
+        for photo in photos:
+            key = (court_office_code, case_no, photo.source, photo.seq)
+            current = self.photos.get(key)
+            if current is None:
+                inserted += 1
+            elif current == photo:
+                skipped += 1
+                continue
+            else:
+                updated += 1
+            self.photos = {**self.photos, key: photo}
 
         return UpsertResult(inserted=inserted, updated=updated, skipped=skipped)
 

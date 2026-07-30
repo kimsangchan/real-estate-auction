@@ -73,6 +73,9 @@ cd tools/collector
 
 # 마이그레이션 + 법원 1곳 1페이지 수집
 .venv/Scripts/python -m collector --migrate --court-office-code B000210 --page-no 1
+
+# 사진이 아직 없는 사건의 물건 사진 수집 (사건당 요청 1회, 사진은 사건당 수 MB일 수 있다)
+.venv/Scripts/python -m collector photos --court-office-code B000210 --limit 5
 ```
 
 ## 장애 확인

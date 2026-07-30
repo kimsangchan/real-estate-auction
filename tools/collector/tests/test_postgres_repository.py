@@ -11,6 +11,7 @@ from collector.court_parser import (
     SOURCE_CASE_SEARCH,
     ItemNotice,
     SaleResult,
+    parse_photo_page,
     parse_search_page,
 )
 from collector.notice_tenant_parser import NoticeTenant
@@ -266,6 +267,62 @@ def test_postgres_notice_tenants_are_replaced_not_appended():
     # 기재사항만 재수집(tenants 비어 있음)해도 이미 받아둔 표를 지우지 않는다
     repository.upsert_notices([replace(notice, tenants=())])
     assert _tenant_rows(database_url) == 2
+
+
+@pytest.mark.skipif(
+    os.getenv("COLLECTOR_RUN_DB_TESTS") != "1",
+    reason="set COLLECTOR_RUN_DB_TESTS=1 to run PostGIS integration tests",
+)
+def test_postgres_photo_upsert_is_idempotent_and_updates_changed_fields():
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        pytest.skip("DATABASE_URL is required")
+
+    repository = PostgresAuctionRepository(database_url)
+    run_migrations(database_url)
+    repository.truncate_for_test()
+    page = parse_search_page(json.loads(FIXTURE_PATH.read_text(encoding="utf-8")))
+    repository.upsert_items(page.items)
+
+    # fixture 두 사건 모두 아직 사진이 없다 — 수집 대상
+    assert len(repository.find_cases_missing_photos()) == 2
+    assert repository.find_cases_missing_photos("B000299") == []
+
+    photo_page = parse_photo_page(
+        json.loads((Path(__file__).parent / "fixtures" / "court_photo_page.json").read_text(
+            encoding="utf-8"
+        )),
+        court_office_code="B000210",
+        case_no="2022타경101244",
+    )
+
+    first = repository.upsert_case_photos("B000210", "2022타경101244", photo_page.photos)
+    second = repository.upsert_case_photos("B000210", "2022타경101244", photo_page.photos)
+    # 설명이 바뀐 사진은 updated로 잡혀야 한다
+    third = repository.upsert_case_photos(
+        "B000210",
+        "2022타경101244",
+        [replace(photo_page.photos[0], caption="바뀐 설명"), *photo_page.photos[1:]],
+    )
+
+    assert (first.inserted, first.updated, first.skipped) == (3, 0, 0)
+    assert (second.inserted, second.updated, second.skipped) == (0, 0, 3)
+    assert (third.inserted, third.updated, third.skipped) == (0, 1, 2)
+
+    # 사진이 채워진 사건은 더 이상 수집 대상이 아니다
+    remaining = repository.find_cases_missing_photos()
+    assert [row["case_no"] for row in remaining] == ["2023타경4722"]
+
+    # DB에 없는 사건은 조용히 아무것도 하지 않는다
+    unknown = repository.upsert_case_photos("B000210", "2024타경999999", photo_page.photos)
+    assert (unknown.inserted, unknown.updated, unknown.skipped) == (0, 0, 0)
+
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT sum(byte_size), count(*) FROM auction_case_photo")
+            total_bytes, rows = cur.fetchone()
+    assert rows == 3
+    assert int(total_bytes) == sum(len(p.image) for p in photo_page.photos)
 
 
 def _tenant_rows(database_url: str) -> int:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
@@ -8,11 +9,13 @@ from typing import Any, Protocol
 
 from collector.court_client import CourtRequestError
 from collector.court_parser import (
+    CasePhoto,
     ItemNotice,
     SaleResult,
     SearchPage,
     parse_case_sale_results,
     parse_item_notice,
+    parse_photo_page,
     parse_sale_result_page,
 )
 from collector.notice_document_client import (
@@ -35,6 +38,15 @@ PAGE_SIZE = 10
 
 # 매각결과검색은 pageSize 100을 HTTP 400으로 거부한다 — 10~20만 허용
 SALE_RESULT_PAGE_SIZE = 20
+
+# 사진조회는 pageSize 30까지 실측으로 확인했다 — 27장 사건도 1요청에 담긴다
+PHOTO_PAGE_SIZE = 30
+# 사진이 이보다 많은 사건은 비정상으로 보고 남은 쪽은 받지 않는다 (요청 폭주 방지)
+PHOTO_MAX_PAGES = 5
+
+# 내부 사건번호(csNo)의 사건부호 코드 — "타경"(경매사건)은 0130이다.
+# 실측: 2025타경52037 → 20250130052037, 2024타경119676 → 20240130119676
+_CASE_NO_PATTERN = re.compile(r"^(\d{4})타경(\d{1,6})$")
 
 
 class SearchClient(Protocol):
@@ -77,6 +89,20 @@ class NoticeDocumentReader(Protocol):
     def open_document(self, ref: NoticeDocumentRef) -> NoticeDocumentSession | None: ...
 
     def fetch_text_page(self, session: NoticeDocumentSession, page: int) -> list[Any]: ...
+
+
+class PhotoSearchClient(Protocol):
+    def search_photos(self, payload: dict[str, Any]) -> dict[str, Any]: ...
+
+
+class PhotoRepository(Protocol):
+    def find_cases_missing_photos(
+        self, court_office_code: str | None = None
+    ) -> list[dict[str, Any]]: ...
+
+    def upsert_case_photos(
+        self, court_office_code: str, case_no: str, photos: list[CasePhoto]
+    ) -> UpsertResult: ...
 
 
 ParseSearchPage = Callable[[dict[str, Any]], SearchPage]
@@ -378,6 +404,151 @@ def _search_result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
     data = payload.get("data")
     rows = data.get("dlt_srchResult") if isinstance(data, dict) else None
     return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+
+def internal_case_no(case_no: str) -> str | None:
+    """사람이 읽는 사건번호를 내부 표기(csNo)로 바꾼다 — 2025타경52037 → 20250130052037.
+
+    사진조회는 내부 사건번호만 받는다. 타경(0130) 외 사건부호는 다루지 않으므로 None을 준다.
+    """
+    match = _CASE_NO_PATTERN.match(case_no)
+    if match is None:
+        return None
+    year, serial = match.groups()
+    return f"{year}0130{serial.zfill(6)}"
+
+
+def build_photo_payload(
+    court_office_code: str,
+    internal_cs_no: str,
+    *,
+    page_no: int = 1,
+    page_size: int = PHOTO_PAGE_SIZE,
+) -> dict[str, Any]:
+    """사진조회 submission(sbm_selectPicInfoLst)이 기대하는 페이로드를 만든다.
+
+    필드 목록·상수값은 사진보기 팝업(PGJ15BP06)에서 캡처한 실제 요청 그대로다.
+    사진은 사건 단위라 물건번호(goods_seq)를 받지 않는다.
+    """
+    return {
+        "dma_pageInfo": {
+            "pageNo": page_no,
+            "pageSize": page_size,
+            "bfPageNo": "",
+            "startRowNo": "",
+            "totalCnt": "",
+            "totalYn": "Y" if page_no == 1 else "N",
+        },
+        "dma_srchPicInf": {
+            "cortOfcCd": court_office_code,
+            "csNo": internal_cs_no,
+            "ordTsCnt": "",
+            "auctnInfOriginDvsCd": "",
+            "pgmId": "PGJ15BP06",
+            "cortAuctnPicDvsCd": "",
+            "flag": "",
+        },
+    }
+
+
+def run_photo_collection(
+    *,
+    run_id: str,
+    client: PhotoSearchClient,
+    repository: PhotoRepository,
+    court_office_code: str | None = None,
+    limit: int | None = None,
+) -> UpsertResult:
+    """사진이 아직 없는 사건의 물건 사진을 수집한다.
+
+    사진은 사건 단위로 제공되므로 사건당 1회(30장 초과 시 페이지 추가) 요청한다.
+    실측상 매각기일이 지난 사건도 조회된다(창 제한 없음). 사건 하나가 실패해도 다음
+    사건을 계속 처리하되, 차단 신호는 즉시 전파한다.
+    """
+    pending = repository.find_cases_missing_photos(court_office_code)
+    if limit is not None:
+        pending = pending[:limit]
+
+    total_inserted = 0
+    total_updated = 0
+    total_skipped = 0
+    failed_cases = 0
+
+    for row in pending:
+        court = str(row["court_office_code"])
+        case_no = str(row["case_no"])
+        cs_no = internal_case_no(case_no)
+        if cs_no is None:
+            failed_cases += 1
+            logger.warning(
+                "photo_case_skipped run_id=%s court=%s case=%s reason=사건부호_비지원",
+                run_id,
+                court,
+                case_no,
+            )
+            continue
+
+        try:
+            photos = _fetch_case_photos(client, court=court, case_no=case_no, cs_no=cs_no)
+        except CourtRequestError as exc:
+            failed_cases += 1
+            logger.warning(
+                "photo_case_failed run_id=%s court=%s case=%s error=%s",
+                run_id,
+                court,
+                case_no,
+                exc,
+            )
+            continue
+
+        result = repository.upsert_case_photos(court, case_no, photos)
+        total_inserted += result.inserted
+        total_updated += result.updated
+        total_skipped += result.skipped
+
+        total_bytes = sum(len(photo.image) for photo in photos)
+        logger.info(
+            "photo_case run_id=%s court=%s case=%s photos=%s bytes=%s "
+            "inserted=%s updated=%s skipped=%s",
+            run_id,
+            court,
+            case_no,
+            len(photos),
+            total_bytes,
+            result.inserted,
+            result.updated,
+            result.skipped,
+        )
+
+    logger.info(
+        "photo_collection run_id=%s court=%s cases=%s inserted=%s updated=%s "
+        "skipped=%s failed=%s",
+        run_id,
+        court_office_code or "전체",
+        len(pending),
+        total_inserted,
+        total_updated,
+        total_skipped,
+        failed_cases,
+    )
+
+    return UpsertResult(inserted=total_inserted, updated=total_updated, skipped=total_skipped)
+
+
+def _fetch_case_photos(
+    client: PhotoSearchClient, *, court: str, case_no: str, cs_no: str
+) -> list[CasePhoto]:
+    """한 사건의 사진을 전부 받는다 — 총 건수가 한 페이지를 넘으면 다음 페이지를 이어 받는다."""
+    photos: list[CasePhoto] = []
+    for page_no in range(1, PHOTO_MAX_PAGES + 1):
+        payload = build_photo_payload(court, cs_no, page_no=page_no)
+        page = parse_photo_page(
+            client.search_photos(payload), court_office_code=court, case_no=case_no
+        )
+        photos.extend(page.photos)
+        if len(photos) >= page.total_count or not page.photos:
+            break
+    return photos
 
 
 def run_sale_result_sweep(

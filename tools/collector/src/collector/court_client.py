@@ -34,12 +34,21 @@ CASE_SEARCH_REFERER = (
 ITEM_DETAIL_PATH = "/pgj/pgj15B/selectAuctnCsSrchRslt.on"
 ITEM_DETAIL_SUBMISSION_ID = "mf_wfm_mainFrame_sbm_selectGdsDtlSrchDtlInfo"
 
-# 엔드포인트 경로별 WebSquare 제출 헤더 (submissionid, Referer) — 기본 transport가 참조한다
+# 사진조회(PGJ15BP06, 사진보기 팝업) — 사건 단위 사진 메타와 base64 바이트를 함께 준다.
+# 브라우저는 이 요청에 sc-userid를 NONUSER로 보낸다 (다른 검색 엔드포인트는 SYSTEM).
+PHOTO_PATH = "/pgj/pgj15B/selectPicInf.on"
+PHOTO_SUBMISSION_ID = "mf_wfm_mainFrame_dspslGdsReltPicPopUp_wframe_sbm_selectPicInfoLst"
+
+_DEFAULT_USERID = "SYSTEM"
+_PHOTO_USERID = "NONUSER"
+
+# 엔드포인트 경로별 WebSquare 제출 헤더 (submissionid, Referer, sc-userid) — 기본 transport가 참조한다
 _ENDPOINT_HEADERS = {
-    SEARCH_PATH: (SUBMISSION_ID, REFERER),
-    SALE_RESULT_PATH: (SALE_RESULT_SUBMISSION_ID, SALE_RESULT_REFERER),
-    CASE_SEARCH_PATH: (CASE_SEARCH_SUBMISSION_ID, CASE_SEARCH_REFERER),
-    ITEM_DETAIL_PATH: (ITEM_DETAIL_SUBMISSION_ID, REFERER),
+    SEARCH_PATH: (SUBMISSION_ID, REFERER, _DEFAULT_USERID),
+    SALE_RESULT_PATH: (SALE_RESULT_SUBMISSION_ID, SALE_RESULT_REFERER, _DEFAULT_USERID),
+    CASE_SEARCH_PATH: (CASE_SEARCH_SUBMISSION_ID, CASE_SEARCH_REFERER, _DEFAULT_USERID),
+    ITEM_DETAIL_PATH: (ITEM_DETAIL_SUBMISSION_ID, REFERER, _DEFAULT_USERID),
+    PHOTO_PATH: (PHOTO_SUBMISSION_ID, REFERER, _PHOTO_USERID),
 }
 
 
@@ -100,6 +109,10 @@ class CourtAuctionClient:
         """물건상세(PGJ15BM01)를 호출한다 — 매각물건명세서 기재사항이 함께 온다."""
         return self._request(ITEM_DETAIL_PATH, payload)
 
+    def search_photos(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """사진조회(PGJ15BP06)를 호출한다 — 사건 단위 사진 메타와 base64 바이트."""
+        return self._request(PHOTO_PATH, payload)
+
     def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         url = f"{self._base_url}{path}"
         last_status: int | None = None
@@ -128,8 +141,10 @@ class CourtAuctionClient:
 
 
 def _urllib_transport(url: str, payload: dict[str, Any]) -> HttpResponse:
-    # 요청 경로에 맞는 submissionid/Referer를 고른다 (transport 시그니처는 기존 그대로 유지)
-    submission_id, referer = _ENDPOINT_HEADERS.get(urlsplit(url).path, (SUBMISSION_ID, REFERER))
+    # 요청 경로에 맞는 submissionid/Referer/sc-userid를 고른다 (transport 시그니처는 기존 그대로 유지)
+    submission_id, referer, sc_userid = _ENDPOINT_HEADERS.get(
+        urlsplit(url).path, (SUBMISSION_ID, REFERER, _DEFAULT_USERID)
+    )
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = request.Request(
         url,
@@ -138,7 +153,7 @@ def _urllib_transport(url: str, payload: dict[str, Any]) -> HttpResponse:
             "Content-Type": "application/json;charset=UTF-8",
             "Accept": "application/json",
             "Referer": referer,
-            "sc-userid": "SYSTEM",
+            "sc-userid": sc_userid,
             "submissionid": submission_id,
             "User-Agent": "real-estate-auction-collector/0.1",
         },

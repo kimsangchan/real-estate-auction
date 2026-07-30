@@ -1,0 +1,79 @@
+{
+  "status": 200,
+  "message": "사진 정보조회되었습니다.",
+  "errors": null,
+  "data": {
+    "dma_csBaseInfo": {
+      "cortOfcCd": "B000210",
+      "csNo": "20220130101244",
+      "userCsNo": "2022타경101244"
+    },
+    "dlt_csPicDvsCnt": [
+      {
+        "cortOfcCd": "B000210",
+        "csNo": "20220130101244",
+        "cortAuctnPicDvsCd": "000241",
+        "photoGubunCnt": 2,
+        "cortAuctnPicDvsNm": "전경도"
+      },
+      {
+        "cortOfcCd": "B000210",
+        "csNo": "20220130101244",
+        "cortAuctnPicDvsCd": "000244",
+        "photoGubunCnt": 1,
+        "cortAuctnPicDvsNm": "위치도"
+      }
+    ],
+    "dlt_csPicLst": [
+      {
+        "cortOfcCd": "B000210",
+        "csNo": "20220130101244",
+        "cortAuctnPicSeq": 1,
+        "pageSeq": 1,
+        "cortAuctnPicDvsCd": "000241",
+        "auctnInfOriginDvsCd": "2",
+        "picTitlNm": "B000210202201301012441.jpg",
+        "thnailTitlNm": "T_B000210202201301012441.jpg",
+        "picFileUrl": "/nas_e_image_pgj/kj/2022/0101/",
+        "picDscrCtt": "도로명"
+      },
+      {
+        "cortOfcCd": "B000210",
+        "csNo": "20220130101244",
+        "cortAuctnPicSeq": 2,
+        "pageSeq": 2,
+        "cortAuctnPicDvsCd": "000241",
+        "auctnInfOriginDvsCd": "2",
+        "picTitlNm": "B000210202201301012442.jpg",
+        "thnailTitlNm": "T_B000210202201301012442.jpg",
+        "picFileUrl": "/nas_e_image_pgj/kj/2022/0101/",
+        "picDscrCtt": null
+      },
+      {
+        "cortOfcCd": "B000210",
+        "csNo": "20220130101244",
+        "cortAuctnPicSeq": 8,
+        "pageSeq": 3,
+        "cortAuctnPicDvsCd": "000244",
+        "auctnInfOriginDvsCd": "4",
+        "picTitlNm": "B000210202201301012448.jpg",
+        "thnailTitlNm": "T_B000210202201301012448.jpg",
+        "picFileUrl": "/nas_e_image_pgj/kj/2022/0101/",
+        "picDscrCtt": "위 치 도"
+      }
+    ],
+    "picLst": [
+      "/9j/4EpGSUYtZml4dHVyZQ==",
+      "UExBSU5CWVRFUw==",
+      "R0lGODlhLWZpeHR1cmU="
+    ],
+    "dma_pageInfo": {
+      "pageNo": 1,
+      "pageSize": 30,
+      "bfPageNo": "",
+      "startRowNo": 1,
+      "totalCnt": 3,
+      "totalYn": "Y"
+    }
+  }
+}

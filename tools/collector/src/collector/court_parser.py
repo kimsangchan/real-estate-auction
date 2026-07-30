@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import re
 from dataclasses import dataclass, replace
 from datetime import date
@@ -410,6 +412,142 @@ def _distribution_demand_deadline(result: dict[str, Any]) -> date | None:
         deadline = _date_from_yyyymmdd(entry.get("dstrtDemnLstprdYmd"))
         if deadline is not None:
             return deadline
+    return None
+
+
+# auction_case_photo.source 값 — 사진출처 구분코드(auctnInfOriginDvsCd) 실측: "2"=현황조사(집행관),
+# "4"=감정평가. 감정평가 출처만 APPRAISAL로, 나머지는 물건 사진(ITEM)으로 둔다.
+PHOTO_SOURCE_ITEM = "ITEM"
+PHOTO_SOURCE_APPRAISAL = "APPRAISAL"
+_APPRAISAL_ORIGIN_CODE = "4"
+
+# 이미지 형식은 매직 바이트로 판별한다 — 실측: 확장자가 .jpg여도 실제 바이트는 GIF인 사진이 있다
+_IMAGE_MAGIC_TYPES = (
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF8", "image/gif"),
+    (b"\x89PNG", "image/png"),
+)
+
+
+@dataclass(frozen=True)
+class CasePhoto:
+    """auction_case_photo 한 행에 해당하는 사진 관측값.
+
+    법원 사진 API는 사건 단위이고 메타에 물건번호가 없다 — 물건 단위로 저장하면 다물건 사건이
+    복제된다(WP-12). 사진 구분(위치도·전경 등)은 화면 정렬·묶음에 쓴다.
+    """
+
+    court_office_code: str
+    case_no: str
+    seq: int
+    source: str
+    category_code: str | None
+    category_name: str | None
+    url: str | None
+    caption: str | None
+    content_type: str | None
+    image: bytes
+
+
+@dataclass(frozen=True)
+class PhotoPage:
+    total_count: int
+    page_no: int
+    photos: list[CasePhoto]
+
+
+def _photo_category_names(data: dict[str, Any]) -> dict[str, str]:
+    """사진 구분 코드 → 이름 (dlt_csPicDvsCnt에만 이름이 있다)."""
+    names: dict[str, str] = {}
+    for entry in _list_at(data, "dlt_csPicDvsCnt"):
+        if not isinstance(entry, dict):
+            continue
+        code = _optional_str(entry.get("cortAuctnPicDvsCd"))
+        name = _optional_str(entry.get("cortAuctnPicDvsNm"))
+        if code is not None and name is not None:
+            names[code] = name
+    return names
+
+
+def parse_photo_page(
+    payload: dict[str, Any],
+    *,
+    court_office_code: str,
+    case_no: str,
+) -> PhotoPage:
+    """사진조회(selectPicInf) 응답을 사진 행으로 변환한다.
+
+    메타(dlt_csPicLst)와 바이트(picLst)는 같은 순서의 병렬 배열이다. base64가 깨진 행 등
+    변환할 수 없는 행은 그 행만 건너뛴다 — 전체 실패로 만들지 않는다.
+    """
+    data = _object_at(payload, "data")
+    page_info = _object_at(data, "dma_pageInfo")
+    rows = _list_at(data, "dlt_csPicLst")
+    blobs = _list_at(data, "picLst")
+    # 사진 구분 이름은 사진 행에 없고 구분별 집계 배열에만 있다 — 코드로 조인한다
+    category_names = _photo_category_names(data)
+
+    photos = []
+    for row, blob in zip(rows, blobs, strict=False):
+        parsed = _parse_photo_row(
+            row,
+            blob,
+            court_office_code=court_office_code,
+            case_no=case_no,
+            category_names=category_names,
+        )
+        if parsed is not None:
+            photos.append(parsed)
+    return PhotoPage(
+        total_count=_optional_int(page_info.get("totalCnt")) or 0,
+        page_no=_optional_int(page_info.get("pageNo")) or 1,
+        photos=photos,
+    )
+
+
+def _parse_photo_row(
+    row: Any,
+    blob: Any,
+    *,
+    court_office_code: str,
+    case_no: str,
+    category_names: dict[str, str],
+) -> CasePhoto | None:
+    if not isinstance(row, dict) or not isinstance(blob, str):
+        return None
+    try:
+        seq = _optional_int(row.get("cortAuctnPicSeq"))
+        image = base64.b64decode(blob, validate=True)
+    except (CourtPayloadError, binascii.Error, ValueError):
+        return None
+    if seq is None or not image:
+        return None
+    category_code = _optional_str(row.get("cortAuctnPicDvsCd"))
+
+    origin = _optional_str(row.get("auctnInfOriginDvsCd"))
+    file_dir = _optional_str(row.get("picFileUrl"))
+    file_name = _optional_str(row.get("picTitlNm"))
+    return CasePhoto(
+        court_office_code=court_office_code,
+        case_no=case_no,
+        seq=seq,
+        source=(
+            PHOTO_SOURCE_APPRAISAL if origin == _APPRAISAL_ORIGIN_CODE else PHOTO_SOURCE_ITEM
+        ),
+        category_code=category_code,
+        category_name=category_names.get(category_code) if category_code else None,
+        # NAS 경로는 직접 접근이 안 된다(실측 404) — 출처 추적용으로만 남긴다
+        url=f"{file_dir}{file_name}" if file_dir and file_name else None,
+        caption=_optional_str(row.get("picDscrCtt")),
+        content_type=_detect_image_type(image),
+        image=image,
+    )
+
+
+def _detect_image_type(image: bytes) -> str | None:
+    for magic, content_type in _IMAGE_MAGIC_TYPES:
+        if image.startswith(magic):
+            return content_type
     return None
 
 

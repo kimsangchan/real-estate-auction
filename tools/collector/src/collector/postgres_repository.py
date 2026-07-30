@@ -7,7 +7,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from collector.court_parser import AuctionItem, ItemNotice, SaleResult
+from collector.court_parser import AuctionItem, CasePhoto, ItemNotice, SaleResult
 from collector.repository import UpsertResult
 
 
@@ -103,6 +103,62 @@ class PostgresAuctionRepository:
                     """
                 )
                 return list(cur.fetchall())
+
+    def find_cases_missing_photos(
+        self, court_office_code: str | None = None
+    ) -> list[dict[str, Any]]:
+        """물건은 있는데 사진이 한 장도 없는 사건 목록 — photos 수집 대상 (사건당 요청 1회)."""
+        with psycopg.connect(self._database_url) as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    """
+                    SELECT DISTINCT ac.court_office_code, ac.case_no
+                    FROM auction_case ac
+                    JOIN auction_item ai ON ai.auction_case_id = ac.id
+                    WHERE (%s::text IS NULL OR ac.court_office_code = %s)
+                      AND NOT EXISTS (
+                        SELECT 1 FROM auction_case_photo p WHERE p.auction_case_id = ac.id
+                      )
+                    ORDER BY ac.court_office_code, ac.case_no
+                    """,
+                    (court_office_code, court_office_code),
+                )
+                return list(cur.fetchall())
+
+    def upsert_case_photos(
+        self, court_office_code: str, case_no: str, photos: list[CasePhoto]
+    ) -> UpsertResult:
+        """사건 사진을 **사건 단위로** 멱등 저장한다.
+
+        법원 사진 API는 사건 단위이고 메타에 물건번호가 없다. 물건마다 복제 저장하면
+        다물건 사건이 배로 커진다(실측: 2사건 11물건 419행 52MB vs 고유 50장 7.5MB).
+        화면에서는 물건 → 사건으로 조인해 보여준다.
+        바이트 비교는 무거워 크기·URL·설명·형식이 같으면 건너뛴다.
+        """
+        inserted = 0
+        updated = 0
+        skipped = 0
+
+        with psycopg.connect(self._database_url) as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                cur.execute(
+                    "SELECT id FROM auction_case WHERE court_office_code = %s AND case_no = %s",
+                    (court_office_code, case_no),
+                )
+                row = cur.fetchone()
+                if row is None:
+                    return UpsertResult(inserted=0, updated=0, skipped=len(photos))
+                case_id = int(row["id"])
+                for photo in photos:
+                    state = _upsert_photo(cur, case_id, photo)
+                    if state == "inserted":
+                        inserted += 1
+                    elif state == "updated":
+                        updated += 1
+                    else:
+                        skipped += 1
+
+        return UpsertResult(inserted=inserted, updated=updated, skipped=skipped)
 
     def find_items_in_bbox(
         self,
@@ -431,6 +487,58 @@ def _replace_notice_tenants(cur: psycopg.Cursor[Any], notice_id: int, notice: It
             """,
             (notice_id, *(getattr(tenant, field) for field in _TENANT_FIELDS)),
         )
+
+
+def _upsert_photo(cur: psycopg.Cursor[Any], auction_case_id: int, photo: CasePhoto) -> str:
+    """사진 한 장을 저장하고 inserted/updated/skipped를 돌려준다."""
+    cur.execute(
+        """
+        SELECT id, url, caption, content_type, byte_size
+        FROM auction_case_photo
+        WHERE auction_case_id = %s AND source = %s AND seq = %s
+        """,
+        (auction_case_id, photo.source, photo.seq),
+    )
+    existing = cur.fetchone()
+
+    if existing is not None and (
+        existing["url"] == photo.url
+        and existing["caption"] == photo.caption
+        and existing["content_type"] == photo.content_type
+        and existing["byte_size"] == len(photo.image)
+    ):
+        return "skipped"
+
+    cur.execute(
+        """
+        INSERT INTO auction_case_photo (
+          auction_case_id, source, seq, category_code, category_name,
+          url, caption, content_type, bytes, byte_size
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (auction_case_id, source, seq)
+        DO UPDATE SET
+          url = EXCLUDED.url,
+          caption = EXCLUDED.caption,
+          content_type = EXCLUDED.content_type,
+          bytes = EXCLUDED.bytes,
+          byte_size = EXCLUDED.byte_size,
+          observed_at = now()
+        """,
+        (
+            auction_case_id,
+            photo.source,
+            photo.seq,
+            photo.category_code,
+            photo.category_name,
+            photo.url,
+            photo.caption,
+            photo.content_type,
+            photo.image,
+            len(photo.image),
+        ),
+    )
+    return "inserted" if existing is None else "updated"
 
 
 def _insert_schedule_snapshot(cur: psycopg.Cursor[Any], auction_item_id: int, item: AuctionItem) -> None:
