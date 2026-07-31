@@ -119,6 +119,8 @@ class DailyRepository(
 
     def find_item_keys_with_notice(self) -> set[tuple[str, str, str]]: ...
 
+    def find_item_keys_with_tenant_scan(self) -> set[tuple[str, str, str]]: ...
+
 
 @dataclass(frozen=True)
 class CollectionTarget:
@@ -341,7 +343,7 @@ def run_notice_collection(
 
     logger.info(
         "notice_collection run_id=%s court=%s items=%s parsed=%s tenants=%s "
-        "tenants_rejected=%s inserted=%s updated=%s skipped=%s failed=%s",
+        "tenants_rejected=%s inserted=%s updated=%s skipped=%s store_failed=%s failed=%s",
         run_id,
         target.court_office_code,
         len(rows),
@@ -351,6 +353,7 @@ def run_notice_collection(
         result.inserted,
         result.updated,
         result.skipped,
+        result.failed,
         batch.failed,
     )
 
@@ -427,10 +430,10 @@ def _collect_notices_for_rows(
             continue
 
         if document_reader is not None:
-            tenants, rejected = _collect_notice_tenants(
+            tenants, rejected, scanned = _collect_notice_tenants(
                 run_id=run_id, reader=document_reader, detail_payload=response, case_no=case_no
             )
-            notice = replace(notice, tenants=tenants)
+            notice = replace(notice, tenants=tenants, tenants_scanned=scanned)
             tenant_rows += len(tenants)
             tenant_rejected += rejected
         notices.append(notice)
@@ -450,29 +453,32 @@ def _collect_notice_tenants(
     reader: NoticeDocumentReader,
     detail_payload: dict[str, Any],
     case_no: str,
-) -> tuple[tuple[NoticeTenant, ...], int]:
-    """명세서 PDF에서 점유자 표를 읽어 (저장할 행, 검증에서 버린 행 수)를 돌려준다.
+) -> tuple[tuple[NoticeTenant, ...], int, bool]:
+    """명세서 PDF에서 점유자 표를 읽어 (저장할 행, 검증에서 버린 행 수, 문서를 열었는지)를 돌려준다.
 
     열람 창(매각기일 1주 전~기일) 밖이면 문서를 열 수 없어 빈 값을 돌려준다 — 기재사항 수집은
     그대로 진행한다. 표가 다음 쪽으로 이어질 때만 쪽을 더 받는다.
+
+    세 번째 값은 문서를 열어 파싱까지 끝냈는지다. 표가 비어 있어도(임차인 없는 물건) True라서
+    daily가 "다시 열 필요 없음"을 판단할 수 있다.
     """
     ref = notice_document_ref(detail_payload)
     if ref is None:
-        return ((), 0)
+        return ((), 0, False)
 
     session = reader.open_document(ref)
     if session is None:
         logger.info("notice_document_unavailable run_id=%s case=%s", run_id, case_no)
-        return ((), 0)
+        return ((), 0, False)
 
     pages: list[list[Any]] = []
     for page in range(NOTICE_TEXT_MAX_PAGES):
         pages.append(reader.fetch_text_page(session, page))
         table = parse_tenant_table(pages)
         if not table.continued:
-            return (table.tenants, table.rejected)
+            return (table.tenants, table.rejected, True)
     final = parse_tenant_table(pages)
-    return (final.tenants, final.rejected)
+    return (final.tenants, final.rejected, True)
 
 
 def _search_result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -872,13 +878,21 @@ def run_daily(
     # 2단계 — 명세서 수집: 가장 급하다. 이미 명세서가 있는 물건은 상세조회를 건너뛴다.
     # 단순화: 명세서는 기일마다 새로 작성될 수 있지만(document_date가 다름) 물건에 한 건이라도
     # 있으면 스킵한다 — 매일 전부 다시 받는 비용(물건당 1요청)이 그 가치를 넘는다.
+    #
+    # 단 점유자 표를 받는 실행(--with-tenants)에서는 기재사항만 있는 물건도 다시 열어야 한다.
+    # 표는 PDF에만 있고 열람 창(기일 1주 전~기일) 안에서만 얻을 수 있어, 기재사항이 먼저 들어온
+    # 물건은 명세서 보유로 스킵되면 표를 영영 못 받는다 (기일이 지나면 영구 소실 — WP-11 §4-3).
     requests_start = counting.requests
     candidates = skipped_existing = detailed = 0
     notices_parsed = notice_unavailable = notice_failed = 0
     tenants_total = tenants_rejected = 0
-    notices_inserted = notices_updated = notices_skipped = 0
+    notices_inserted = notices_updated = notices_skipped = notices_store_failed = 0
     try:
         have_notice = repository.find_item_keys_with_notice()  # 자연키 집합, DB 조회 1회
+        # 표를 받는 실행에서만 필요하다 — 안 받는 실행에서 조회하면 쓰지도 않을 쿼리를 매일 돈다
+        have_tenant_scan = (
+            repository.find_item_keys_with_tenant_scan() if document_reader is not None else set()
+        )
     except Exception as exc:
         have_notice = None
         stage_failures += 1
@@ -893,10 +907,16 @@ def run_daily(
                     continue
                 seen.add(key)
                 candidates += 1
-                if key in have_notice:
+                needs_tenants = document_reader is not None and key not in have_tenant_scan
+                if key in have_notice and not needs_tenants:
                     skipped_existing += 1
                     continue
                 missing.append((row_index, row))
+            # 매각기일이 가까운 물건부터 받는다. 법원은 요청이 쌓이면 403이 아니라 **빈 응답**으로
+            # 조용히 degrade한다(실측 2026-07-31: 180건 정상 뒤 287건 연속 빈 응답, 3시간 뒤 정상
+            # 복구). 그 벽 너머로 밀린 물건은 그날 못 받는데, 명세서는 기일이 지나면 영구 소실이라
+            # 검색 순서대로 돌면 가장 급한 물건이 가장 먼저 버려진다 (WP-11 §4-3).
+            missing.sort(key=lambda pair: str(pair[1].get("maeGiil") or "99999999"))
             if notice_limit is not None:
                 missing = missing[: max(notice_limit - detailed, 0)]
             detailed += len(missing)
@@ -925,10 +945,11 @@ def run_daily(
             notices_inserted += result.inserted
             notices_updated += result.updated
             notices_skipped += result.skipped
+            notices_store_failed += result.failed
     logger.info(
         "daily_notices run_id=%s candidates=%s skipped_existing=%s detailed=%s parsed=%s "
         "notice_unavailable=%s tenants=%s tenants_rejected=%s inserted=%s updated=%s "
-        "skipped=%s failed=%s requests=%s",
+        "skipped=%s store_failed=%s failed=%s requests=%s",
         run_id,
         candidates,
         skipped_existing,
@@ -940,6 +961,7 @@ def run_daily(
         notices_inserted,
         notices_updated,
         notices_skipped,
+        notices_store_failed,
         notice_failed,
         counting.requests - requests_start,
     )

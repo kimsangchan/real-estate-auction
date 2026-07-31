@@ -75,8 +75,12 @@ class NoticeTenant:
 
     같은 임차인이 정보출처별로 여러 행에 나오므로 행을 합치지 않고 source_kind로 구분해
     각각 저장한다. tenant_seq는 이름으로 묶은 동일인 순번이다 (WP-11 §4-3).
+
+    row_no는 문서상 행 순서(1부터)다. 저장소의 고유키라서 필요하다 — 한 사람이 같은 정보출처로
+    두 행을 갖는 문서가 실제로 있어 (tenant_seq, source_kind)로는 행을 구분할 수 없다.
     """
 
+    row_no: int
     tenant_seq: int
     tenant_name: str | None
     source_kind: str | None
@@ -319,7 +323,8 @@ def _to_tenants(rows: list[dict[str, str]]) -> tuple[NoticeTenant, ...]:
     tenants: list[NoticeTenant] = []
     previous_seq: int | None = None
 
-    for row in rows:
+    # row_no는 검증 게이트 이전의 문서상 순서다 — 버려진 행 자리에 번호가 비지만 고유하면 된다
+    for row_no, row in enumerate(rows, start=1):
         name = row.get("tenant_name")
         if name is None:
             # 첫 행부터 성명이 없으면 이을 앞 행이 없으므로 새 순번을 연다
@@ -332,6 +337,7 @@ def _to_tenants(rows: list[dict[str, str]]) -> tuple[NoticeTenant, ...]:
         demanded_date = _parse_date(demanded_text)
         tenants.append(
             NoticeTenant(
+                row_no=row_no,
                 tenant_seq=seq,
                 tenant_name=name,
                 source_kind=row.get("source_kind"),

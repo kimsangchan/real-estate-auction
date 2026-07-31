@@ -1,6 +1,7 @@
 # daily 실행 로직 테스트 — 전 페이지 순회, 명세서 스킵 필터, 단계 실패 계속, 차단 즉시 중단, 점유자 기본 비활성
 import json
 import logging
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -102,6 +103,9 @@ class FakeDailyRepository:
 
     def find_item_keys_with_notice(self):
         return self._notice_repo.find_item_keys_with_notice()
+
+    def find_item_keys_with_tenant_scan(self):
+        return self._notice_repo.find_item_keys_with_tenant_scan()
 
     def find_items_pending_sale_result(self):
         return self._sale.find_items_pending_sale_result()
@@ -352,6 +356,105 @@ def test_daily_reads_tenant_documents_only_when_reader_given():
     assert len(reader.opened) == 1
     # 검색 1 + 상세 1 + 문서 열기 3 + 텍스트 1쪽 1
     assert with_reader_summary.requests_total == 6
+
+
+def test_daily_reopens_notice_that_has_no_tenant_scan_yet():
+    """기재사항만 받아둔 물건은 명세서 보유로 스킵하면 안 된다 — 표는 기일이 지나면 영구 소실된다."""
+    court = "B000210"
+    pages = [_search_response([_row(court, "2024타경1")], page_no=1, total="1")]
+    repository = FakeDailyRepository()
+    # 어제 --with-tenants 없이 돌아 기재사항만 들어온 상태
+    repository.upsert_notices([_notice(court, "2024타경1")])
+    reader = FakeDocumentReader()
+
+    client = FakeDailyClient({court: pages})
+    _run(client, repository, document_reader=reader)
+
+    assert client.detail_cases == ["2024타경1"]
+    assert len(reader.opened) == 1
+
+
+def test_daily_does_not_reopen_documents_already_scanned():
+    """스캔이 끝난 물건은 다시 열지 않는다 — 안 그러면 물건당 3요청 이상을 매일 되쓴다."""
+    court = "B000210"
+    pages = [_search_response([_row(court, "2024타경1")], page_no=1, total="1")]
+    repository = FakeDailyRepository()
+    reader = FakeDocumentReader()
+
+    _run(FakeDailyClient({court: pages}), repository, document_reader=reader)
+    second_client = FakeDailyClient({court: pages})
+    _run(second_client, repository, document_reader=reader)
+
+    assert len(reader.opened) == 1
+    assert second_client.detail_cases == []
+
+
+def test_daily_marks_scan_even_when_table_is_empty():
+    """법원이 '조사된 임차내역없음'이라 적은 문서도 스캔으로 친다 — 안 그러면 영원히 다시 연다."""
+    court = "B000210"
+    pages = [_search_response([_row(court, "2024타경1")], page_no=1, total="1")]
+
+    class EmptyTableReader(FakeDocumentReader):
+        def fetch_text_page(self, session, page: int):
+            return []  # 점유자 행이 하나도 안 잡히는 문서
+
+    repository = FakeDailyRepository()
+    reader = EmptyTableReader()
+
+    _run(FakeDailyClient({court: pages}), repository, document_reader=reader)
+    assert repository.find_item_keys_with_tenant_scan() == {(court, "2024타경1", "1")}
+
+    second_client = FakeDailyClient({court: pages})
+    _run(second_client, repository, document_reader=reader)
+    assert len(reader.opened) == 1
+
+
+def test_daily_keeps_scan_mark_when_rerun_without_tenants():
+    """표 없이 재수집해도 스캔 기록은 남는다 — 지워지면 다음 실행이 문서를 헛되이 다시 연다."""
+    court = "B000210"
+    pages = [_search_response([_row(court, "2024타경1")], page_no=1, total="1")]
+    repository = FakeDailyRepository()
+    reader = FakeDocumentReader()
+
+    _run(FakeDailyClient({court: pages}), repository, document_reader=reader)
+    stored = next(iter(repository.notices.values()))
+    assert stored.tenants_scanned
+
+    # 표를 안 받는 실행 — 같은 명세서(같은 작성일)를 표 없이 다시 저장한다
+    repository.upsert_notices([replace(stored, tenants=(), tenants_scanned=False)])
+
+    assert repository.find_item_keys_with_tenant_scan() == {(court, "2024타경1", "1")}
+
+
+def test_daily_details_nearest_bid_date_first():
+    """기일이 가까운 물건부터 상세조회한다 — 법원이 조용히 빈 응답을 주기 시작하면 뒤쪽은 못 받는다."""
+    court = "B000210"
+    rows = [
+        {**_row(court, "2024타경300"), "maeGiil": "20260910"},
+        {**_row(court, "2024타경100"), "maeGiil": "20260803"},
+        {**_row(court, "2024타경200"), "maeGiil": "20260825"},
+        {**_row(court, "2024타경400")},  # 기일 없음 — 맨 뒤로
+    ]
+    client = FakeDailyClient({court: [_search_response(rows, page_no=1, total="4")]})
+
+    _run(client, FakeDailyRepository())
+
+    assert client.detail_cases == ["2024타경100", "2024타경200", "2024타경300", "2024타경400"]
+
+
+def test_daily_notice_limit_keeps_most_urgent():
+    """상한이 걸리면 기일이 가장 가까운 것부터 남긴다 — 상한은 급한 걸 버리는 장치가 아니다."""
+    court = "B000210"
+    rows = [
+        {**_row(court, "2024타경300"), "maeGiil": "20260910"},
+        {**_row(court, "2024타경100"), "maeGiil": "20260803"},
+        {**_row(court, "2024타경200"), "maeGiil": "20260825"},
+    ]
+    client = FakeDailyClient({court: [_search_response(rows, page_no=1, total="3")]})
+
+    _run(client, FakeDailyRepository(), notice_limit=2)
+
+    assert client.detail_cases == ["2024타경100", "2024타경200"]
 
 
 def test_daily_cli_defaults_two_courts_and_tenants_disabled():

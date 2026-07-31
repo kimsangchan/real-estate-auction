@@ -60,9 +60,11 @@ python -m venv .venv
 .venv/Scripts/python -m ruff check .
 .venv/Scripts/python -m pytest
 
-# PostGIS 적재·bbox 통합 테스트
+# PostGIS 적재·bbox 통합 테스트 — 빈 DB에서만 돌아간다.
+# 이 테스트들은 auction_case를 CASCADE로 TRUNCATE한다. 수집 데이터가 있으면 거부하고 skip하지만,
+# 개발 DB를 가리키고 돌릴 이유가 없다. 명세서·점유자 표는 기일이 지나면 다시 못 받는다 (WP-11 §4-3).
 $env:COLLECTOR_RUN_DB_TESTS="1"
-$env:DATABASE_URL="postgresql://app:changeme@localhost:55432/auction"
+$env:DATABASE_URL="postgresql://app:changeme@localhost:55432/auction_test"
 .venv/Scripts/python -m pytest tests/test_postgres_repository.py
 ```
 
@@ -79,10 +81,34 @@ cd tools/collector
 
 # 하루 1회 전체 수집: 물건(전 페이지) → 명세서(없는 물건만 상세조회) → 매각결과 → 사진.
 # 명세서는 매각기일이 지나면 영영 못 받으므로 하루도 빠뜨리면 안 된다 (WP-11 §4-3).
-# cron 등록 예시 (WP-09 notify와 같은 패턴, 매일 07:00):
-#   0 7 * * * cd /path/to/tools/collector && DATABASE_URL=... .venv/Scripts/python -m collector daily
 .venv/Scripts/python -m collector daily
+
+# --with-tenants를 붙이면 명세서 PDF를 열어 점유자(임차인) 표까지 받는다.
+# 기재사항만 받아둔 물건도 다시 열고, 한 번 연 물건은 건너뛴다(tenant_scanned_at).
+.venv/Scripts/python -m collector daily --with-tenants
 ```
+
+스케줄 등록은 `run_daily.cmd`(루트 `.env`에서 `DATABASE_URL`을 읽어 `daily --with-tenants` 실행,
+로그는 `tools/collector/daily.log`)를 걸어둔다. 이 머신에는 매일 07:00로 등록돼 있다.
+
+```powershell
+$dir = "<repo>\tools\collector"
+$action  = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/c `"$dir\run_daily.cmd`"" -WorkingDirectory $dir
+$trigger = New-ScheduledTaskTrigger -Daily -At '07:00'
+Register-ScheduledTask -TaskName 'AuctionCollectorDaily' -Action $action -Trigger $trigger -Force
+
+schtasks /query /tn "AuctionCollectorDaily" /fo LIST /v   # 다음 실행 시각·마지막 결과 확인
+schtasks /run   /tn "AuctionCollectorDaily"               # 즉시 1회 실행
+```
+
+**함정 2가지 (둘 다 실측으로 확인)**
+
+- `.cmd`를 `schtasks /tr`에 **직접** 넣으면 `Last Result 9009`로 실행 자체가 안 된다. 위처럼
+  `cmd.exe /c`로 감싸고 작업 디렉터리를 지정해야 한다.
+- **`.cmd` 파일에 한글 주석을 넣으면 안 된다.** cmd.exe는 배치 파일을 UTF-8이 아니라 OEM
+  코드페이지(여기선 CP949)로 읽어서, UTF-8 한글이 깨진 바이트로 해석되며 파싱이 망가진다.
+  증상이 고약하다 — 가드는 통과하는데 자식 프로세스에 환경변수가 안 넘어가 파이썬이
+  `DATABASE_URL is required`로 죽는다. `run_daily.cmd`를 ASCII로만 쓰는 이유다.
 
 ## 장애 확인
 

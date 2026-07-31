@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,8 @@ from psycopg.types.json import Jsonb
 
 from collector.court_parser import AuctionItem, CasePhoto, ItemNotice, SaleResult
 from collector.repository import UpsertResult
+
+logger = logging.getLogger(__name__)
 
 
 MIGRATIONS_DIR = Path(__file__).parents[2] / "migrations"
@@ -60,15 +63,33 @@ class PostgresAuctionRepository:
         return UpsertResult(inserted=inserted, updated=0, skipped=skipped)
 
     def upsert_notices(self, notices: list[ItemNotice]) -> UpsertResult:
-        """매각물건명세서 기재사항을 멱등 저장한다 — 같은 물건·작성일은 재실행해도 늘지 않는다."""
+        """매각물건명세서 기재사항을 멱등 저장한다 — 같은 물건·작성일은 재실행해도 늘지 않는다.
+
+        명세서 한 건이 실패해도 나머지는 저장한다. 한 배치는 물건 수백 건이고 그걸 모으는 데
+        수천 요청·한 시간이 든다 — 실측(2026-07-31): 중복키 한 건이 배치 전체를 되돌려
+        467건을 통째로 잃었다. 그래서 건마다 savepoint를 잡는다.
+        """
         inserted = 0
         updated = 0
         skipped = 0
+        failed = 0
 
         with psycopg.connect(self._database_url) as conn:
             with conn.cursor(row_factory=dict_row) as cur:
                 for notice in notices:
-                    state = _upsert_notice(cur, notice)
+                    try:
+                        with conn.transaction():  # 중첩이라 savepoint — 이 건만 되돌린다
+                            state = _upsert_notice(cur, notice)
+                    except psycopg.Error as exc:
+                        failed += 1
+                        logger.warning(
+                            "notice_upsert_failed court=%s case=%s item=%s error=%s",
+                            notice.court_office_code,
+                            notice.case_no,
+                            notice.item_no,
+                            exc,
+                        )
+                        continue
                     if state == "inserted":
                         inserted += 1
                     elif state == "updated":
@@ -76,7 +97,7 @@ class PostgresAuctionRepository:
                     else:
                         skipped += 1
 
-        return UpsertResult(inserted=inserted, updated=updated, skipped=skipped)
+        return UpsertResult(inserted=inserted, updated=updated, skipped=skipped, failed=failed)
 
     def find_items_pending_sale_result(self) -> list[dict[str, Any]]:
         """매각기일이 지났는데 그 기일 이후 결과 행이 없는 물건 목록 — backfill 대상."""
@@ -114,6 +135,25 @@ class PostgresAuctionRepository:
                     FROM auction_item_notice n
                     JOIN auction_item ai ON ai.id = n.auction_item_id
                     JOIN auction_case ac ON ac.id = ai.auction_case_id
+                    """
+                )
+                return {(str(row[0]), str(row[1]), str(row[2])) for row in cur.fetchall()}
+
+    def find_item_keys_with_tenant_scan(self) -> set[tuple[str, str, str]]:
+        """점유자 표 파싱까지 끝낸 물건의 자연키 집합 — daily가 PDF를 다시 열지 결정하는 데 쓴다.
+
+        표가 비어 있어도(임차인 없는 물건) 여기 포함된다. 기재사항만 받아둔 물건은 빠지므로
+        열람 창 안에서 다시 열린다.
+        """
+        with psycopg.connect(self._database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT DISTINCT ac.court_office_code, ac.case_no, ai.item_no
+                    FROM auction_item_notice n
+                    JOIN auction_item ai ON ai.id = n.auction_item_id
+                    JOIN auction_case ac ON ac.id = ai.auction_case_id
+                    WHERE n.tenant_scanned_at IS NOT NULL
                     """
                 )
                 return {(str(row[0]), str(row[1]), str(row[2])) for row in cur.fetchall()}
@@ -201,7 +241,22 @@ class PostgresAuctionRepository:
                 return list(cur.fetchall())
 
     def truncate_for_test(self) -> None:
+        """수집 테이블을 전부 비운다 — 이름이 `_test`로 끝나는 DB에서만 동작한다.
+
+        CASCADE가 auction_case에서 명세서·점유자 표·매각결과·사진까지 전부 지운다. 그중
+        **명세서와 점유자 표는 다시 못 받는다** — 기일이 지난 물건은 물건상세가 빈 객체로 오기
+        때문이다(WP-11 §4-3). 실제로 2026-07-31에 이 함수가 개발 DB의 수집분을 날렸다.
+
+        "데이터가 있으면 거부"로는 못 막는다 — 수집 1단계처럼 테이블이 잠깐 비는 구간이 있어
+        그때 통과해버린다(실측). DB 이름으로 가르는 게 유일하게 확실한 경계다.
+        """
         with psycopg.connect(self._database_url) as conn:
+            dbname = conn.info.dbname
+            if not dbname.endswith("_test"):
+                raise RuntimeError(
+                    f"truncate_for_test refused on database {dbname!r}: "
+                    "이름이 '_test'로 끝나는 DB에서만 허용한다 (WP-11 §4-3)."
+                )
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -407,6 +462,7 @@ _NOTICE_FIELDS = (
 
 
 _TENANT_FIELDS = (
+    "row_no",
     "tenant_seq",
     "tenant_name",
     "source_kind",
@@ -484,11 +540,20 @@ def _upsert_notice(cur: psycopg.Cursor[Any], notice: ItemNotice) -> str:
 
 
 def _replace_notice_tenants(cur: psycopg.Cursor[Any], notice_id: int, notice: ItemNotice) -> None:
-    """점유자 표를 통째로 다시 쓴다 — 같은 문서를 재파싱해도 행이 늘지 않게 한다.
+    """점유자 표를 통째로 다시 쓰고 스캔 시각을 남긴다 — 같은 문서를 재파싱해도 행이 늘지 않게 한다.
 
-    tenants가 비어 있으면 손대지 않는다. PDF 열람 창 밖에서 기재사항만 재수집할 때
+    tenants가 비어 있으면 표는 손대지 않는다. PDF 열람 창 밖에서 기재사항만 재수집할 때
     이미 받아둔 점유자 표를 지우면 안 된다 (표는 열람 창 안에서만 얻을 수 있다).
+
+    스캔 시각은 표가 비어 있어도 남긴다 — 그게 "열었더니 임차인이 없더라"와 "아직 못 열었다"를
+    가르는 유일한 기록이고, daily가 PDF를 다시 열지 여기서 판단한다.
     """
+    if notice.tenants_scanned:
+        cur.execute(
+            "UPDATE auction_item_notice SET tenant_scanned_at = now() WHERE id = %s",
+            (notice_id,),
+        )
+
     if not notice.tenants:
         return
 

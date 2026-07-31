@@ -145,6 +145,7 @@ def test_item_notice_stores_no_free_text():
         "risk_flags",
         "lien_claim_amount",
         "tenants",
+        "tenants_scanned",
     }
 
 

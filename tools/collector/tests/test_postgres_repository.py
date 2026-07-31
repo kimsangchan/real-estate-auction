@@ -21,6 +21,18 @@ from collector.postgres_repository import PostgresAuctionRepository, run_migrati
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "court_search_page.json"
 
 
+def _reset_or_skip(repository: PostgresAuctionRepository) -> None:
+    """빈 DB에서만 파괴적 테스트를 돌린다.
+
+    개발 DB를 그대로 가리키고 실행하면 수집분이 통째로 날아간다. 물건·사진은 다시 받으면 되지만
+    명세서와 점유자 표는 기일이 지나면 영구 소실이다(WP-11 §4-3) — 실제로 2026-07-31에 날렸다.
+    """
+    try:
+        repository.truncate_for_test()
+    except RuntimeError as exc:
+        pytest.skip(str(exc))
+
+
 def test_postgres_repository_requires_database_url():
     with pytest.raises(ValueError):
         PostgresAuctionRepository("")
@@ -37,7 +49,7 @@ def test_postgres_repository_upsert_and_bbox_smoke():
 
     repository = PostgresAuctionRepository(database_url)
     run_migrations(database_url)
-    repository.truncate_for_test()
+    _reset_or_skip(repository)
 
     page = parse_search_page(json.loads(FIXTURE_PATH.read_text(encoding="utf-8")))
 
@@ -67,7 +79,7 @@ def test_postgres_sale_result_upsert_is_idempotent_including_null_amount():
 
     repository = PostgresAuctionRepository(database_url)
     run_migrations(database_url)
-    repository.truncate_for_test()
+    _reset_or_skip(repository)
     page = parse_search_page(json.loads(FIXTURE_PATH.read_text(encoding="utf-8")))
     repository.upsert_items(page.items)
 
@@ -137,7 +149,7 @@ def test_postgres_notice_upsert_is_idempotent_and_updates_changed_fields():
 
     repository = PostgresAuctionRepository(database_url)
     run_migrations(database_url)
-    repository.truncate_for_test()
+    _reset_or_skip(repository)
     page = parse_search_page(json.loads(FIXTURE_PATH.read_text(encoding="utf-8")))
     repository.upsert_items(page.items)
 
@@ -216,12 +228,13 @@ def test_postgres_notice_tenants_are_replaced_not_appended():
 
     repository = PostgresAuctionRepository(database_url)
     run_migrations(database_url)
-    repository.truncate_for_test()
+    _reset_or_skip(repository)
     page = parse_search_page(json.loads(FIXTURE_PATH.read_text(encoding="utf-8")))
     repository.upsert_items(page.items)
 
     tenants = (
         NoticeTenant(
+            row_no=1,
             tenant_seq=1,
             tenant_name="홍길동",
             source_kind="등기사항전부증명서",
@@ -236,6 +249,7 @@ def test_postgres_notice_tenants_are_replaced_not_appended():
             demanded_distribution_date=None,
         ),
         NoticeTenant(
+            row_no=2,
             tenant_seq=1,
             tenant_name="홍길동",
             source_kind="권리신고",
@@ -248,6 +262,23 @@ def test_postgres_notice_tenants_are_replaced_not_appended():
             fixed_date=None,
             demanded_distribution=True,
             demanded_distribution_date=date(2023, 11, 30),
+        ),
+        # 같은 사람 · 같은 정보출처가 두 행 — 005의 UNIQUE (tenant_seq, source_kind)로는
+        # 저장 자체가 안 되던 조합이다 (실측: 이것 때문에 명세서 467건을 잃었다)
+        NoticeTenant(
+            row_no=3,
+            tenant_seq=1,
+            tenant_name="홍길동",
+            source_kind="등기사항전부증명서",
+            occupied_part="207호",
+            possession_basis="주거 주택임차권자",
+            lease_period=None,
+            deposit_amount=50_000_000,
+            monthly_rent=None,
+            move_in_date=date(2021, 6, 4),
+            fixed_date=None,
+            demanded_distribution=None,
+            demanded_distribution_date=None,
         ),
     )
     notice = ItemNotice(
@@ -264,14 +295,15 @@ def test_postgres_notice_tenants_are_replaced_not_appended():
         tenants=tenants,
     )
 
+    first = repository.upsert_notices([notice])
     repository.upsert_notices([notice])
-    repository.upsert_notices([notice])
-    # 같은 임차인이 정보출처별로 두 행이고, 재실행해도 행이 늘지 않는다
-    assert _tenant_rows(database_url) == 2
+    # 같은 임차인의 세 행(정보출처 2종, 그중 하나는 중복)이 전부 저장되고 재실행해도 안 늘어난다
+    assert first.failed == 0
+    assert _tenant_rows(database_url) == 3
 
     # 기재사항만 재수집(tenants 비어 있음)해도 이미 받아둔 표를 지우지 않는다
     repository.upsert_notices([replace(notice, tenants=())])
-    assert _tenant_rows(database_url) == 2
+    assert _tenant_rows(database_url) == 3
 
 
 @pytest.mark.skipif(
@@ -285,7 +317,7 @@ def test_postgres_photo_upsert_is_idempotent_and_updates_changed_fields():
 
     repository = PostgresAuctionRepository(database_url)
     run_migrations(database_url)
-    repository.truncate_for_test()
+    _reset_or_skip(repository)
     page = parse_search_page(json.loads(FIXTURE_PATH.read_text(encoding="utf-8")))
     repository.upsert_items(page.items)
 

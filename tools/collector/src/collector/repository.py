@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from collector.court_parser import AuctionItem, CasePhoto, ItemNotice, SaleResult
@@ -11,6 +11,9 @@ class UpsertResult:
     inserted: int
     updated: int
     skipped: int
+    # 저장에 실패한 건수. 한 건이 깨져도 나머지를 살리는 저장소에서만 0이 아니다 —
+    # 실패를 세지 않으면 "받아왔는데 저장 안 됨"이 로그에서 성공처럼 보인다
+    failed: int = 0
 
 
 class InMemoryAuctionRepository:
@@ -53,6 +56,10 @@ class InMemoryNoticeRepository:
         for notice in notices:
             key = (notice.court_office_code, notice.case_no, notice.item_no, notice.document_date)
             current = self.notices.get(key)
+            # 스캔 표시는 한 번 서면 지워지지 않는다 — 저장소가 컬럼을 덮어쓰지 않고 세우기만 하는 것과 같다.
+            # 이 흉내를 안 내면 "표 없이 재수집하면 스캔 기록이 사라지는" 회귀를 테스트가 통과시킨다
+            if current is not None and current.tenants_scanned and not notice.tenants_scanned:
+                notice = replace(notice, tenants_scanned=True)
             if current is None:
                 inserted += 1
             elif current == notice:
@@ -67,6 +74,14 @@ class InMemoryNoticeRepository:
     def find_item_keys_with_notice(self) -> set[tuple[str, str, str]]:
         """명세서가 한 건이라도 있는 물건의 자연키 집합 — daily 스킵 필터 검증용."""
         return {(court, case_no, item_no) for (court, case_no, item_no, _) in self.notices}
+
+    def find_item_keys_with_tenant_scan(self) -> set[tuple[str, str, str]]:
+        """점유자 표 파싱까지 끝낸 물건의 자연키 집합 — daily 재열람 필터 검증용."""
+        return {
+            (court, case_no, item_no)
+            for (court, case_no, item_no, _), notice in self.notices.items()
+            if notice.tenants_scanned
+        }
 
 
 class InMemoryPhotoRepository:
