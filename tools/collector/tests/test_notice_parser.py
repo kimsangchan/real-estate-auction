@@ -146,6 +146,7 @@ def test_item_notice_stores_no_free_text():
         "lien_claim_amount",
         "tenants",
         "tenants_scanned",
+        "bid_date",
     }
 
 

@@ -71,14 +71,17 @@ class InMemoryNoticeRepository:
 
         return UpsertResult(inserted=inserted, updated=updated, skipped=skipped)
 
-    def find_item_keys_with_notice(self) -> set[tuple[str, str, str]]:
-        """명세서가 한 건이라도 있는 물건의 자연키 집합 — daily 스킵 필터 검증용."""
-        return {(court, case_no, item_no) for (court, case_no, item_no, _) in self.notices}
-
-    def find_item_keys_with_tenant_scan(self) -> set[tuple[str, str, str]]:
-        """점유자 표 파싱까지 끝낸 물건의 자연키 집합 — daily 재열람 필터 검증용."""
+    def find_item_keys_with_notice(self) -> set[tuple[str, str, str, Any]]:
+        """명세서를 가진 (물건, 그 명세서의 기일) 집합 — daily 스킵 필터 검증용."""
         return {
-            (court, case_no, item_no)
+            (court, case_no, item_no, notice.bid_date)
+            for (court, case_no, item_no, _), notice in self.notices.items()
+        }
+
+    def find_item_keys_with_tenant_scan(self) -> set[tuple[str, str, str, Any]]:
+        """점유자 표 파싱까지 끝낸 (물건, 기일) 집합 — daily 재열람 필터 검증용."""
+        return {
+            (court, case_no, item_no, notice.bid_date)
             for (court, case_no, item_no, _), notice in self.notices.items()
             if notice.tenants_scanned
         }

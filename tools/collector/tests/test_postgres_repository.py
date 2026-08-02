@@ -210,11 +210,18 @@ def test_postgres_notice_upsert_is_idempotent_and_updates_changed_fields():
     assert (first.inserted, first.updated, first.skipped) == (2, 0, 1)
     assert (second.inserted, second.updated, second.skipped) == (0, 0, 3)
     assert (third.inserted, third.updated, third.skipped) == (0, 1, 2)
-    # daily 스킵 필터가 쓰는 자연키 집합 — 명세서를 저장한 두 물건만 나와야 한다
+    # daily 스킵 필터가 쓰는 키 집합 — (물건, 그 명세서의 기일)이다
     assert repository.find_item_keys_with_notice() == {
-        ("B000210", "2022타경101244", "1"),
-        ("B000210", "2023타경4722", "1"),
+        ("B000210", "2022타경101244", "1", None),
+        ("B000210", "2023타경4722", "1", None),
     }
+
+    # 유찰로 기일이 바뀌면 그 기일 키가 없어야 daily가 다시 받는다 (§4-13)
+    rolled = replace(notice, bid_date=date(2026, 9, 7), document_date=date(2026, 8, 20))
+    repository.upsert_notices([rolled])
+    keys = repository.find_item_keys_with_notice()
+    assert ("B000210", "2022타경101244", "1", date(2026, 9, 7)) in keys
+    assert ("B000210", "2022타경101244", "1", date(2026, 8, 3)) not in keys
 
 
 @pytest.mark.skipif(

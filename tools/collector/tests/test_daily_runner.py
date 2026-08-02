@@ -402,7 +402,7 @@ def test_daily_marks_scan_even_when_table_is_empty():
     reader = EmptyTableReader()
 
     _run(FakeDailyClient({court: pages}), repository, document_reader=reader)
-    assert repository.find_item_keys_with_tenant_scan() == {(court, "2024타경1", "1")}
+    assert repository.find_item_keys_with_tenant_scan() == {(court, "2024타경1", "1", None)}
 
     second_client = FakeDailyClient({court: pages})
     _run(second_client, repository, document_reader=reader)
@@ -423,7 +423,44 @@ def test_daily_keeps_scan_mark_when_rerun_without_tenants():
     # 표를 안 받는 실행 — 같은 명세서(같은 작성일)를 표 없이 다시 저장한다
     repository.upsert_notices([replace(stored, tenants=(), tenants_scanned=False)])
 
-    assert repository.find_item_keys_with_tenant_scan() == {(court, "2024타경1", "1")}
+    assert repository.find_item_keys_with_tenant_scan() == {(court, "2024타경1", "1", None)}
+
+
+def test_daily_refetches_notice_when_bid_date_rolled_over():
+    """유찰로 기일이 바뀌면 그 기일의 명세서를 새로 받는다 — 명세서는 기일마다 새로 작성된다."""
+    court = "B000210"
+    first_rows = [{**_row(court, "2024타경1"), "maeGiil": "20260803"}]
+    later_rows = [{**_row(court, "2024타경1"), "maeGiil": "20260907"}]
+    repository = FakeDailyRepository()
+    reader = FakeDocumentReader()
+
+    _run(
+        FakeDailyClient({court: [_search_response(first_rows, page_no=1, total="1")]}),
+        repository,
+        document_reader=reader,
+    )
+    rolled = FakeDailyClient({court: [_search_response(later_rows, page_no=1, total="1")]})
+    _run(rolled, repository, document_reader=reader)
+
+    # 8/3 명세서를 갖고 있어도 9/7 기일 것은 없다 — 다시 받아야 한다
+    assert rolled.detail_cases == ["2024타경1"]
+    assert len(reader.opened) == 2
+
+
+def test_daily_skips_when_bid_date_unchanged():
+    """기일이 그대로면 다시 받지 않는다 — 매일 전부 다시 여는 낭비를 막는 조건이다."""
+    court = "B000210"
+    rows = [{**_row(court, "2024타경1"), "maeGiil": "20260803"}]
+    pages = [_search_response(rows, page_no=1, total="1")]
+    repository = FakeDailyRepository()
+    reader = FakeDocumentReader()
+
+    _run(FakeDailyClient({court: pages}), repository, document_reader=reader)
+    second = FakeDailyClient({court: pages})
+    _run(second, repository, document_reader=reader)
+
+    assert second.detail_cases == []
+    assert len(reader.opened) == 1
 
 
 def test_daily_details_nearest_bid_date_first():

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -125,38 +126,42 @@ class PostgresAuctionRepository:
                 )
                 return list(cur.fetchall())
 
-    def find_item_keys_with_notice(self) -> set[tuple[str, str, str]]:
-        """명세서가 한 건이라도 있는 물건의 자연키 집합 — daily가 상세조회를 건너뛰는 데 쓴다."""
-        with psycopg.connect(self._database_url) as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT DISTINCT ac.court_office_code, ac.case_no, ai.item_no
-                    FROM auction_item_notice n
-                    JOIN auction_item ai ON ai.id = n.auction_item_id
-                    JOIN auction_case ac ON ac.id = ai.auction_case_id
-                    """
-                )
-                return {(str(row[0]), str(row[1]), str(row[2])) for row in cur.fetchall()}
+    def find_item_keys_with_notice(self) -> set[tuple[str, str, str, date | None]]:
+        """명세서를 가진 (물건, 그 명세서의 기일) 집합 — daily가 상세조회를 건너뛰는 데 쓴다.
 
-    def find_item_keys_with_tenant_scan(self) -> set[tuple[str, str, str]]:
-        """점유자 표 파싱까지 끝낸 물건의 자연키 집합 — daily가 PDF를 다시 열지 결정하는 데 쓴다.
-
-        표가 비어 있어도(임차인 없는 물건) 여기 포함된다. 기재사항만 받아둔 물건은 빠지므로
-        열람 창 안에서 다시 열린다.
+        기일까지 키에 넣는 이유: 명세서는 기일마다 새로 작성되므로, 유찰 후 새 기일을 받은 물건은
+        명세서를 갖고 있어도 **그 기일 것은 없다**. 물건 단위로만 보면 영영 못 받는다 (§4-13).
         """
         with psycopg.connect(self._database_url) as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT DISTINCT ac.court_office_code, ac.case_no, ai.item_no
+                    SELECT DISTINCT ac.court_office_code, ac.case_no, ai.item_no, n.bid_date
+                    FROM auction_item_notice n
+                    JOIN auction_item ai ON ai.id = n.auction_item_id
+                    JOIN auction_case ac ON ac.id = ai.auction_case_id
+                    """
+                )
+                return {(str(r[0]), str(r[1]), str(r[2]), r[3]) for r in cur.fetchall()}
+
+    def find_item_keys_with_tenant_scan(self) -> set[tuple[str, str, str, date | None]]:
+        """점유자 표 파싱까지 끝낸 (물건, 기일) 집합 — daily가 PDF를 다시 열지 결정하는 데 쓴다.
+
+        표가 비어 있어도(임차인 없는 물건) 여기 포함된다. 기재사항만 받아둔 물건, 그리고 기일이
+        바뀌어 이번 기일 표를 아직 못 받은 물건은 빠지므로 열람 창 안에서 다시 열린다.
+        """
+        with psycopg.connect(self._database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT DISTINCT ac.court_office_code, ac.case_no, ai.item_no, n.bid_date
                     FROM auction_item_notice n
                     JOIN auction_item ai ON ai.id = n.auction_item_id
                     JOIN auction_case ac ON ac.id = ai.auction_case_id
                     WHERE n.tenant_scanned_at IS NOT NULL
                     """
                 )
-                return {(str(row[0]), str(row[1]), str(row[2])) for row in cur.fetchall()}
+                return {(str(r[0]), str(r[1]), str(r[2]), r[3]) for r in cur.fetchall()}
 
     def find_cases_missing_photos(
         self, court_office_code: str | None = None
@@ -452,6 +457,7 @@ def _insert_sale_result(cur: psycopg.Cursor[Any], result: SaleResult) -> bool:
 # risk_flags(TEXT[])는 psycopg가 Python list로 왕복 변환하므로 아래 변경 검사도
 # SQL이 아닌 Python에서 리스트 동등 비교로 한다 — 배열 NULL/순서 문제를 피한다(항상 정렬 저장).
 _NOTICE_FIELDS = (
+    "bid_date",
     "baseline_raw",
     "baseline_date",
     "distribution_demand_deadline",

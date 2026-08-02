@@ -117,9 +117,9 @@ class DailyRepository(
 ):
     """daily가 쓰는 저장소 모음 — 물건·명세서·매각결과·사진."""
 
-    def find_item_keys_with_notice(self) -> set[tuple[str, str, str]]: ...
+    def find_item_keys_with_notice(self) -> set[tuple[str, str, str, date | None]]: ...
 
-    def find_item_keys_with_tenant_scan(self) -> set[tuple[str, str, str]]: ...
+    def find_item_keys_with_tenant_scan(self) -> set[tuple[str, str, str, date | None]]: ...
 
 
 @dataclass(frozen=True)
@@ -277,6 +277,21 @@ def build_sale_result_payload(
     return payload
 
 
+def notice_bid_date(row: dict[str, Any]) -> date | None:
+    """검색 행의 매각기일(maeGiil, YYYYMMDD)을 날짜로 바꾼다.
+
+    명세서가 어느 기일 것인지 표시하는 데 쓴다. 값이 없으면 None이고, 그때는 daily가 기일 비교를
+    포기하고 예전처럼 "명세서 유무"로만 판단한다 — 매일 다시 받는 것보다 낫다.
+    """
+    raw = str(row.get("maeGiil") or "")
+    if len(raw) != 8 or not raw.isdigit():
+        return None
+    try:
+        return date(int(raw[0:4]), int(raw[4:6]), int(raw[6:8]))
+    except ValueError:
+        return None
+
+
 def build_case_search_payload(court_office_code: str, case_no: str) -> dict[str, Any]:
     """경매사건검색(sbm_selectAuctnCsSrchRslt) 페이로드 — 사람이 읽는 사건번호 그대로 보낸다."""
     return {"dma_srchCsDtlInf": {"cortOfcCd": court_office_code, "csNo": case_no}}
@@ -428,6 +443,9 @@ def _collect_notices_for_rows(
                 item_no,
             )
             continue
+
+        # 이 명세서가 어느 기일 것인지는 검색 행에만 있다 — 명세서 본문에는 기일이 없다
+        notice = replace(notice, bid_date=notice_bid_date(row))
 
         if document_reader is not None:
             tenants, rejected, scanned = _collect_notice_tenants(
@@ -907,8 +925,11 @@ def run_daily(
                     continue
                 seen.add(key)
                 candidates += 1
-                needs_tenants = document_reader is not None and key not in have_tenant_scan
-                if key in have_notice and not needs_tenants:
+                # 이번 기일의 명세서를 갖고 있는지로 판단한다 — 물건 단위로 보면 유찰 후 새 기일의
+                # 명세서를 영영 못 받는다 (§4-13). 기일을 모르는 행은 예전처럼 유무로만 판단한다
+                bid_key = (*key, notice_bid_date(row))
+                needs_tenants = document_reader is not None and bid_key not in have_tenant_scan
+                if bid_key in have_notice and not needs_tenants:
                     skipped_existing += 1
                     continue
                 missing.append((row_index, row))
