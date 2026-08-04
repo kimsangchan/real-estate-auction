@@ -38,6 +38,10 @@ NOTICE_TEXT_MAX_PAGES = 2
 # 보수적인 값이다 — 진짜 미작성 구간을 잘못 끊더라도 다음 실행이 재시도하므로 손실이 없다.
 UNAVAILABLE_STREAK_LIMIT = 20
 
+# 명세서 진행 로그 간격(물건 수). 물건당 5요청·1.5초 간격이라 25건이면 약 3분마다 한 줄이다 —
+# 살아 있는지 확인하기엔 충분하고 로그를 덮을 만큼 잦지도 않다.
+NOTICE_PROGRESS_EVERY = 25
+
 # 물건상세검색 화면(PGJ151F01) 기본값 — 부동산·기일입찰·법원별검색, 오늘부터 2주 후 매각기일까지
 SEARCH_PERIOD_DAYS = 14
 PAGE_SIZE = 10
@@ -415,6 +419,21 @@ def _collect_notices_for_rows(
 
     for row_index, row in indexed_rows:
         processed += 1
+        # 진행 로그. 명세서 단계는 성공한 물건을 로그하지 않아서, 정상 동작 중일수록 조용하다.
+        # 물건당 5요청 이상이라 수백 건이면 수십 분이 걸리는데 그동안 살아 있는지 알 방법이 없었다
+        # (2026-08-04에 이것 때문에 "죽었나"를 세 번 오판했다). 역설적으로 로그가 쏟아지면
+        # 스로틀에 걸렸다는 뜻이었다 — 실패만 찍혔기 때문이다.
+        if processed % NOTICE_PROGRESS_EVERY == 0:
+            logger.info(
+                "notice_progress run_id=%s court=%s %s/%s parsed=%s unavailable=%s tenants=%s",
+                run_id,
+                target.court_office_code,
+                processed,
+                len(indexed_rows),
+                len(notices),
+                unavailable_items,
+                tenant_rows,
+            )
         case_no = str(row.get("srnSaNo") or "")
         goods_seq = str(row.get("maemulSer") or "")
         item_no = str(row.get("mokmulSer") or "")

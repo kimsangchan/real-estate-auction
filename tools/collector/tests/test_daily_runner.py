@@ -16,7 +16,7 @@ from collector.repository import (
     InMemoryPhotoRepository,
     InMemorySaleResultRepository,
 )
-from collector.runner import UNAVAILABLE_STREAK_LIMIT, run_daily
+from collector.runner import NOTICE_PROGRESS_EVERY, UNAVAILABLE_STREAK_LIMIT, run_daily
 
 
 DETAIL_FIXTURE = Path(__file__).parent / "fixtures" / "court_item_detail_page.json"
@@ -596,6 +596,25 @@ def test_daily_streak_resets_on_a_successful_notice():
     _run(client, FakeDailyRepository())
 
     assert len(client.detail_cases) == total
+
+
+def test_daily_logs_notice_progress(caplog):
+    """명세서 단계가 살아 있는지 로그로 알 수 있어야 한다.
+
+    성공한 물건은 로그하지 않아서 정상 동작 중일수록 조용하다 — 수백 건이면 수십 분간 무음이라
+    죽은 것과 구분되지 않는다(2026-08-04에 이것 때문에 세 번 오판했다).
+    """
+    caplog.set_level(logging.INFO)
+    court = "B000210"
+    total = NOTICE_PROGRESS_EVERY * 2
+    rows = [_row(court, f"2024타경{i}") for i in range(1, total + 1)]
+    client = FakeDailyClient({court: [_search_response(rows, page_no=1, total=str(total))]})
+
+    _run(client, FakeDailyRepository())
+
+    messages = [r.getMessage() for r in caplog.records if "notice_progress" in r.getMessage()]
+    assert len(messages) == 2  # 25건마다 한 줄
+    assert f"{NOTICE_PROGRESS_EVERY}/{total}" in messages[0]
 
 
 def test_daily_cli_defaults_two_courts_and_tenants_disabled():
