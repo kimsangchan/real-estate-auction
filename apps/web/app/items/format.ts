@@ -22,6 +22,16 @@ export function computeMinimumBidRate(
   return Math.round((minimumSalePrice / appraisalAmount) * 100);
 }
 
+/** 감정가 대비 하락률 라벨("↓36%"). 신건처럼 하락이 없으면 붙일 게 없어 null. */
+export function formatDropRate(
+  appraisalAmount: number | null,
+  minimumSalePrice: number | null,
+): string | null {
+  const rate = computeMinimumBidRate(appraisalAmount, minimumSalePrice);
+  if (rate === null || rate >= 100) return null;
+  return `↓${100 - rate}%`;
+}
+
 export function formatBidDatetime(iso: string | null): string | null {
   if (!iso) return null;
   const date = new Date(iso);

@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { computeMinimumBidRate, formatBidDatetime, formatWon, formatWonCompact } from './format';
+import {
+  computeMinimumBidRate,
+  formatBidDatetime,
+  formatDropRate,
+  formatWon,
+  formatWonCompact,
+} from './format';
 
 test('formatWon은 천단위 콤마와 원 단위를 붙인다', () => {
   assert.equal(formatWon(1234567), '1,234,567원');
@@ -21,6 +27,24 @@ test('computeMinimumBidRate는 감정가·최저가가 없거나 0이면 null이
   assert.equal(computeMinimumBidRate(null, 100), null);
   assert.equal(computeMinimumBidRate(100, null), null);
   assert.equal(computeMinimumBidRate(0, 100), null);
+});
+
+test('formatDropRate는 감정가 대비 하락률을 라벨로 만든다', () => {
+  // 실측 분포: 유찰 3회 물건의 평균 최저가율이 64% → ↓36%
+  assert.equal(formatDropRate(1000, 640), '↓36%');
+  assert.equal(formatDropRate(1000, 512), '↓49%');
+});
+
+test('formatDropRate는 하락이 없으면 null이다 — 신건에 뱃지를 붙이지 않는다', () => {
+  assert.equal(formatDropRate(1000, 1000), null);
+  // 재감정 등으로 최저가가 감정가를 넘는 경우도 붙일 게 없다
+  assert.equal(formatDropRate(1000, 1200), null);
+});
+
+test('formatDropRate는 감정가나 최저가가 없으면 null이다', () => {
+  assert.equal(formatDropRate(null, 640), null);
+  assert.equal(formatDropRate(1000, null), null);
+  assert.equal(formatDropRate(0, 640), null);
 });
 
 test('formatBidDatetime은 UTC 시각을 한국 표준시로 변환한다', () => {

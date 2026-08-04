@@ -17,7 +17,7 @@ import {
   type AuctionItem,
   type Bbox,
 } from '../api/auctionItems';
-import { formatWonCompact } from '../lib/format';
+import { formatDropRate, formatWonCompact } from '../lib/format';
 import type { RootStackParamList, TabParamList } from '../navigation';
 import { colors, radius, space, text } from '../theme';
 
@@ -129,22 +129,32 @@ export function MapHomeScreen({ navigation }: Props) {
         }}
       >
         {showCaptions
-          ? Array.from(itemsById.values()).map(item => (
-              <NaverMapMarkerOverlay
-                key={itemKey(item)}
-                latitude={item.lat as number}
-                longitude={item.lng as number}
-                onTap={() => goToDetail(item)}
-                caption={
-                  item.minimumSalePrice !== null
-                    ? {
-                        text: formatWonCompact(item.minimumSalePrice),
-                        textSize: 12,
-                      }
-                    : undefined
-                }
-              />
-            ))
+          ? Array.from(itemsById.values()).map(item => {
+              // 감정가 대비 하락률. 최저가에 종속된 보조 정보라 한 단계 작고 무채색으로 눌러둔다.
+              // 좋고 나쁨을 뜻하는 색은 쓰지 않는다 — 하락률은 사실이지 우리 판단이 아니다.
+              const drop = formatDropRate(item.appraisalAmount, item.minimumSalePrice);
+              return (
+                <NaverMapMarkerOverlay
+                  key={itemKey(item)}
+                  latitude={item.lat as number}
+                  longitude={item.lng as number}
+                  onTap={() => goToDetail(item)}
+                  caption={
+                    item.minimumSalePrice !== null
+                      ? {
+                          text: formatWonCompact(item.minimumSalePrice),
+                          textSize: 12,
+                        }
+                      : undefined
+                  }
+                  subCaption={
+                    drop !== null
+                      ? { text: drop, textSize: 10, color: colors.slate }
+                      : undefined
+                  }
+                />
+              );
+            })
           : null}
       </NaverMapView>
 

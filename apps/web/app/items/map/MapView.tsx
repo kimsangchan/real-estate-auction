@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { formatWonCompact } from '../format';
+import { formatDropRate, formatWonCompact } from '../format';
 import { encodeItemId } from '../item-id';
 import { clusterPoints, type ClusterInput } from './cluster';
 import styles from './page.module.css';
@@ -27,6 +27,7 @@ interface AuctionItemPin {
   caseNo: string;
   itemNo: string;
   address: string | null;
+  appraisalAmount: number | null;
   minimumSalePrice: number | null;
   lng: number | null;
   lat: number | null;
@@ -39,10 +40,10 @@ function itemKey(item: { courtOfficeCode: string; caseNo: string; itemNo: string
   return `${item.courtOfficeCode}_${item.caseNo}_${item.itemNo}`;
 }
 
-function markerHtml(priceLabel: string | null): string {
+function markerHtml(priceLabel: string | null, drop: string | null): string {
   return `<div class="${styles.marker}"><span class="${styles.markerDot}"></span>${
     priceLabel ? `<span class="${styles.markerPrice}">${priceLabel}</span>` : ''
-  }</div>`;
+  }${drop ? `<span class="${styles.markerDrop}">${drop}</span>` : ''}</div>`;
 }
 
 function clusterHtml(count: number): string {
@@ -179,7 +180,13 @@ export function MapView() {
         const marker = new naverMaps.Marker({
           position: new naverMaps.LatLng(item.lat + dupIndex * 0.00006, item.lng),
           map,
-          icon: { content: markerHtml(priceLabel), anchor: new naverMaps.Point(28, 12) },
+          icon: {
+            content: markerHtml(
+              priceLabel,
+              formatDropRate(item.appraisalAmount, item.minimumSalePrice),
+            ),
+            anchor: new naverMaps.Point(28, 12),
+          },
         });
         naverMaps.Event.addListener(marker, 'click', () => goToDetail(item));
         markersRef.current.push(marker);

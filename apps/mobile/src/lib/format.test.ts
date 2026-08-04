@@ -2,6 +2,7 @@
 import {
   computeMinimumBidRate,
   formatBidDatetime,
+  formatDropRate,
   formatWon,
   formatWonCompact,
 } from './format';
@@ -48,5 +49,24 @@ describe('formatBidDatetime', () => {
   it('null/파싱 불가 입력은 null', () => {
     expect(formatBidDatetime(null)).toBeNull();
     expect(formatBidDatetime('nope')).toBeNull();
+  });
+});
+
+describe('formatDropRate', () => {
+  it('감정가 대비 하락률을 라벨로 만든다', () => {
+    // 실측 분포: 유찰 3회 물건의 평균 최저가율이 64% → ↓36%
+    expect(formatDropRate(1000, 640)).toBe('↓36%');
+    expect(formatDropRate(1000, 512)).toBe('↓49%');
+  });
+
+  it('하락이 없으면 null — 신건에 서브캡션을 붙이지 않는다', () => {
+    expect(formatDropRate(1000, 1000)).toBeNull();
+    expect(formatDropRate(1000, 1200)).toBeNull();
+  });
+
+  it('감정가나 최저가가 없으면 null', () => {
+    expect(formatDropRate(null, 640)).toBeNull();
+    expect(formatDropRate(1000, null)).toBeNull();
+    expect(formatDropRate(0, 640)).toBeNull();
   });
 });

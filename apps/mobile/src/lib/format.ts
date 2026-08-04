@@ -27,6 +27,16 @@ export function computeMinimumBidRate(
   return Math.round((minimumSalePrice / appraisalAmount) * 100);
 }
 
+/** 감정가 대비 하락률 라벨("↓36%"). 신건처럼 하락이 없으면 붙일 게 없어 null. (웹 format.ts와 같은 규칙) */
+export function formatDropRate(
+  appraisalAmount: number | null,
+  minimumSalePrice: number | null,
+): string | null {
+  const rate = computeMinimumBidRate(appraisalAmount, minimumSalePrice);
+  if (rate === null || rate >= 100) return null;
+  return `↓${100 - rate}%`;
+}
+
 const pad = (n: number): string => n.toString().padStart(2, '0');
 
 // 매각기일은 법적으로 중요한 값이라 기기 타임존과 무관하게 항상 KST(+09:00)로 표기한다.
