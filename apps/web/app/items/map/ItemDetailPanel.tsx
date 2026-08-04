@@ -163,7 +163,7 @@ export function ItemDetailPanel({ item, onClose }: { item: PanelItem; onClose: (
         <>
           {photos.length > 0 ? (
             <div className={styles.photoStrip}>
-              {photos.slice(0, 8).map((photo) => (
+              {photos.map((photo) => (
                 // next/image 대신 <img> — 상세 화면과 같은 프록시 경로를 그대로 쓴다
                 <img
                   key={photo.id}
