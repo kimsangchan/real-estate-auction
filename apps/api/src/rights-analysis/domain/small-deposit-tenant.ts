@@ -5,7 +5,13 @@ import type { RegionTier, RegisteredRight, RuleTag, Tenant } from './types';
 export interface SmallDepositTenantResult extends RuleTag {
   tenantId: string;
   isEligible: boolean;
-  /** 소액임차인이면 min(보증금, 최우선변제 상한), 아니면 0 */
+  /**
+   * 소액임차인이면 min(보증금, 지역별 최우선변제 상한), 아니면 0 — 시행령 §10①의 "보증금 중 일정액".
+   *
+   * **주택가액 1/2 상한(§10②③)은 여기서 적용하지 않는다.** 그 상한은 임차인 개인이 아니라
+   * 전체 합계에 걸리고 초과분은 각자의 몫에 비례해 나누므로, 모든 임차인과 배당 재원을 아는
+   * `computeDistribution` 1단계에서 적용한다.
+   */
   priorityRepaymentAmount: number;
 }
 

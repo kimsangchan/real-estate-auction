@@ -98,7 +98,13 @@ export function computeDistribution(input: DistributionInput): DistributionResul
   const receivedFromSmallDeposit = new Map<string, number>();
 
   if (totalSmallDepositClaim > 0) {
-    const ratio = Math.min(1, remaining / totalSmallDepositClaim);
+    // 시행령 §10②③: 최우선변제 **총액**은 주택가액의 1/2을 넘지 못하고, 넘으면 각자의 몫에
+    // 비례해 나눈다. 여기서 주택가액은 낙찰대금에서 집행비용을 뺀 실제 배당할 금액이다
+    // (대법원 2001다84824). 이 상한이 없으면 낙찰가가 낮은 사건에서 최우선변제액이 과다 계산돼
+    // 인수액을 과소평가한다 — 지역별 상한(5,500만 등)만으로는 걸리지 않는다.
+    const statutoryCeiling = Math.floor(remainingAfterCosts / 2);
+    const budget = Math.min(remaining, statutoryCeiling);
+    const ratio = Math.min(1, budget / totalSmallDepositClaim);
     for (const claim of smallDepositClaims) {
       const paid = Math.floor(claim.result.priorityRepaymentAmount * ratio);
       receivedFromSmallDeposit.set(claim.tenant.id, paid);

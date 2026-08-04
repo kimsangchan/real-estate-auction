@@ -233,3 +233,96 @@ describe('computeDistribution — 당해세 (WP-11 §4)', () => {
     expect(withEmpty.tenantOutcomes).toEqual(withoutField.tenantOutcomes);
   });
 });
+
+// 시행령 §10②③ — 최우선변제 총액은 주택가액(낙찰대금 - 집행비용, 대법원 2001다84824)의 1/2을
+// 넘지 못한다. 지역별 상한만 적용하면 낙찰가가 낮은 사건에서 인수액을 과소평가한다.
+describe('computeDistribution — 최우선변제 주택가액 1/2 상한', () => {
+  const CAPPED_BASELINE = '2024-03-10';
+
+  it('정상: 상한에 걸리면 최우선변제가 깎이고 그만큼 인수액이 생긴다', () => {
+    // 실측 사건(서울동부 2024타경63301) 수치: 최저가 78,434,000원
+    const smallDepositTenant = tenant({
+      id: 't1',
+      moveInDate: '2020-07-29', // 말소기준보다 선순위 → 대항력 있음
+      depositAmount: 50_000_000, // 서울 소액임차인(1억 6,500만 이하), 지역 상한 5,500만
+      fixedDate: null, // 확정일자가 없어 3단계 우선변제로 나머지를 못 받는다
+      demandedDistribution: true,
+      demandedDistributionDate: '2024-04-01',
+    });
+
+    const result = computeDistribution(
+      baseInput({
+        saleAmount: 78_434_000,
+        auctionCost: 3_000_000, // 주택가액 75,434,000 → 상한 37,717,000
+        tenants: [smallDepositTenant],
+      }),
+    );
+
+    expect(result.tenantOutcomes).toEqual([
+      { tenantId: 't1', hasPriority: true, totalReceived: 37_717_000, assumedAmount: 12_283_000 },
+    ]);
+  });
+
+  it('경계: 임차인이 여럿이면 상한을 각자의 몫에 비례해 나눈다 (§10③)', () => {
+    const shared = { demandedDistribution: true, demandedDistributionDate: '2024-04-01', fixedDate: null };
+    const result = computeDistribution(
+      baseInput({
+        saleAmount: 100_000_000,
+        auctionCost: 0, // 주택가액 100,000,000 → 상한 50,000,000
+        tenants: [
+          tenant({ id: 't1', moveInDate: '2024-01-01', depositAmount: 30_000_000, ...shared }),
+          tenant({ id: 't2', moveInDate: '2024-01-01', depositAmount: 60_000_000, ...shared }),
+        ],
+      }),
+    );
+
+    // §10①의 몫은 30,000,000 + 55,000,000(지역 상한) = 85,000,000이고 상한이 50,000,000이므로
+    // 비율 50/85로 나눈다. 원 단위 절사라 합계가 상한보다 1원 적다.
+    expect(result.tenantOutcomes).toEqual([
+      { tenantId: 't1', hasPriority: true, totalReceived: 17_647_058, assumedAmount: 12_352_942 },
+      { tenantId: 't2', hasPriority: true, totalReceived: 32_352_941, assumedAmount: 27_647_059 },
+    ]);
+  });
+
+  it('경계: 낙찰가가 충분하면 상한이 걸리지 않아 종전과 같이 전액 변제된다', () => {
+    const smallDepositTenant = tenant({
+      id: 't1',
+      moveInDate: '2024-01-01',
+      depositAmount: 50_000_000,
+      fixedDate: null,
+      demandedDistribution: true,
+      demandedDistributionDate: '2024-04-01',
+    });
+
+    // 주택가액 300,000,000 → 상한 150,000,000 > 지역 상한 55,000,000이라 상한이 무의미하다
+    const result = computeDistribution(baseInput({ tenants: [smallDepositTenant] }));
+
+    expect(result.tenantOutcomes).toEqual([
+      { tenantId: 't1', hasPriority: true, totalReceived: 50_000_000, assumedAmount: 0 },
+    ]);
+  });
+
+  it('정상: 확정일자가 있으면 상한에 걸린 나머지를 3단계 우선변제로 회수한다', () => {
+    const smallDepositTenant = tenant({
+      id: 't1',
+      moveInDate: '2020-07-29',
+      depositAmount: 50_000_000,
+      fixedDate: '2023-12-20', // 말소기준(2024-03-10)보다 앞선 우선변제권
+      demandedDistribution: true,
+      demandedDistributionDate: '2024-04-01',
+    });
+
+    const result = computeDistribution(
+      baseInput({
+        saleAmount: 78_434_000,
+        auctionCost: 3_000_000,
+        registeredRights: [{ id: 'r1', type: 'MORTGAGE', receivedDate: CAPPED_BASELINE }],
+        tenants: [smallDepositTenant],
+      }),
+    );
+
+    expect(result.tenantOutcomes).toEqual([
+      { tenantId: 't1', hasPriority: true, totalReceived: 50_000_000, assumedAmount: 0 },
+    ]);
+  });
+});

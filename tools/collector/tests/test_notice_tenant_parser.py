@@ -172,3 +172,55 @@ def test_distinct_named_tenants_get_distinct_seq():
     tenants = _to_tenants(rows)
 
     assert [t.tenant_seq for t in tenants] == [1, 1, 2]
+
+
+def test_deposit_increase_does_not_split_a_tenant_into_fragment_rows():
+    """보증금 증액 사건 — 한 셀에 금액이 여러 줄로 적혀도 임차인이 쪼개지지 않는다.
+
+    2025타경908 물건1 실측. 예전에는 금액·확정일자를 행 기준선(anchor)으로 써서
+    `1)190,000,000` / `2)200,000,000` 두 줄이 각각 가짜 행이 됐고, 쪼개진 조각은
+    정보출처가 없어 버려지면서 보증금이 통째로 사라졌다.
+    """
+    table = parse_tenant_table(_pages("notice_pdf_texts_908_1.json"))
+
+    # 정보출처가 온전해야 한다 — 쪼개지면 '등기사항전' / '부증명서'로 잘린다
+    assert all(
+        t.source_kind in ("현황조사", "권리신고", "등기사항전부증명서") for t in table.tenants
+    )
+    assert len(table.tenants) == 10
+
+    # 증액 표기 두 형태가 모두 현재 보증금으로 읽혀야 한다
+    deposits = [t.deposit_amount for t in table.tenants if t.deposit_amount is not None]
+    assert deposits == [200_000_000, 200_000_000, 200_000_000, 210_000_000, 210_000_000, 10_000_000, 15_000_000]
+
+
+def test_tenant_row_without_move_in_date_still_parses():
+    """전세권자처럼 전입신고일자·배당요구여부가 없는 문서는 금액·확정일자로 행을 잡는다."""
+    table = parse_tenant_table(_pages("notice_pdf_texts_2593_1.json"))
+
+    (tenant,) = table.tenants
+    assert tenant.move_in_date is None
+    assert tenant.deposit_amount == 5_000_000
+
+
+@pytest.mark.parametrize(
+    ("cell", "expected"),
+    [
+        ("15,000,000", 15_000_000),
+        # 순번 표기는 뒤 번호가 증액 후 현재 보증금이다 (줄이 붙어 와도 경계가 흐트러지면 안 된다)
+        ("1)200,000,0002)210,000,000", 210_000_000),
+        ("1)190,000,000 2)200,000,000", 200_000_000),
+        # 괄호 앞이 현재 보증금이고 괄호 안은 증액 내역 — 괄호 안을 집으면 2.1억을 1천만으로 읽는다
+        ("210,000,000(2022.6.1.10,000,000증액)", 210_000_000),
+        ("200,000,000(2023.2.2. 10,000,000 증액)", 200_000_000),
+        ("미상", None),
+        ("", None),
+        (None, None),
+        # 구사건 한글 표기는 그대로 살아 있어야 한다
+        ("1억5천만원", 150_000_000),
+    ],
+)
+def test_parse_amount_handles_increase_notations(cell, expected):
+    from collector.notice_tenant_parser import _parse_amount
+
+    assert _parse_amount(cell) == expected

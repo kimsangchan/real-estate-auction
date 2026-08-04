@@ -23,16 +23,26 @@ _COLUMNS: tuple[tuple[str, int, int], ...] = (
 )
 
 # 값이 줄바꿈 없이 한 줄로만 적히는 컬럼들 — 행의 기준선(anchor)을 잡는 데 쓴다.
-# 금액·날짜는 감싸지지 않으므로 행마다 정확히 한 줄이다.
 # 점유부분은 앵커가 아니다 — "공부상 505호(실제표시 605호)"처럼 5줄로 감싸인 실측이 있다.
 # 앵커로 쓰면 감싸인 줄마다 가짜 행이 생긴다 (WP-11 §4-7의 수율 붕괴 원인).
+#
+# 보증금·차임·확정일자도 같은 이유로 뺐다. "한 줄"이라던 전제가 틀렸다 — 보증금 증액 사건은
+# 한 셀에 `1)190,000,000` / `2)200,000,000`을, 등기 임차권은 `200,000,000` / `(2023.2.2.` /
+# `10,000,000` / `증액)`을 여러 줄로 적는다(실측 B000210 2025타경908). 확정일자도 증액분마다
+# `1)`,`2)`로 나뉜다. 이들을 앵커로 쓰면 한 임차인이 3~4행으로 쪼개지고, 쪼개진 조각은
+# 정보출처가 없어 검증 게이트에서 버려진다 — 보증금이 통째로 사라지는 경로였다.
+#
+# 전입신고일자와 배당요구여부는 값이 날짜 하나뿐이라 실제로 행마다 한 줄이다
+# (실측 같은 문서: 전입일 앵커 간격 최소 32pt, 셀 내부 줄바꿈 간격 6.5pt).
 _ANCHOR_FIELDS = (
-    "deposit_amount",
-    "monthly_rent",
     "move_in_date",
-    "fixed_date",
     "demanded_distribution",
 )
+
+# 전세권자처럼 전입신고일자·배당요구여부가 아예 없는 행만 있는 문서를 위한 대비책
+# (실측 2022타경2593 물건1 — 등기 전세권 1행). 이때만 금액·확정일자로 행을 잡는다.
+# 두 종류가 섞인 문서에서는 전입일이 있는 행만 잡히므로 완전하지 않다.
+_FALLBACK_ANCHOR_FIELDS = ("deposit_amount", "monthly_rent", "fixed_date")
 
 # 표 머리글 식별 — "점유자"와 "정보출처"가 같은 줄에 오는 것이 이 표의 특징이다
 _HEADER_KEYWORDS = (
@@ -54,6 +64,11 @@ _TABLE_END_MARKERS = ("<비고>", "비고란", "※")
 
 _DATE_PATTERN = re.compile(r"(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})")
 _DIGIT_AMOUNT_PATTERN = re.compile(r"^[0-9][0-9,]*$")
+# 한 셀에 금액이 여러 개 적힌 증액 사건에서 금액만 골라낸다. 천단위 콤마를 요구해야
+# `1)200,000,0002)210,000,000`처럼 줄이 붙어버린 문자열에서도 경계가 흐트러지지 않는다.
+_AMOUNT_IN_TEXT_PATTERN = re.compile(r"\d{1,3}(?:,\d{3})+")
+# `1)…2)…` 형태의 순번 표기 — 뒤 번호가 현재(증액 후) 보증금이다.
+_NUMBERED_AMOUNT_PATTERN = re.compile(r"\d\)\s*\d")
 # 구사건은 보증금을 "천만원"·"1억5천만원" 같은 한글로 적는다 (실측).
 # 억·만은 앞의 값을 묶는 큰 단위, 천·백·십은 그 안에서 더해지는 작은 단위다
 _KOREAN_BIG_UNITS = {"억": 100_000_000, "만": 10_000}
@@ -265,11 +280,16 @@ def _rows_in_region(
 
 def _row_anchors(region: list[dict[str, Any]]) -> list[float]:
     """행의 세로 중앙 y 목록. 한 줄로만 적히는 컬럼 값의 세로 중앙이 행의 중앙과 일치한다."""
+    anchors = _anchors_from(region, _ANCHOR_FIELDS)
+    return anchors if anchors else _anchors_from(region, _FALLBACK_ANCHOR_FIELDS)
+
+
+def _anchors_from(region: list[dict[str, Any]], fields: tuple[str, ...]) -> list[float]:
     candidates = sorted(
         {
             (fragment["y1"] + fragment["y2"]) / 2
             for fragment in region
-            if _column_of(fragment) in _ANCHOR_FIELDS and not fragment["char"].isspace()
+            if _column_of(fragment) in fields and not fragment["char"].isspace()
         },
         reverse=True,
     )
@@ -369,7 +389,16 @@ def _parse_date(text: str | None) -> date | None:
 
 
 def _parse_amount(text: str | None) -> int | None:
-    """금액 셀을 정수로 바꾼다. 숫자 표기와 한글 표기(구사건)를 모두 받고, 모르면 None."""
+    """금액 셀을 정수로 바꾼다. 숫자 표기와 한글 표기(구사건)를 모두 받고, 모르면 None.
+
+    보증금 증액 사건은 한 셀에 금액을 여러 개 적는다 (실측 B000210 2025타경908):
+
+    - `1)200,000,000 2)210,000,000` — 순번이 붙으면 **뒤 번호가 증액 후 현재 보증금**이다.
+    - `210,000,000(2022.6.1. 10,000,000 증액)` — 괄호 앞이 현재 보증금이고
+      괄호 안은 증액된 금액과 시점이다. 괄호 안 금액을 집으면 2.1억을 1천만으로 읽는다.
+
+    권리분석에 필요한 값은 어느 쪽이든 **현재 보증금**이라 그것만 남긴다.
+    """
     if text is None:
         return None
     cleaned = text.replace(" ", "").removesuffix("원")
@@ -377,6 +406,12 @@ def _parse_amount(text: str | None) -> int | None:
         return None
     if _DIGIT_AMOUNT_PATTERN.match(cleaned):
         return int(cleaned.replace(",", ""))
+
+    amounts = _AMOUNT_IN_TEXT_PATTERN.findall(cleaned)
+    if amounts:
+        chosen = amounts[-1] if _NUMBERED_AMOUNT_PATTERN.search(cleaned) else amounts[0]
+        return int(chosen.replace(",", ""))
+
     return _parse_korean_amount(cleaned)
 
 
