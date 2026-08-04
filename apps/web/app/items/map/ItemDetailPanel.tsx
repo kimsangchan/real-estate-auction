@@ -28,7 +28,7 @@ export interface PanelItem {
   courtName: string | null;
   deptName: string | null;
   usageName: string | null;
-  exclusiveAreaM2: number | null;
+  areaM2: number | null;
   address: string | null;
   appraisalAmount: number | null;
   minimumSalePrice: number | null;
@@ -79,10 +79,10 @@ export function ItemDetailPanel({ item, onClose }: { item: PanelItem; onClose: (
   const noticeMissing = rights === null && tenants === null && flags.length === 0;
 
   // 면적은 평·㎡ 둘 다 — 평이 익숙한 사람과 ㎡가 익숙한 사람이 갈린다.
-  const pyeong = formatPyeong(item.exclusiveAreaM2);
-  const areaM2 = formatAreaM2(item.exclusiveAreaM2);
-  const perPyeong = formatUnitPrice(item.minimumSalePrice, item.exclusiveAreaM2, 'pyeong');
-  const perM2 = formatUnitPrice(item.minimumSalePrice, item.exclusiveAreaM2, 'm2');
+  const pyeong = formatPyeong(item.areaM2);
+  const areaM2 = formatAreaM2(item.areaM2);
+  const perPyeong = formatUnitPrice(item.minimumSalePrice, item.areaM2, 'pyeong');
+  const perM2 = formatUnitPrice(item.minimumSalePrice, item.areaM2, 'm2');
 
   const meta = [
     usage,
@@ -173,7 +173,7 @@ export function ItemDetailPanel({ item, onClose }: { item: PanelItem; onClose: (
         <div className={styles.specs}>
           <span className={styles.specsLabel}>물건종류</span>
           <span className={styles.specsValue}>{item.usageName ?? '정보 없음'}</span>
-          <span className={styles.specsLabel}>전용면적</span>
+          <span className={styles.specsLabel}>면적</span>
           <span className={styles.specsValue}>
             {pyeong && areaM2 ? `${pyeong} (${areaM2})` : '정보 없음'}
           </span>

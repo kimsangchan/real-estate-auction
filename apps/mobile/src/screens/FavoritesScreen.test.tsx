@@ -32,7 +32,7 @@ const ITEM: AuctionItem = {
   courtName: '서울중앙지방법원',
   deptName: '경매1계',
   usageName: '아파트',
-  exclusiveAreaM2: 84.99,
+  areaM2: 84.99,
   address: '서울 관악구 신림동 1-1',
   appraisalAmount: 500000000,
   minimumSalePrice: 400000000,

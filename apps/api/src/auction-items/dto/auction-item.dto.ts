@@ -6,8 +6,11 @@ export interface AuctionItemDto {
   courtName: string | null;
   deptName: string | null;
   usageName: string | null;
-  /** 전용면적(㎡). 면적이 여럿이거나(일괄매각·다층건물) 표기가 없으면 null — 추정하지 않는다. */
-  exclusiveAreaM2: number | null;
+  /**
+   * 면적(㎡) — 건물이면 전용면적, 토지면 토지면적. 법원이 자유 텍스트로 주는 값을 뽑는다.
+   * 일괄매각·다층건물처럼 면적이 여럿이거나 표기가 없으면 null — 추정하지 않는다.
+   */
+  areaM2: number | null;
   address: string | null;
   appraisalAmount: number | null;
   minimumSalePrice: number | null;

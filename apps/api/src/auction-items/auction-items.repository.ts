@@ -44,14 +44,20 @@ const SELECT_AND_FROM = `
     ac.court_name AS "courtName",
     raw.payload->>'jpDeptNm' AS "deptName",
     raw.payload->>'dspslUsgNm' AS "usageName",
-    -- 전용면적(㎡). 법원은 구조·면적을 자유 텍스트로 준다("철근콘크리트구조 47.52㎡").
-    -- ㎡ 표기가 **정확히 하나**일 때만 쓴다 — 일괄매각·다층건물은 면적이 여럿이라 어느 것이 이
-    -- 물건의 면적인지 정해지지 않는다. 합계를 쓰면 평당가가 실제보다 낮게 나와 싸 보이게 된다.
-    -- 실측(469건): 1개 366 / 여러개 34 / 없음 69. "평·홉·작"으로 적힌 옛 표기 1건은 ㎡가 없어 제외된다.
-    CASE
-      WHEN (SELECT count(*) FROM regexp_matches(COALESCE(raw.payload->>'pjbBuldList', ''), '㎡', 'g')) = 1
-      THEN NULLIF(replace((regexp_match(raw.payload->>'pjbBuldList', '([0-9][0-9,]*\.?[0-9]*)\s*㎡'))[1], ',', ''), '')::numeric
-    END AS "exclusiveAreaM2",
+    -- 면적(㎡). 법원은 자유 텍스트로 준다("철근콘크리트구조 47.52㎡", 토지는 "2193㎡").
+    -- 두 필드를 함께 쓴다: pjbBuldList는 **건물** 목록이라 토지(임야·대지·전답)에서 비고,
+    -- areaList는 토지까지 덮지만 일부 건물에서 빈다. 실측 289건에서 두 값이 **100% 일치**해
+    -- 합쳐도 안전하다 — 어느 쪽이든 있으면 쓴다(366 → 429건).
+    --
+    -- ㎡ 표기가 **정확히 하나**일 때만 쓴다. 일괄매각·다층건물은 "1층 44.30㎡ 2층 44.30㎡"처럼
+    -- 면적이 여럿이라 어느 것이 이 물건의 면적인지 정해지지 않는다. 합계를 쓰면 평당가가 실제보다
+    -- 낮게 나와 싸 보이는 오표기가 된다.
+    COALESCE(
+      CASE WHEN (SELECT count(*) FROM regexp_matches(COALESCE(raw.payload->>'areaList', ''), '㎡', 'g')) = 1
+           THEN NULLIF(replace((regexp_match(raw.payload->>'areaList', '([0-9][0-9,]*\.?[0-9]*)\s*㎡'))[1], ',', ''), '')::numeric END,
+      CASE WHEN (SELECT count(*) FROM regexp_matches(COALESCE(raw.payload->>'pjbBuldList', ''), '㎡', 'g')) = 1
+           THEN NULLIF(replace((regexp_match(raw.payload->>'pjbBuldList', '([0-9][0-9,]*\.?[0-9]*)\s*㎡'))[1], ',', ''), '')::numeric END
+    ) AS "areaM2",
     ai.address AS "address",
     ai.appraisal_amount AS "appraisalAmount",
     ai.minimum_sale_price AS "minimumSalePrice",
@@ -72,7 +78,7 @@ interface AuctionItemRow extends QueryResultRow {
   courtName: string | null;
   deptName: string | null;
   usageName: string | null;
-  exclusiveAreaM2: string | null;
+  areaM2: string | null;
   address: string | null;
   appraisalAmount: string | null;
   minimumSalePrice: string | null;
@@ -91,7 +97,7 @@ function toDto(row: AuctionItemRow): AuctionItemDto {
     appraisalAmount: row.appraisalAmount === null ? null : Number(row.appraisalAmount),
     minimumSalePrice: row.minimumSalePrice === null ? null : Number(row.minimumSalePrice),
     // numeric은 pg가 문자열로 준다. undefined도 NaN이 되지 않게 ==로 받는다
-    exclusiveAreaM2: row.exclusiveAreaM2 == null ? null : Number(row.exclusiveAreaM2),
+    areaM2: row.areaM2 == null ? null : Number(row.areaM2),
     bidDatetime: row.bidDatetime === null ? null : row.bidDatetime.toISOString(),
     // 명세서가 없는 물건은 "위험 없음"이 아니라 "확인 못 함"이다 — 빈 배열과 null을 구분한다
     riskFlags: row.riskFlags ?? [],

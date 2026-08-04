@@ -30,7 +30,7 @@ interface AuctionItemPin {
   deptName: string | null;
   address: string | null;
   usageName: string | null;
-  exclusiveAreaM2: number | null;
+  areaM2: number | null;
   appraisalAmount: number | null;
   minimumSalePrice: number | null;
   failedBidCount: number | null;

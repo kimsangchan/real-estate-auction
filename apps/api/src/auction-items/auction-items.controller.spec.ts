@@ -9,7 +9,7 @@ const sampleItem: AuctionItemDto = {
   courtName: '서울중앙지방법원',
   deptName: '경매7계',
   usageName: '상가',
-  exclusiveAreaM2: 47.52,
+  areaM2: 47.52,
   address: '서울특별시 종로구 인의동 48-2',
   appraisalAmount: 259_000_000,
   minimumSalePrice: 84_869_000,

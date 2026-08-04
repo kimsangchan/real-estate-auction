@@ -16,7 +16,7 @@ import styles from './ItemHoverCard.module.css';
 
 export interface HoverCardItem {
   usageName: string | null;
-  exclusiveAreaM2: number | null;
+  areaM2: number | null;
   appraisalAmount: number | null;
   minimumSalePrice: number | null;
   failedBidCount: number | null;
@@ -45,10 +45,10 @@ export function ItemHoverCard({ item, left, top }: Props) {
   const noticeMissing = rights === null && tenants === null && flags.length === 0;
 
   // 면적은 평·㎡ 둘 다 보여준다 — 평이 익숙한 사람과 ㎡가 익숙한 사람이 갈린다.
-  const pyeong = formatPyeong(item.exclusiveAreaM2);
-  const areaM2 = formatAreaM2(item.exclusiveAreaM2);
-  const perPyeong = formatUnitPrice(item.minimumSalePrice, item.exclusiveAreaM2, 'pyeong');
-  const perM2 = formatUnitPrice(item.minimumSalePrice, item.exclusiveAreaM2, 'm2');
+  const pyeong = formatPyeong(item.areaM2);
+  const areaM2 = formatAreaM2(item.areaM2);
+  const perPyeong = formatUnitPrice(item.minimumSalePrice, item.areaM2, 'pyeong');
+  const perM2 = formatUnitPrice(item.minimumSalePrice, item.areaM2, 'm2');
 
   const meta = [
     usage,
