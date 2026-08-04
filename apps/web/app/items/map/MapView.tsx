@@ -3,11 +3,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { formatDropRate, formatWonCompact } from '../format';
-import { encodeItemId } from '../item-id';
 import { clusterPoints, type ClusterInput } from './cluster';
+import { ItemDetailPanel } from './ItemDetailPanel';
 import { ItemHoverCard } from './ItemHoverCard';
 import styles from './page.module.css';
 
@@ -27,6 +26,8 @@ interface AuctionItemPin {
   courtOfficeCode: string;
   caseNo: string;
   itemNo: string;
+  courtName: string | null;
+  deptName: string | null;
   address: string | null;
   usageName: string | null;
   appraisalAmount: number | null;
@@ -58,7 +59,6 @@ function clusterHtml(count: number): string {
 }
 
 export function MapView() {
-  const router = useRouter();
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
   const idleListenerRef = useRef<naver.maps.MapEventListener | null>(null);
@@ -70,18 +70,13 @@ export function MapView() {
   const [scriptRetryKey, setScriptRetryKey] = useState(0);
   const [fetchState, setFetchState] = useState<FetchState>('loading');
   const [items, setItems] = useState<AuctionItemPin[]>([]);
+  // 마커를 누르면 페이지를 떠나지 않고 패널을 연다 — 지도 탐색의 맥락(줌·위치·주변 물건)을 지킨다.
+  const [selected, setSelected] = useState<AuctionItemPin | null>(null);
   const [hovered, setHovered] = useState<{
     item: AuctionItemPin;
     left: number;
     top: number;
   } | null>(null);
-
-  const goToDetail = useCallback(
-    (item: AuctionItemPin) => {
-      router.push(`/items/${encodeItemId({ courtOfficeCode: item.courtOfficeCode, caseNo: item.caseNo, itemNo: item.itemNo })}`);
-    },
-    [router],
-  );
 
   const loadBbox = useCallback(async (bounds: naver.maps.LatLngBounds) => {
     const requestId = ++requestIdRef.current;
@@ -204,7 +199,10 @@ export function MapView() {
             anchor: new naverMaps.Point(28, 12),
           },
         });
-        naverMaps.Event.addListener(marker, 'click', () => goToDetail(item));
+        naverMaps.Event.addListener(marker, 'click', () => {
+          setSelected(item);
+          setHovered(null); // 패널이 열리면 호버 카드는 중복이다
+        });
         // 호버 카드는 마커 기준 화면 좌표에 띄운다. 지도 컨테이너 안 절대 위치라
         // 지도가 움직이면 좌표가 어긋나므로 카메라가 움직이면 닫는다(아래 idle 핸들러).
         naverMaps.Event.addListener(marker, 'mouseover', () => {
@@ -238,7 +236,7 @@ export function MapView() {
       naverMaps.Event.addListener(marker, 'click', () => map.setZoom(map.getZoom() + 1, true));
       markersRef.current.push(marker);
     }
-  }, [items, goToDetail]);
+  }, [items]);
 
   const handleRetry = useCallback(() => {
     cleanupMap();
@@ -269,6 +267,10 @@ export function MapView() {
       />
 
       <div ref={mapElementRef} className={styles.map} />
+
+      {selected ? (
+        <ItemDetailPanel item={selected} onClose={() => setSelected(null)} />
+      ) : null}
 
       {hovered ? (
         <ItemHoverCard item={hovered.item} left={hovered.left} top={hovered.top} />
