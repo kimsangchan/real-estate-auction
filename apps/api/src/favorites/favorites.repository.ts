@@ -23,6 +23,9 @@ interface FavoriteRow extends QueryResultRow {
   minimumSalePrice: string | null;
   failedBidCount: number | null;
   bidDatetime: Date | null;
+  assumedRightsKind: string | null;
+  riskFlags: string[] | null;
+  tenantCount: string | null;
   lng: number | null;
   lat: number | null;
   favoritedAt: Date;
@@ -34,6 +37,9 @@ function toRecord(row: FavoriteRow): FavoriteRecord {
     appraisalAmount: row.appraisalAmount === null ? null : Number(row.appraisalAmount),
     minimumSalePrice: row.minimumSalePrice === null ? null : Number(row.minimumSalePrice),
     bidDatetime: row.bidDatetime === null ? null : row.bidDatetime.toISOString(),
+    // 명세서가 없는 물건은 "위험 없음"이 아니라 "확인 못 함"이다 (auction-items.repository와 동일 규칙)
+    riskFlags: row.riskFlags ?? [],
+    tenantCount: row.tenantCount == null ? null : Number(row.tenantCount),
     favoritedAt: row.favoritedAt.toISOString(),
   };
 }
@@ -51,6 +57,9 @@ const SELECT_FAVORITE_ITEMS = `
     ai.minimum_sale_price AS "minimumSalePrice",
     ai.failed_bid_count AS "failedBidCount",
     sch.bid_datetime AS "bidDatetime",
+    ntc.assumed_rights_kind AS "assumedRightsKind",
+    ntc.risk_flags AS "riskFlags",
+    ntc.tenant_count AS "tenantCount",
     ST_X(ai.geom) AS "lng",
     ST_Y(ai.geom) AS "lat",
     f.created_at AS "favoritedAt"
@@ -67,6 +76,16 @@ const SELECT_FAVORITE_ITEMS = `
     WHERE auction_item_id = ai.id
     ORDER BY observed_at DESC LIMIT 1
   ) sch ON true
+  LEFT JOIN LATERAL (
+    SELECT
+      n.assumed_rights_kind,
+      n.risk_flags,
+      (SELECT count(DISTINCT t.tenant_seq)
+         FROM auction_item_notice_tenant t WHERE t.notice_id = n.id) AS tenant_count
+    FROM auction_item_notice n
+    WHERE n.auction_item_id = ai.id
+    ORDER BY n.document_date DESC NULLS LAST, n.id DESC LIMIT 1
+  ) ntc ON true
 `;
 
 @Injectable()

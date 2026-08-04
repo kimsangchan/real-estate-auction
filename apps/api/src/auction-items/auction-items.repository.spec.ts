@@ -19,6 +19,9 @@ describe('AuctionItemsRepository', () => {
         minimumSalePrice: '84869000',
         failedBidCount: 6,
         bidDatetime: new Date('2026-07-16T10:00:00Z'),
+        assumedRightsKind: 'LEASEHOLD_REGISTRATION',
+        riskFlags: ['HUG_PRIORITY_WAIVER'],
+        tenantCount: '2',
       },
     ]);
     const repository = new AuctionItemsRepository(pool as never);
@@ -37,12 +40,45 @@ describe('AuctionItemsRepository', () => {
       minimumSalePrice: 84_869_000,
       failedBidCount: 6,
       bidDatetime: '2026-07-16T10:00:00.000Z',
+      assumedRightsKind: 'LEASEHOLD_REGISTRATION',
+      riskFlags: ['HUG_PRIORITY_WAIVER'],
+      tenantCount: 2,
     });
     expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('WHERE ac.court_office_code = $1'), [
       'B000210',
       '2025타경755',
       '1',
     ]);
+  });
+
+  it('명세서를 못 받은 물건은 인수권리가 null이고 위험 플래그는 빈 배열이다', async () => {
+    // "인수할 권리가 없다"와 "아직 확인하지 못했다"는 다르다 — 화면이 구분해 표기할 수 있어야 한다.
+    // tenantCount는 컬럼이 없어도 NaN이 되면 안 된다(LEFT JOIN 미스 방어).
+    const pool = createMockPool([
+      {
+        courtOfficeCode: 'B000210',
+        caseNo: '2025타경900',
+        itemNo: '1',
+        courtName: '서울중앙지방법원',
+        deptName: null,
+        usageName: null,
+        address: null,
+        appraisalAmount: null,
+        minimumSalePrice: null,
+        failedBidCount: null,
+        bidDatetime: null,
+        assumedRightsKind: null,
+        riskFlags: null,
+        tenantCount: null,
+      },
+    ]);
+    const repository = new AuctionItemsRepository(pool as never);
+
+    const result = await repository.findOne('B000210', '2025타경900', '1');
+
+    expect(result?.assumedRightsKind).toBeNull();
+    expect(result?.riskFlags).toEqual([]);
+    expect(result?.tenantCount).toBeNull();
   });
 
   it('일치하는 물건이 없으면 null을 반환한다', async () => {

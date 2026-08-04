@@ -14,6 +14,9 @@ const sampleItem: AuctionItemDto = {
   minimumSalePrice: 84_869_000,
   failedBidCount: 6,
   bidDatetime: '2026-07-16T10:00:00.000Z',
+  assumedRightsKind: null,
+  riskFlags: [],
+  tenantCount: null,
   lng: 127.0,
   lat: 37.5,
 };

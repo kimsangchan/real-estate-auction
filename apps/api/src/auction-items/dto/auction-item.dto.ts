@@ -11,6 +11,11 @@ export interface AuctionItemDto {
   minimumSalePrice: number | null;
   failedBidCount: number | null;
   bidDatetime: string | null;
+  // 매각물건명세서(법원 공고 사실) 기반 신호. 명세서를 아직 못 받은 물건은 null/빈 배열이다 —
+  // "인수할 권리가 없다"가 아니라 "확인하지 못했다"는 뜻이라 화면에서 구분해 표기해야 한다.
+  assumedRightsKind: string | null;
+  riskFlags: string[];
+  tenantCount: number | null;
   lng: number | null;
   lat: number | null;
 }

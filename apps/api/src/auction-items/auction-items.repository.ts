@@ -22,6 +22,18 @@ const JOIN_RAW_AND_SCHEDULE = `
     WHERE auction_item_id = ai.id
     ORDER BY observed_at DESC LIMIT 1
   ) sch ON true
+  -- 매각물건명세서는 기일마다 새로 작성되므로 가장 최근 것 하나만 쓴다 (수집기 §4-13).
+  -- 점유자 수는 tenant_seq로 센다 — 같은 사람이 정보출처별로 여러 행에 나오기 때문이다 (§4-8).
+  LEFT JOIN LATERAL (
+    SELECT
+      n.assumed_rights_kind,
+      n.risk_flags,
+      (SELECT count(DISTINCT t.tenant_seq)
+         FROM auction_item_notice_tenant t WHERE t.notice_id = n.id) AS tenant_count
+    FROM auction_item_notice n
+    WHERE n.auction_item_id = ai.id
+    ORDER BY n.document_date DESC NULLS LAST, n.id DESC LIMIT 1
+  ) ntc ON true
 `;
 
 const SELECT_AND_FROM = `
@@ -37,6 +49,9 @@ const SELECT_AND_FROM = `
     ai.minimum_sale_price AS "minimumSalePrice",
     ai.failed_bid_count AS "failedBidCount",
     sch.bid_datetime AS "bidDatetime",
+    ntc.assumed_rights_kind AS "assumedRightsKind",
+    ntc.risk_flags AS "riskFlags",
+    ntc.tenant_count AS "tenantCount",
     ST_X(ai.geom) AS "lng",
     ST_Y(ai.geom) AS "lat"
   ${JOIN_RAW_AND_SCHEDULE}
@@ -54,6 +69,9 @@ interface AuctionItemRow extends QueryResultRow {
   minimumSalePrice: string | null;
   failedBidCount: number | null;
   bidDatetime: Date | null;
+  assumedRightsKind: string | null;
+  riskFlags: string[] | null;
+  tenantCount: string | null;
   lng: number | null;
   lat: number | null;
 }
@@ -64,6 +82,10 @@ function toDto(row: AuctionItemRow): AuctionItemDto {
     appraisalAmount: row.appraisalAmount === null ? null : Number(row.appraisalAmount),
     minimumSalePrice: row.minimumSalePrice === null ? null : Number(row.minimumSalePrice),
     bidDatetime: row.bidDatetime === null ? null : row.bidDatetime.toISOString(),
+    // 명세서가 없는 물건은 "위험 없음"이 아니라 "확인 못 함"이다 — 빈 배열과 null을 구분한다
+    riskFlags: row.riskFlags ?? [],
+    // ?? 로 받는다 — null만 검사하면 컬럼이 undefined일 때 Number(undefined)가 NaN이 된다
+    tenantCount: row.tenantCount == null ? null : Number(row.tenantCount),
   };
 }
 

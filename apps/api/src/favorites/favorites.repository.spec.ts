@@ -21,6 +21,9 @@ describe('FavoritesRepository', () => {
         bidDatetime: new Date('2026-07-16T10:00:00Z'),
         lng: 126.998,
         lat: 37.571,
+        assumedRightsKind: 'NONE',
+        riskFlags: ['HUG_PRIORITY_WAIVER'],
+        tenantCount: '1',
         favoritedAt: new Date('2026-07-20T00:00:00Z'),
       },
     ];
@@ -44,6 +47,9 @@ describe('FavoritesRepository', () => {
         bidDatetime: '2026-07-16T10:00:00.000Z',
         lng: 126.998,
         lat: 37.571,
+        assumedRightsKind: 'NONE',
+        riskFlags: ['HUG_PRIORITY_WAIVER'],
+        tenantCount: 1,
         favoritedAt: '2026-07-20T00:00:00.000Z',
       },
     ]);
