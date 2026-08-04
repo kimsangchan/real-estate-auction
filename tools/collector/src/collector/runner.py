@@ -32,6 +32,12 @@ logger = logging.getLogger(__name__)
 # 점유자 표는 명세서 1쪽에 있고, 점유자가 많으면 다음 쪽으로 이어진다 — 이어질 때만 더 받는다
 NOTICE_TEXT_MAX_PAGES = 2
 
+# 명세서가 연속으로 이만큼 비면 법원 스로틀로 보고 그 법원을 중단한다 (WP-11 §4-10).
+# 실측(2026-08-04): 180건 정상 뒤 **287건이 연속으로** 빈 응답이었고 3시간 뒤 정상 복구됐다.
+# 개별 물건 사정(기일 지남·미작성)이라면 이만큼 길게 연속될 수 없다. 20은 그 사이를 가르는
+# 보수적인 값이다 — 진짜 미작성 구간을 잘못 끊더라도 다음 실행이 재시도하므로 손실이 없다.
+UNAVAILABLE_STREAK_LIMIT = 20
+
 # 물건상세검색 화면(PGJ151F01) 기본값 — 부동산·기일입찰·법원별검색, 오늘부터 2주 후 매각기일까지
 SEARCH_PERIOD_DAYS = 14
 PAGE_SIZE = 10
@@ -404,8 +410,11 @@ def _collect_notices_for_rows(
     unavailable_items = 0
     tenant_rows = 0
     tenant_rejected = 0
+    consecutive_unavailable = 0
+    processed = 0
 
     for row_index, row in indexed_rows:
+        processed += 1
         case_no = str(row.get("srnSaNo") or "")
         goods_seq = str(row.get("maemulSer") or "")
         item_no = str(row.get("mokmulSer") or "")
@@ -437,8 +446,10 @@ def _collect_notices_for_rows(
             item_no=item_no,
         )
         if notice is None:
-            # 응답에 명세서가 없다 — 기일이 지났거나(영구 소실) 아직 작성 전이다 (WP-11 §4-3)
+            # 응답에 명세서가 없다 — 기일이 지났거나(영구 소실), 아직 작성 전이거나,
+            # 법원이 스로틀로 빈 응답을 주기 시작한 것이다 (WP-11 §4-10). 셋을 구분할 수 없다.
             unavailable_items += 1
+            consecutive_unavailable += 1
             logger.info(
                 "notice_item_unavailable run_id=%s court=%s case=%s item=%s",
                 run_id,
@@ -446,7 +457,22 @@ def _collect_notices_for_rows(
                 case_no,
                 item_no,
             )
+            # 연속으로 이만큼 비면 스로틀로 본다. 실측(2026-08-04): 180건 정상 뒤 287건이 **연속으로**
+            # 비었고 3시간 뒤 정상 복구됐다. 개별 물건 사정이라면 이렇게 길게 연속될 수 없다.
+            # 계속 돌아봐야 빈 응답만 받으므로 멈추고 다음 실행에 맡긴다 — 명세서 행이 안 생기니
+            # 다음 실행이 자동으로 재시도한다.
+            if consecutive_unavailable >= UNAVAILABLE_STREAK_LIMIT:
+                logger.warning(
+                    "notice_throttle_suspected run_id=%s court=%s streak=%s remaining=%s",
+                    run_id,
+                    target.court_office_code,
+                    consecutive_unavailable,
+                    len(indexed_rows) - processed,
+                )
+                break
             continue
+
+        consecutive_unavailable = 0
 
         # 이 명세서가 어느 기일 것인지는 검색 행에만 있다 — 명세서 본문에는 기일이 없다
         notice = replace(notice, bid_date=notice_bid_date(row))

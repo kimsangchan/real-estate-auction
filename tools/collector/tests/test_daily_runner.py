@@ -16,7 +16,7 @@ from collector.repository import (
     InMemoryPhotoRepository,
     InMemorySaleResultRepository,
 )
-from collector.runner import run_daily
+from collector.runner import UNAVAILABLE_STREAK_LIMIT, run_daily
 
 
 DETAIL_FIXTURE = Path(__file__).parent / "fixtures" / "court_item_detail_page.json"
@@ -549,13 +549,63 @@ def test_daily_masking_runs_even_when_earlier_stage_fails(caplog):
     assert "daily_masking" in "\n".join(r.getMessage() for r in caplog.records)
 
 
+def test_daily_stops_a_court_after_a_long_unavailable_streak(caplog):
+    """명세서가 연속으로 비면 스로틀로 보고 그 법원을 중단한다 (WP-11 §4-10).
+
+    실측: 180건 정상 뒤 287건이 연속으로 비었고 3시간 뒤 정상 복구됐다. 계속 돌아봐야 빈 응답만
+    받으므로 멈추는 게 맞다 — 명세서 행이 안 생기니 다음 실행이 자동으로 재시도한다.
+    """
+    caplog.set_level(logging.INFO)
+    court = "B000210"
+    total = UNAVAILABLE_STREAK_LIMIT + 15
+    rows = [_row(court, f"2024타경{i}") for i in range(1, total + 1)]
+
+    class AlwaysEmptyDetailClient(FakeDailyClient):
+        def search_item_detail(self, payload: dict) -> dict:
+            self.detail_cases.append(payload["dma_srchGdsDtlSrch"]["csNo"])
+            return {"status": 200, "data": {"dma_result": {}}}
+
+    client = AlwaysEmptyDetailClient(
+        {court: [_search_response(rows, page_no=1, total=str(total))]}
+    )
+
+    _run(client, FakeDailyRepository())
+
+    # 상한에서 멈춘다 — 남은 15건은 요청하지 않는다
+    assert len(client.detail_cases) == UNAVAILABLE_STREAK_LIMIT
+    assert "notice_throttle_suspected" in "\n".join(r.getMessage() for r in caplog.records)
+
+
+def test_daily_streak_resets_on_a_successful_notice():
+    """중간에 하나라도 성공하면 연속 카운터가 초기화된다 — 드문드문 빈 것은 스로틀이 아니다."""
+    court = "B000210"
+    # 빈 응답 사이에 성공을 끼워 넣으면 상한에 도달하지 않아 전부 조회한다
+    total = UNAVAILABLE_STREAK_LIMIT + 5
+    rows = [_row(court, f"2024타경{i}") for i in range(1, total + 1)]
+
+    class AlternatingClient(FakeDailyClient):
+        def search_item_detail(self, payload: dict) -> dict:
+            self.detail_cases.append(payload["dma_srchGdsDtlSrch"]["csNo"])
+            # 10건마다 한 번은 정상 응답
+            if len(self.detail_cases) % 10 == 0:
+                return json.loads(DETAIL_FIXTURE.read_text(encoding="utf-8"))
+            return {"status": 200, "data": {"dma_result": {}}}
+
+    client = AlternatingClient({court: [_search_response(rows, page_no=1, total=str(total))]})
+
+    _run(client, FakeDailyRepository())
+
+    assert len(client.detail_cases) == total
+
+
 def test_daily_cli_defaults_two_courts_and_tenants_disabled():
     args = _daily_arg_parser().parse_args([])
 
     assert args.with_tenants is False
     assert args.court_office_code is None
     assert args.notice_limit is None
-    assert DAILY_DEFAULT_COURTS == ["B000210", "B000211"]
+    # 서울 5개 지방법원. B000214는 의정부라 뺐다 (실측 확인 2026-08-04)
+    assert DAILY_DEFAULT_COURTS == ["B000210", "B000211", "B000212", "B000213", "B000215"]
 
 
 def test_daily_photo_stage_reuses_photo_runner():

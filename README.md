@@ -97,18 +97,21 @@ cd tools/collector
 지운 시각은 `masked_at`에 남아 NF-03("72시간 내 100%")의 증거가 된다.
 
 스케줄 등록은 `run_daily.cmd`(루트 `.env`에서 `DATABASE_URL`을 읽어 `daily --with-tenants` 실행,
-로그는 `tools/collector/daily.log`)를 걸어둔다. 이 머신에는 매일 19:00로 등록돼 있다.
+로그는 `tools/collector/daily.log`)를 걸어둔다. 이 머신에는 **3시간 간격**으로 등록돼 있다.
 
-**19:00인 이유**: 매각기일 입찰은 10:00이라 오전에 돌리면 매각결과가 항상 하루 늦는다
-(실측 2026-08-03: 07:01 실행에서 `pending=0`, 같은 날 12:58에도 법원이 결과를 아직 안 올렸다).
-명세서는 기일 1주 전부터 받을 수 있어 시각에 덜 민감하다 — 다만 기일 당일 아침이 마지막 기회인
-물건은 저녁 실행으로 놓칠 수 있으므로, 그 한 건이 문제가 되면 오전 실행을 하나 더 두면 된다
-(이미 받아둔 물건은 건너뛰므로 두 번째 실행은 검색 47요청 수준으로 싸다).
+**3시간 간격인 이유**: 대상 법원을 서울 5곳으로 늘리면서 물건이 469 → 약 2,500건이 됐다.
+명세서는 물건당 5요청 이상이고 법원이 조용히 빈 응답으로 degrade하는 벽이 실측 180건 근처라
+(WP-11 §4-10) 한 번에 다 받을 수 없다. 자주 돌려 벽을 피해가며 **기일이 가까운 물건부터** 채운다.
+이미 받아둔 물건은 건너뛰므로 대상이 없으면 검색 요청 수준으로 싸게 끝난다.
+
+매각결과는 입찰(10:00) 이후에 올라오므로 오전 실행만으로는 항상 하루 늦는다
+(실측 2026-08-03: 07:01 실행에서 `pending=0`, 같은 날 12:58에도 법원이 결과를 안 올렸다).
+3시간 간격이면 오후 실행이 포함돼 이 문제도 같이 해소된다.
 
 ```powershell
 $dir = "<repo>\tools\collector"
 $action  = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/c `"$dir\run_daily.cmd`"" -WorkingDirectory $dir
-$trigger = New-ScheduledTaskTrigger -Daily -At '19:00'
+$trigger = New-ScheduledTaskTrigger -Once -At '00:00' -RepetitionInterval (New-TimeSpan -Hours 3)
 Register-ScheduledTask -TaskName 'AuctionCollectorDaily' -Action $action -Trigger $trigger -Force
 
 schtasks /query /tn "AuctionCollectorDaily" /fo LIST /v   # 다음 실행 시각·마지막 결과 확인
