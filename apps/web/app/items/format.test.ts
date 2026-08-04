@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   computeMinimumBidRate,
+  formatAreaM2,
   formatBidDatetime,
   formatDday,
   formatDropRate,
+  formatPyeong,
+  formatUnitPrice,
   formatWon,
   formatWonCompact,
 } from './format';
@@ -78,4 +81,35 @@ test('formatBidDatetime은 UTC 시각을 한국 표준시로 변환한다', () =
 
 test('formatBidDatetime은 null이면 null을 반환한다', () => {
   assert.equal(formatBidDatetime(null), null);
+});
+
+test('formatPyeong은 ㎡를 평으로 환산한다 (1평 = 400/121㎡)', () => {
+  // 실측값: 28.21㎡ 다세대 → 8.5평
+  assert.equal(formatPyeong(28.21), '8.5평');
+  assert.equal(formatPyeong(84.99), '25.7평');
+});
+
+test('formatAreaM2는 소수점을 한 자리로 줄인다', () => {
+  // 법원 값에 14.0075처럼 자릿수가 긴 게 온다
+  assert.equal(formatAreaM2(14.0075), '14.0㎡');
+  assert.equal(formatAreaM2(28.21), '28.2㎡');
+});
+
+test('면적이 없거나 0이면 평·㎡ 모두 null — 추정하지 않는다', () => {
+  assert.equal(formatPyeong(null), null);
+  assert.equal(formatPyeong(0), null);
+  assert.equal(formatAreaM2(null), null);
+  assert.equal(formatAreaM2(0), null);
+});
+
+test('formatUnitPrice는 평당·㎡당을 같은 값에서 뽑는다', () => {
+  // 실측: 최저가 2.65억 / 28.21㎡ → 평당 3,129만 · ㎡당 946만
+  assert.equal(formatUnitPrice(265_000_000, 28.21, 'pyeong'), '평당 3,105만');
+  assert.equal(formatUnitPrice(265_000_000, 28.21, 'm2'), '㎡당 939만');
+});
+
+test('formatUnitPrice는 금액이나 면적이 없으면 null', () => {
+  assert.equal(formatUnitPrice(null, 28.21, 'pyeong'), null);
+  assert.equal(formatUnitPrice(265_000_000, null, 'pyeong'), null);
+  assert.equal(formatUnitPrice(265_000_000, 0, 'm2'), null);
 });

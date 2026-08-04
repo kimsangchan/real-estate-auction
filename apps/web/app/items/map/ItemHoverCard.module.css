@@ -95,3 +95,12 @@
   color: var(--color-steel);
   font-style: italic;
 }
+
+/* 단위면적당 가격 — 평당·㎡당을 함께 준다. 최저가에 종속된 파생값이라 한 단계 눌러둔다. */
+.unitPrice {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-slate);
+}

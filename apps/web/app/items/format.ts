@@ -32,6 +32,36 @@ export function formatDropRate(
   return `↓${100 - rate}%`;
 }
 
+/** 1평 = 400/121 ㎡ (약 3.3058). 법정 단위 환산값이라 상수로 고정한다. */
+const M2_PER_PYEONG = 400 / 121;
+
+/** 전용면적을 평으로 환산해 "8.5평"으로 만든다. 면적이 없으면 null. */
+export function formatPyeong(areaM2: number | null): string | null {
+  if (areaM2 === null || areaM2 <= 0) return null;
+  return `${(areaM2 / M2_PER_PYEONG).toFixed(1)}평`;
+}
+
+/** 전용면적을 "28.2㎡"로 만든다. 소수점이 길게 오는 값(14.0075)이 있어 한 자리로 줄인다. */
+export function formatAreaM2(areaM2: number | null): string | null {
+  if (areaM2 === null || areaM2 <= 0) return null;
+  return `${areaM2.toFixed(1)}㎡`;
+}
+
+/**
+ * 단위면적당 가격을 만원 단위로. 평당·㎡당을 같은 규칙으로 뽑는다.
+ * 면적이나 금액이 없으면 null — 어느 쪽이든 없으면 계산이 성립하지 않는다.
+ */
+export function formatUnitPrice(
+  amount: number | null,
+  areaM2: number | null,
+  unit: 'pyeong' | 'm2',
+): string | null {
+  if (amount === null || areaM2 === null || areaM2 <= 0) return null;
+  const area = unit === 'pyeong' ? areaM2 / M2_PER_PYEONG : areaM2;
+  const manwon = Math.round(amount / area / 10_000);
+  return `${unit === 'pyeong' ? '평당' : '㎡당'} ${manwon.toLocaleString('ko-KR')}만`;
+}
+
 /** KST 기준 달력 날짜(YYYY-MM-DD). 기기 타임존과 무관하게 매각기일을 세려면 여기서 맞춰야 한다. */
 function kstDate(value: Date): string {
   return value.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });

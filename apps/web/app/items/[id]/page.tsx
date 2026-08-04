@@ -6,7 +6,14 @@ import Link from 'next/link';
 import { fetchAuctionItem, fetchAuctionItemPhotos } from '../api-client';
 import { Badge } from '../components/Badge';
 import { FavoriteButton } from '../components/FavoriteButton';
-import { computeMinimumBidRate, formatBidDatetime, formatWon } from '../format';
+import {
+  computeMinimumBidRate,
+  formatAreaM2,
+  formatBidDatetime,
+  formatPyeong,
+  formatUnitPrice,
+  formatWon,
+} from '../format';
 import { decodeItemId, encodeItemId } from '../item-id';
 import { assumedRightsLabel, riskFlagLabels, tenantLabel } from '../notice-labels';
 import { photoAlt, photoProxySrc } from '../photo';
@@ -58,6 +65,11 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
 
   const minimumBidRate = computeMinimumBidRate(item.appraisalAmount, item.minimumSalePrice);
   const bidDatetimeLabel = formatBidDatetime(item.bidDatetime);
+  // 면적은 평·㎡ 둘 다 보여준다. 면적이 없거나(69건) 여럿이면(34건) 표기하지 않는다 — 추정하지 않는다.
+  const pyeong = formatPyeong(item.exclusiveAreaM2);
+  const areaM2 = formatAreaM2(item.exclusiveAreaM2);
+  const perPyeong = formatUnitPrice(item.minimumSalePrice, item.exclusiveAreaM2, 'pyeong');
+  const perM2 = formatUnitPrice(item.minimumSalePrice, item.exclusiveAreaM2, 'm2');
 
   // 아래 화면 빵부스러기와 문구·순서가 정확히 같아야 한다 — 화면에 없는 정보를 구조화 데이터에만
   // 넣지 않는다 (WP-10 §1-5). 마지막 항목(현재 페이지)은 자기 URL을 생략한다
@@ -97,6 +109,11 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
           </span>
           {minimumBidRate !== null ? <span className={styles.minRate}>최저가율 {minimumBidRate}%</span> : null}
         </div>
+        {perPyeong && perM2 ? (
+          <p className={styles.appraisedLine}>
+            {perPyeong} · {perM2}
+          </p>
+        ) : null}
         {item.appraisalAmount !== null ? (
           <p className={styles.appraisedLine}>
             감정가 <s>{formatWon(item.appraisalAmount)}</s>
@@ -141,6 +158,12 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
           <div className={styles.specsRow}>
             <span className={styles.specsLabel}>물건종류</span>
             <span className={styles.specsValue}>{item.usageName ?? '정보 없음'}</span>
+          </div>
+          <div className={styles.specsRow}>
+            <span className={styles.specsLabel}>전용면적</span>
+            <span className={styles.specsValue}>
+              {pyeong && areaM2 ? `${pyeong} (${areaM2})` : '정보 없음'}
+            </span>
           </div>
           <div className={styles.specsRow}>
             <span className={styles.specsLabel}>담당계</span>

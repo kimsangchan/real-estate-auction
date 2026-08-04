@@ -18,6 +18,7 @@ interface FavoriteRow extends QueryResultRow {
   courtName: string | null;
   deptName: string | null;
   usageName: string | null;
+  exclusiveAreaM2: string | null;
   address: string | null;
   appraisalAmount: string | null;
   minimumSalePrice: string | null;
@@ -36,6 +37,7 @@ function toRecord(row: FavoriteRow): FavoriteRecord {
     ...row,
     appraisalAmount: row.appraisalAmount === null ? null : Number(row.appraisalAmount),
     minimumSalePrice: row.minimumSalePrice === null ? null : Number(row.minimumSalePrice),
+    exclusiveAreaM2: row.exclusiveAreaM2 == null ? null : Number(row.exclusiveAreaM2),
     bidDatetime: row.bidDatetime === null ? null : row.bidDatetime.toISOString(),
     // 명세서가 없는 물건은 "위험 없음"이 아니라 "확인 못 함"이다 (auction-items.repository와 동일 규칙)
     riskFlags: row.riskFlags ?? [],
@@ -52,6 +54,11 @@ const SELECT_FAVORITE_ITEMS = `
     ac.court_name AS "courtName",
     raw.payload->>'jpDeptNm' AS "deptName",
     raw.payload->>'dspslUsgNm' AS "usageName",
+    -- 전용면적(㎡) — auction-items.repository와 같은 규칙(㎡ 표기가 정확히 하나일 때만)
+    CASE
+      WHEN (SELECT count(*) FROM regexp_matches(COALESCE(raw.payload->>'pjbBuldList', ''), '㎡', 'g')) = 1
+      THEN NULLIF(replace((regexp_match(raw.payload->>'pjbBuldList', '([0-9][0-9,]*\.?[0-9]*)\s*㎡'))[1], ',', ''), '')::numeric
+    END AS "exclusiveAreaM2",
     ai.address AS "address",
     ai.appraisal_amount AS "appraisalAmount",
     ai.minimum_sale_price AS "minimumSalePrice",

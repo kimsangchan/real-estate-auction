@@ -5,7 +5,14 @@
 // 주소는 넣지 않는다 — 마커 위치가 이미 위치를 말한다(웹 카드와 같은 판단).
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { AuctionItem } from '../api/auctionItems';
-import { formatDday, formatDropRate, formatWonCompact } from '../lib/format';
+import {
+  formatAreaM2,
+  formatDday,
+  formatDropRate,
+  formatPyeong,
+  formatUnitPrice,
+  formatWonCompact,
+} from '../lib/format';
 import {
   assumedRightsLabel,
   riskFlagLabels,
@@ -32,8 +39,15 @@ export function ItemPreviewSheet({ item, onClose, onOpenDetail }: Props) {
   const noticeMissing =
     rights === null && tenants === null && flags.length === 0;
 
+  // 면적은 평·㎡ 둘 다 — 평이 익숙한 사람과 ㎡가 익숙한 사람이 갈린다.
+  const pyeong = formatPyeong(item.exclusiveAreaM2);
+  const areaM2 = formatAreaM2(item.exclusiveAreaM2);
+  const perPyeong = formatUnitPrice(item.minimumSalePrice, item.exclusiveAreaM2, 'pyeong');
+  const perM2 = formatUnitPrice(item.minimumSalePrice, item.exclusiveAreaM2, 'm2');
+
   const meta = [
     usage,
+    pyeong && areaM2 ? `${pyeong} (${areaM2})` : null,
     item.failedBidCount !== null ? `유찰 ${item.failedBidCount}회` : null,
     dday,
   ].filter((value): value is string => value !== null);
@@ -60,6 +74,11 @@ export function ItemPreviewSheet({ item, onClose, onOpenDetail }: Props) {
         </Text>
         {drop !== null ? <Text style={styles.drop}>{drop}</Text> : null}
       </View>
+      {perPyeong !== null && perM2 !== null ? (
+        <Text style={styles.appraisal}>
+          {perPyeong} · {perM2}
+        </Text>
+      ) : null}
       {item.appraisalAmount !== null ? (
         <Text style={styles.appraisal}>
           감정가 {formatWonCompact(item.appraisalAmount)}

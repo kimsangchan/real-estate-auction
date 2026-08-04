@@ -37,6 +37,32 @@ export function formatDropRate(
   return `↓${100 - rate}%`;
 }
 
+/** 1평 = 400/121 ㎡ (약 3.3058). (웹 format.ts와 같은 상수) */
+const M2_PER_PYEONG = 400 / 121;
+
+export function formatPyeong(areaM2: number | null): string | null {
+  if (areaM2 === null || areaM2 <= 0) return null;
+  return `${(areaM2 / M2_PER_PYEONG).toFixed(1)}평`;
+}
+
+export function formatAreaM2(areaM2: number | null): string | null {
+  if (areaM2 === null || areaM2 <= 0) return null;
+  return `${areaM2.toFixed(1)}㎡`;
+}
+
+/** 단위면적당 가격(만원). 평당·㎡당을 같은 규칙으로 뽑는다. (웹 format.ts와 같은 규칙) */
+export function formatUnitPrice(
+  amount: number | null,
+  areaM2: number | null,
+  unit: 'pyeong' | 'm2',
+): string | null {
+  if (amount === null || areaM2 === null || areaM2 <= 0) return null;
+  const area = unit === 'pyeong' ? areaM2 / M2_PER_PYEONG : areaM2;
+  const manwon = Math.round(amount / area / 10_000);
+  const grouped = manwon.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${unit === 'pyeong' ? '평당' : '㎡당'} ${grouped}만`;
+}
+
 const pad = (n: number): string => n.toString().padStart(2, '0');
 
 /** KST 기준 달력 날짜의 자정 시각(ms). Hermes에 Intl 타임존이 없어 +9시간을 직접 더한다. */

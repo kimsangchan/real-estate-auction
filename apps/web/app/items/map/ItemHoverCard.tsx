@@ -3,12 +3,20 @@
 // 핵심은 명세서 구획이다 — 입문자가 가격·유찰만 보고 놓치는 인수 부담이 여기서 처음 드러난다.
 'use client';
 
-import { formatDday, formatDropRate, formatWonCompact } from '../format';
+import {
+  formatAreaM2,
+  formatDday,
+  formatDropRate,
+  formatPyeong,
+  formatUnitPrice,
+  formatWonCompact,
+} from '../format';
 import { assumedRightsLabel, riskFlagLabels, shortUsageName, tenantLabel } from '../notice-labels';
 import styles from './ItemHoverCard.module.css';
 
 export interface HoverCardItem {
   usageName: string | null;
+  exclusiveAreaM2: number | null;
   appraisalAmount: number | null;
   minimumSalePrice: number | null;
   failedBidCount: number | null;
@@ -36,8 +44,15 @@ export function ItemHoverCard({ item, left, top }: Props) {
   // 명세서를 한 조각도 못 받은 물건 — "인수할 권리 없음"과 구분해서 말해야 한다.
   const noticeMissing = rights === null && tenants === null && flags.length === 0;
 
+  // 면적은 평·㎡ 둘 다 보여준다 — 평이 익숙한 사람과 ㎡가 익숙한 사람이 갈린다.
+  const pyeong = formatPyeong(item.exclusiveAreaM2);
+  const areaM2 = formatAreaM2(item.exclusiveAreaM2);
+  const perPyeong = formatUnitPrice(item.minimumSalePrice, item.exclusiveAreaM2, 'pyeong');
+  const perM2 = formatUnitPrice(item.minimumSalePrice, item.exclusiveAreaM2, 'm2');
+
   const meta = [
     usage,
+    pyeong && areaM2 ? `${pyeong} (${areaM2})` : null,
     item.failedBidCount !== null ? `유찰 ${item.failedBidCount}회` : null,
   ].filter((value): value is string => value !== null);
 
@@ -64,6 +79,11 @@ export function ItemHoverCard({ item, left, top }: Props) {
         </span>
         {drop ? <span className={styles.drop}>{drop}</span> : null}
       </div>
+      {perPyeong && perM2 ? (
+        <div className={styles.unitPrice}>
+          {perPyeong} · {perM2}
+        </div>
+      ) : null}
       {item.appraisalAmount !== null ? (
         <div className={styles.appraisal}>감정가 {formatWonCompact(item.appraisalAmount)}</div>
       ) : null}

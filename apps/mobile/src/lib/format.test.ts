@@ -1,9 +1,12 @@
 // 포맷터 단위 테스트 — 매각기일 KST 표기와 금액 축약이 기기/타임존과 무관하게 결정적임을 보장한다.
 import {
   computeMinimumBidRate,
+  formatAreaM2,
   formatBidDatetime,
   formatDday,
   formatDropRate,
+  formatPyeong,
+  formatUnitPrice,
   formatWon,
   formatWonCompact,
 } from './format';
@@ -93,5 +96,28 @@ describe('formatDday', () => {
     expect(formatDday(bid, new Date('2026-08-04T00:00:00.000Z'))).toBeNull();
     expect(formatDday(null)).toBeNull();
     expect(formatDday('nope')).toBeNull();
+  });
+});
+
+describe('면적·단위가격', () => {
+  it('㎡를 평으로 환산한다 (1평 = 400/121㎡)', () => {
+    expect(formatPyeong(28.21)).toBe('8.5평');
+    expect(formatPyeong(84.99)).toBe('25.7평');
+  });
+
+  it('㎡ 표기는 소수점 한 자리', () => {
+    expect(formatAreaM2(14.0075)).toBe('14.0㎡');
+  });
+
+  it('평당·㎡당을 같은 값에서 뽑는다 (웹과 동일 규칙)', () => {
+    expect(formatUnitPrice(265_000_000, 28.21, 'pyeong')).toBe('평당 3,105만');
+    expect(formatUnitPrice(265_000_000, 28.21, 'm2')).toBe('㎡당 939만');
+  });
+
+  it('면적이나 금액이 없으면 null — 추정하지 않는다', () => {
+    expect(formatPyeong(null)).toBeNull();
+    expect(formatAreaM2(0)).toBeNull();
+    expect(formatUnitPrice(null, 28.21, 'pyeong')).toBeNull();
+    expect(formatUnitPrice(265_000_000, null, 'm2')).toBeNull();
   });
 });

@@ -7,7 +7,15 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { formatDday, formatDropRate, formatWon, formatWonCompact } from '../format';
+import {
+  formatAreaM2,
+  formatDday,
+  formatDropRate,
+  formatPyeong,
+  formatUnitPrice,
+  formatWon,
+  formatWonCompact,
+} from '../format';
 import { encodeItemId } from '../item-id';
 import { assumedRightsLabel, riskFlagLabels, shortUsageName, tenantLabel } from '../notice-labels';
 import { photoAlt, photoProxySrc, type AuctionItemPhoto } from '../photo';
@@ -20,6 +28,7 @@ export interface PanelItem {
   courtName: string | null;
   deptName: string | null;
   usageName: string | null;
+  exclusiveAreaM2: number | null;
   address: string | null;
   appraisalAmount: number | null;
   minimumSalePrice: number | null;
@@ -69,9 +78,17 @@ export function ItemDetailPanel({ item, onClose }: { item: PanelItem; onClose: (
   const flags = riskFlagLabels(item.riskFlags);
   const noticeMissing = rights === null && tenants === null && flags.length === 0;
 
-  const meta = [usage, item.failedBidCount !== null ? `유찰 ${item.failedBidCount}회` : null].filter(
-    (value): value is string => value !== null,
-  );
+  // 면적은 평·㎡ 둘 다 — 평이 익숙한 사람과 ㎡가 익숙한 사람이 갈린다.
+  const pyeong = formatPyeong(item.exclusiveAreaM2);
+  const areaM2 = formatAreaM2(item.exclusiveAreaM2);
+  const perPyeong = formatUnitPrice(item.minimumSalePrice, item.exclusiveAreaM2, 'pyeong');
+  const perM2 = formatUnitPrice(item.minimumSalePrice, item.exclusiveAreaM2, 'm2');
+
+  const meta = [
+    usage,
+    pyeong && areaM2 ? `${pyeong} (${areaM2})` : null,
+    item.failedBidCount !== null ? `유찰 ${item.failedBidCount}회` : null,
+  ].filter((value): value is string => value !== null);
 
   return (
     <aside className={styles.panel} aria-label="물건 요약">
@@ -122,6 +139,11 @@ export function ItemDetailPanel({ item, onClose }: { item: PanelItem; onClose: (
           </span>
           {drop ? <span className={styles.drop}>{drop}</span> : null}
         </div>
+        {perPyeong && perM2 ? (
+          <div className={styles.appraisal}>
+            {perPyeong} · {perM2}
+          </div>
+        ) : null}
         {item.appraisalAmount !== null ? (
           <div className={styles.appraisal}>감정가 {formatWonCompact(item.appraisalAmount)}</div>
         ) : null}
@@ -151,6 +173,10 @@ export function ItemDetailPanel({ item, onClose }: { item: PanelItem; onClose: (
         <div className={styles.specs}>
           <span className={styles.specsLabel}>물건종류</span>
           <span className={styles.specsValue}>{item.usageName ?? '정보 없음'}</span>
+          <span className={styles.specsLabel}>전용면적</span>
+          <span className={styles.specsValue}>
+            {pyeong && areaM2 ? `${pyeong} (${areaM2})` : '정보 없음'}
+          </span>
           <span className={styles.specsLabel}>담당계</span>
           <span className={styles.specsValue}>{item.deptName ?? '정보 없음'}</span>
         </div>
