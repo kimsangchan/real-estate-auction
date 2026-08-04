@@ -17,6 +17,7 @@ import {
   type AuctionItem,
   type Bbox,
 } from '../api/auctionItems';
+import { ItemPreviewSheet } from '../components/ItemPreviewSheet';
 import { formatDropRate, formatWonCompact } from '../lib/format';
 import type { RootStackParamList, TabParamList } from '../navigation';
 import { colors, radius, space, text } from '../theme';
@@ -47,6 +48,9 @@ export function MapHomeScreen({ navigation }: Props) {
   const [zoom, setZoom] = useState(11);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  // 마커를 탭하면 상세로 바로 가지 않고 미리보기를 먼저 띄운다 — 모바일에는 호버가 없어
+  // "지도에서 볼 수 없는 정보"를 확인할 단계가 달리 없다 (웹 호버 카드의 대응물).
+  const [preview, setPreview] = useState<AuctionItem | null>(null);
 
   const load = useCallback(async (bbox: Bbox) => {
     setLoading(true);
@@ -116,9 +120,11 @@ export function MapHomeScreen({ navigation }: Props) {
         clusters={showCaptions ? undefined : clusters}
         onTapClusterLeaf={({ markerIdentifier }) => {
           const item = itemsById.get(markerIdentifier);
-          if (item) goToDetail(item);
+          if (item) setPreview(item);
         }}
         onCameraIdle={event => {
+          // 지도를 움직이면 어느 마커의 미리보기인지 알 수 없게 된다 — 닫는다.
+          setPreview(null);
           if (typeof event.zoom === 'number') setZoom(event.zoom);
           load({
             minLng: event.region.longitude,
@@ -141,7 +147,7 @@ export function MapHomeScreen({ navigation }: Props) {
                   key={itemKey(item)}
                   latitude={item.lat as number}
                   longitude={item.lng as number}
-                  onTap={() => goToDetail(item)}
+                  onTap={() => setPreview(item)}
                   caption={
                     item.minimumSalePrice !== null
                       ? {
@@ -160,6 +166,18 @@ export function MapHomeScreen({ navigation }: Props) {
             })
           : null}
       </NaverMapView>
+
+      {preview ? (
+        <ItemPreviewSheet
+          item={preview}
+          onClose={() => setPreview(null)}
+          onOpenDetail={() => {
+            const item = preview;
+            setPreview(null);
+            goToDetail(item);
+          }}
+        />
+      ) : null}
 
       <View style={styles.badge} pointerEvents="none">
         {loading ? (

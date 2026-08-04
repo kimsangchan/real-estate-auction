@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import {
+  ASSUMED_RIGHTS_LABEL,
+  RISK_FLAG_LABEL,
   assumedRightsLabel,
   riskFlagLabels,
   shortUsageName,
@@ -50,4 +54,31 @@ test('tenantLabel은 0명과 미확인을 구분한다', () => {
   assert.equal(tenantLabel(0), '점유자 없음');
   assert.equal(tenantLabel(2), '점유자 2명');
   assert.equal(tenantLabel(null), null);
+});
+
+// 같은 라벨 맵을 apps/mobile에도 두고 있다(RN에 @auction/shared를 붙이면 Metro 해석 문제를
+// 다시 겪어서 format.ts 선례를 따랐다). 한쪽만 고치면 다른 쪽 사용자에게 코드 원문이 노출되므로
+// 여기서 두 파일을 직접 비교해 어긋남을 막는다. RN tsconfig에는 Node 타입이 없어 웹에 둔다.
+function parseLabels(source: string, mapName: string): Record<string, string> {
+  const body = source.split(`export const ${mapName}: Record<string, string> = {`)[1]?.split('};')[0];
+  if (body === undefined) throw new Error(`${mapName}을 찾지 못했다`);
+  const out: Record<string, string> = {};
+  for (const line of body.split('\n')) {
+    const match = /^\s*([A-Z_]+):\s*'(.*)',\s*$/.exec(line);
+    if (match) out[match[1] as string] = match[2] as string;
+  }
+  return out;
+}
+
+const mobileSource = readFileSync(
+  join(__dirname, '..', '..', '..', '..', 'mobile', 'src', 'lib', 'notice-labels.ts'),
+  'utf-8',
+);
+
+test('인수권리 라벨이 모바일 사본과 같다', () => {
+  assert.deepEqual(parseLabels(mobileSource, 'ASSUMED_RIGHTS_LABEL'), ASSUMED_RIGHTS_LABEL);
+});
+
+test('위험 플래그 라벨이 모바일 사본과 같다', () => {
+  assert.deepEqual(parseLabels(mobileSource, 'RISK_FLAG_LABEL'), RISK_FLAG_LABEL);
 });

@@ -37,6 +37,9 @@ const ITEM: AuctionItem = {
   minimumSalePrice: 400000000,
   failedBidCount: 1,
   bidDatetime: null,
+  assumedRightsKind: null,
+  riskFlags: [],
+  tenantCount: null,
   lng: null,
   lat: null,
 };

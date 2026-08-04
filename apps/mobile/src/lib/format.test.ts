@@ -2,6 +2,7 @@
 import {
   computeMinimumBidRate,
   formatBidDatetime,
+  formatDday,
   formatDropRate,
   formatWon,
   formatWonCompact,
@@ -68,5 +69,29 @@ describe('formatDropRate', () => {
     expect(formatDropRate(null, 640)).toBeNull();
     expect(formatDropRate(1000, null)).toBeNull();
     expect(formatDropRate(0, 640)).toBeNull();
+  });
+});
+
+describe('formatDday', () => {
+  // 매각기일 8/3 10:00 KST = 8/3 01:00 UTC
+  const bid = '2026-08-03T01:00:00.000Z';
+
+  it('KST 달력 날짜 차이로 센다', () => {
+    expect(formatDday(bid, new Date('2026-08-03T00:00:00.000Z'))).toBe('D-day');
+    expect(formatDday(bid, new Date('2026-08-02T00:00:00.000Z'))).toBe('D-1');
+    expect(formatDday(bid, new Date('2026-07-27T00:00:00.000Z'))).toBe('D-7');
+  });
+
+  it('KST 자정 경계를 UTC로 착각하지 않는다', () => {
+    // 8/2 23:30 KST = 8/2 14:30 UTC — 아직 D-1
+    expect(formatDday(bid, new Date('2026-08-02T14:30:00.000Z'))).toBe('D-1');
+    // 8/3 00:30 KST = 8/2 15:30 UTC — KST로는 당일이라 D-day
+    expect(formatDday(bid, new Date('2026-08-02T15:30:00.000Z'))).toBe('D-day');
+  });
+
+  it('기일이 지났거나 값이 없으면 null', () => {
+    expect(formatDday(bid, new Date('2026-08-04T00:00:00.000Z'))).toBeNull();
+    expect(formatDday(null)).toBeNull();
+    expect(formatDday('nope')).toBeNull();
   });
 });

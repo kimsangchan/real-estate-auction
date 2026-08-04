@@ -39,6 +39,26 @@ export function formatDropRate(
 
 const pad = (n: number): string => n.toString().padStart(2, '0');
 
+/** KST 기준 달력 날짜의 자정 시각(ms). Hermes에 Intl 타임존이 없어 +9시간을 직접 더한다. */
+function kstMidnight(value: Date): number {
+  const kst = new Date(value.getTime() + 9 * 60 * 60 * 1000);
+  return Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate());
+}
+
+/**
+ * 매각기일까지 남은 일수 라벨. 시각 차가 아니라 **KST 달력 날짜** 차로 센다 —
+ * "오늘 오후 2시"와 "내일 오전 10시"는 24시간이 안 되지만 D-0과 D-1이어야 한다.
+ * 기일이 지났으면 null. (웹 format.ts와 같은 규칙)
+ */
+export function formatDday(iso: string | null, now: Date = new Date()): string | null {
+  if (!iso) return null;
+  const bid = new Date(iso);
+  if (Number.isNaN(bid.getTime())) return null;
+  const days = Math.round((kstMidnight(bid) - kstMidnight(now)) / 86_400_000);
+  if (days < 0) return null;
+  return days === 0 ? 'D-day' : `D-${days}`;
+}
+
 // 매각기일은 법적으로 중요한 값이라 기기 타임존과 무관하게 항상 KST(+09:00)로 표기한다.
 export function formatBidDatetime(iso: string | null): string | null {
   if (!iso) return null;
