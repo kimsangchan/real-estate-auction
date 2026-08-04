@@ -50,7 +50,10 @@ function kstMidnight(value: Date): number {
  * "오늘 오후 2시"와 "내일 오전 10시"는 24시간이 안 되지만 D-0과 D-1이어야 한다.
  * 기일이 지났으면 null. (웹 format.ts와 같은 규칙)
  */
-export function formatDday(iso: string | null, now: Date = new Date()): string | null {
+export function formatDday(
+  iso: string | null,
+  now: Date = new Date(),
+): string | null {
   if (!iso) return null;
   const bid = new Date(iso);
   if (Number.isNaN(bid.getTime())) return null;

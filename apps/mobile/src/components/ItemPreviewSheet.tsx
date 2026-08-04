@@ -29,7 +29,8 @@ export function ItemPreviewSheet({ item, onClose, onOpenDetail }: Props) {
   const flags = riskFlagLabels(item.riskFlags);
 
   // 명세서를 한 조각도 못 받은 물건 — "인수할 권리 없음"과 구분해서 말해야 한다.
-  const noticeMissing = rights === null && tenants === null && flags.length === 0;
+  const noticeMissing =
+    rights === null && tenants === null && flags.length === 0;
 
   const meta = [
     usage,
@@ -53,12 +54,16 @@ export function ItemPreviewSheet({ item, onClose, onOpenDetail }: Props) {
 
       <View style={styles.priceRow}>
         <Text style={styles.price}>
-          {item.minimumSalePrice !== null ? formatWonCompact(item.minimumSalePrice) : '최저가 미상'}
+          {item.minimumSalePrice !== null
+            ? formatWonCompact(item.minimumSalePrice)
+            : '최저가 미상'}
         </Text>
         {drop !== null ? <Text style={styles.drop}>{drop}</Text> : null}
       </View>
       {item.appraisalAmount !== null ? (
-        <Text style={styles.appraisal}>감정가 {formatWonCompact(item.appraisalAmount)}</Text>
+        <Text style={styles.appraisal}>
+          감정가 {formatWonCompact(item.appraisalAmount)}
+        </Text>
       ) : null}
 
       <View style={styles.notice}>
@@ -66,7 +71,9 @@ export function ItemPreviewSheet({ item, onClose, onOpenDetail }: Props) {
           <Text style={styles.noticeUnknown}>매각물건명세서 미확인</Text>
         ) : (
           <View style={styles.chips}>
-            {tenants !== null ? <Text style={styles.chip}>{tenants}</Text> : null}
+            {tenants !== null ? (
+              <Text style={styles.chip}>{tenants}</Text>
+            ) : null}
             {rights !== null ? <Text style={styles.chip}>{rights}</Text> : null}
             {flags.map(flag => (
               <Text key={flag} style={styles.chip}>
@@ -77,7 +84,11 @@ export function ItemPreviewSheet({ item, onClose, onOpenDetail }: Props) {
         )}
       </View>
 
-      <Pressable style={styles.cta} onPress={onOpenDetail} accessibilityRole="button">
+      <Pressable
+        style={styles.cta}
+        onPress={onOpenDetail}
+        accessibilityRole="button"
+      >
         <Text style={styles.ctaText}>상세 보기</Text>
       </Pressable>
     </View>
@@ -102,10 +113,19 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     elevation: 8,
   },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   meta: { ...text.caption, color: colors.slate, flexShrink: 1 },
   close: { ...text.bodyMd, color: colors.steel, paddingHorizontal: space.xs },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.xs, marginTop: space.xs },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: space.xs,
+    marginTop: space.xs,
+  },
   price: { ...text.subtitleLg, color: colors.inkDeep },
   drop: { ...text.caption, color: colors.slate },
   appraisal: { ...text.caption, color: colors.steel, marginTop: 2 },
