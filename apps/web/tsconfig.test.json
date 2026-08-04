@@ -20,6 +20,8 @@
     "app/items/notice-labels.test.ts",
     "app/items/photo.ts",
     "app/items/photo.test.ts",
+    "app/items/rights-rows.ts",
+    "app/items/rights-rows.test.ts",
     "app/items/map/cluster.ts",
     "app/items/map/cluster.test.ts",
     "app/login/provider-href.ts",
