@@ -11,6 +11,14 @@
 --   1) 낙찰가율은 auction_sale_result.minimum_sale_price(그 기일 최저가)로 계산한다.
 --      auction_item.minimum_sale_price는 최신 관측값이라 "낙찰가 < 최저가"가 나온다.
 --   2) 일괄매각은 물건마다 같은 감정가·낙찰가가 붙는다 → 사건 단위로 dedupe한다.
+--   3) **일괄매각 건은 비율 계산에서 아예 뺀다.** dedupe만으로는 부족하다 — 낙찰가는 묶음
+--      전체인데 감정가·최저가는 목적물 하나 것이라 분자와 분모의 단위가 다르다. 나누면 비율이
+--      그냥 부풀려진다. §4-1이 "우리 룰이 설명해야 할 대표 사례"로 지목한 최저가대비 490%
+--      (2024타경1775, 유찰 9회)가 이 아티팩트일 가능성이 높다 — 유찰 9회면 최저가가 감정가의
+--      13%인데 감정가의 66%에 낙찰되려면 최저가의 5배를 써낸 것이고, 나머지 표본 7건은 전부
+--      100~125%였다. 실입찰에서 5배는 비현실적이다.
+--      같은 함정을 2026-08-04에 API에서도 만났다: 34.32㎡ 상가에 최저가 340억이 붙어
+--      평당가가 32.8억으로 나왔다(일괄매각 129건, 전체의 27%).
 
 \pset border 2
 \timing off
@@ -28,7 +36,9 @@ LEFT JOIN auction_item_notice n ON n.auction_item_id = i.id
 LEFT JOIN auction_sale_result r ON r.auction_item_id = i.id
 GROUP BY 1 ORDER BY 1;
 
--- 사건 단위로 중복 제거한 낙찰 건 (아래 H1·H2가 공통으로 쓴다)
+-- 사건 단위로 중복 제거한 낙찰 건 (아래 H1·H2가 공통으로 쓴다).
+-- 일괄매각은 분자(묶음 낙찰가)와 분모(목적물 감정가)의 단위가 달라 비율을 만들 수 없다 → 제외(함정 3).
+-- 제외 건수는 아래에서 따로 찍는다 — 조용히 빠지면 표본이 왜 줄었는지 알 수 없다.
 CREATE TEMP VIEW sold_cases AS
 SELECT DISTINCT ON (i.auction_case_id)
        i.auction_case_id,
@@ -43,8 +53,24 @@ SELECT DISTINCT ON (i.auction_case_id)
 FROM auction_sale_result r
 JOIN auction_item i ON i.id = r.auction_item_id
 JOIN auction_case c ON c.id = i.auction_case_id
+LEFT JOIN LATERAL (
+  SELECT payload FROM auction_item_raw
+  WHERE auction_item_id = i.id ORDER BY observed_at DESC LIMIT 1
+) raw ON true
 WHERE r.result_code = '001' AND r.sale_amount IS NOT NULL
+  AND COALESCE(raw.payload->>'mulBigo', '') NOT LIKE '%일괄%'
 ORDER BY i.auction_case_id, i.item_no;
+
+\echo '=== 0-b. 일괄매각으로 비율 계산에서 제외한 낙찰 건 ==='
+SELECT count(DISTINCT i.auction_case_id) AS 제외사건, count(*) AS 제외물건
+FROM auction_sale_result r
+JOIN auction_item i ON i.id = r.auction_item_id
+LEFT JOIN LATERAL (
+  SELECT payload FROM auction_item_raw
+  WHERE auction_item_id = i.id ORDER BY observed_at DESC LIMIT 1
+) raw ON true
+WHERE r.result_code = '001' AND r.sale_amount IS NOT NULL
+  AND COALESCE(raw.payload->>'mulBigo', '') LIKE '%일괄%';
 
 -- ── H1. 유찰횟수 ↔ 낙찰가율 (베이스라인) ─────────────────────────────────────
 -- 우리 룰 없이 유찰횟수만으로 낙찰가율을 얼마나 설명하는지. H2는 이 위에서 개선을 증명해야 한다.

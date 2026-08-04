@@ -11,7 +11,6 @@ import {
   formatAreaWithKind,
   formatDday,
   formatDropRate,
-  formatUnitPriceWithKind,
   formatWon,
   formatWonCompact,
 } from '../format';
@@ -81,8 +80,6 @@ export function ItemDetailPanel({ item, onClose }: { item: PanelItem; onClose: (
 
   // 면적은 평·㎡ 둘 다 — 평이 익숙한 사람과 ㎡가 익숙한 사람이 갈린다.
   const areaText = formatAreaWithKind(item.areaM2, item.areaKind);
-  const perPyeong = formatUnitPriceWithKind(item.minimumSalePrice, item.areaM2, item.areaKind, 'pyeong', item.bulkSale);
-  const perM2 = formatUnitPriceWithKind(item.minimumSalePrice, item.areaM2, null, 'm2', item.bulkSale);
 
   const meta = [
     usage,
@@ -139,11 +136,6 @@ export function ItemDetailPanel({ item, onClose }: { item: PanelItem; onClose: (
           </span>
           {drop ? <span className={styles.drop}>{drop}</span> : null}
         </div>
-        {perPyeong && perM2 ? (
-          <div className={styles.appraisal}>
-            {perPyeong} · {perM2}
-          </div>
-        ) : null}
         {item.appraisalAmount !== null ? (
           <div className={styles.appraisal}>감정가 {formatWonCompact(item.appraisalAmount)}</div>
         ) : null}

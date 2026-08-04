@@ -10,7 +10,6 @@ import {
   computeMinimumBidRate,
   formatAreaWithKind,
   formatBidDatetime,
-  formatUnitPriceWithKind,
   formatWon,
 } from '../format';
 import { decodeItemId, encodeItemId } from '../item-id';
@@ -67,8 +66,6 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
   // 면적은 평·㎡ 둘 다 보여준다. 건물이면 전용면적, 토지면 토지면적이다.
   // 일괄매각·다층처럼 면적이 여럿이거나 표기가 없으면 생략한다 — 추정하지 않는다.
   const areaText = formatAreaWithKind(item.areaM2, item.areaKind);
-  const perPyeong = formatUnitPriceWithKind(item.minimumSalePrice, item.areaM2, item.areaKind, 'pyeong', item.bulkSale);
-  const perM2 = formatUnitPriceWithKind(item.minimumSalePrice, item.areaM2, null, 'm2', item.bulkSale);
 
   // 아래 화면 빵부스러기와 문구·순서가 정확히 같아야 한다 — 화면에 없는 정보를 구조화 데이터에만
   // 넣지 않는다 (WP-10 §1-5). 마지막 항목(현재 페이지)은 자기 URL을 생략한다
@@ -108,11 +105,6 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
           </span>
           {minimumBidRate !== null ? <span className={styles.minRate}>최저가율 {minimumBidRate}%</span> : null}
         </div>
-        {perPyeong && perM2 ? (
-          <p className={styles.appraisedLine}>
-            {perPyeong} · {perM2}
-          </p>
-        ) : null}
         {item.appraisalAmount !== null ? (
           <p className={styles.appraisedLine}>
             감정가 <s>{formatWon(item.appraisalAmount)}</s>
