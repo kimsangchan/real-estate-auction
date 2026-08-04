@@ -45,8 +45,10 @@ class InMemoryAuctionRepository:
 class InMemoryNoticeRepository:
     """명세서 멱등 저장 규칙(같은 물건·작성일 중복 금지)을 검증하기 위한 테스트용 저장소."""
 
-    def __init__(self) -> None:
+    def __init__(self, ended_item_keys: set[tuple[str, str, str]] | None = None) -> None:
         self.notices: dict[tuple[str, str, str, Any], ItemNotice] = {}
+        # 배당종결(015)로 종료 판정된 물건 — 실제 저장소는 auction_sale_result로 판단한다
+        self.ended_item_keys = ended_item_keys or set()
 
     def upsert_notices(self, notices: list[ItemNotice]) -> UpsertResult:
         inserted = 0
@@ -85,6 +87,28 @@ class InMemoryNoticeRepository:
             for (court, case_no, item_no, _), notice in self.notices.items()
             if notice.tenants_scanned
         }
+
+    def mask_ended_case_tenant_names(self) -> int:
+        """종료 사건의 성명을 지운다 — 종료 판정은 주입된 ended_keys로 흉내낸다 (NF-03)."""
+        masked = 0
+        for key, notice in list(self.notices.items()):
+            if key[:3] not in self.ended_item_keys:
+                continue
+            kept = tuple(
+                replace(t, tenant_name=None) if t.tenant_name is not None else t
+                for t in notice.tenants
+            )
+            masked += sum(1 for t in notice.tenants if t.tenant_name is not None)
+            self.notices[key] = replace(notice, tenants=kept)
+        return masked
+
+    def count_unmasked_tenant_names(self) -> int:
+        return sum(
+            1
+            for notice in self.notices.values()
+            for tenant in notice.tenants
+            if tenant.tenant_name is not None
+        )
 
 
 class InMemoryPhotoRepository:

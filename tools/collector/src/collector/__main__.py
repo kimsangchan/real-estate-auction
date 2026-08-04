@@ -38,6 +38,8 @@ def main() -> None:
         _run_photos(argv[1:])
     elif argv and argv[0] == "daily":
         _run_daily(argv[1:])
+    elif argv and argv[0] == "mask":
+        _run_mask(argv[1:])
     else:
         _run_collect(argv)
 
@@ -166,6 +168,22 @@ def _run_photos(argv: list[str]) -> None:
         repository=repository,
         court_office_code=args.court_office_code,
         limit=args.limit,
+    )
+
+
+def _run_mask(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(
+        prog="collector mask",
+        description="배당종결된 사건의 점유자 성명을 지운다 (NF-03). daily 5단계와 같은 동작이다",
+    )
+    parser.add_argument("--migrate", action="store_true")
+    args = parser.parse_args(argv)
+
+    _, repository = _bootstrap(migrate=args.migrate)
+    masked = repository.mask_ended_case_tenant_names()
+    remaining = repository.count_unmasked_tenant_names()
+    logging.getLogger(__name__).info(
+        "masking_done masked=%s unmasked_remaining=%s", masked, remaining
     )
 
 

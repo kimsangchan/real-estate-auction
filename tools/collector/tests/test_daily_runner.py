@@ -89,9 +89,9 @@ class FakeDailyClient:
 class FakeDailyRepository:
     """네 저장소 프로토콜을 한 객체로 합친다 — PostgresAuctionRepository와 같은 사용면."""
 
-    def __init__(self, pending_sale=None, missing_photos=None):
+    def __init__(self, pending_sale=None, missing_photos=None, ended_item_keys=None):
         self._items = InMemoryAuctionRepository()
-        self._notice_repo = InMemoryNoticeRepository()
+        self._notice_repo = InMemoryNoticeRepository(ended_item_keys)
         self._sale = InMemorySaleResultRepository(pending_sale)
         self._photos = InMemoryPhotoRepository(missing_photos)
 
@@ -106,6 +106,12 @@ class FakeDailyRepository:
 
     def find_item_keys_with_tenant_scan(self):
         return self._notice_repo.find_item_keys_with_tenant_scan()
+
+    def mask_ended_case_tenant_names(self):
+        return self._notice_repo.mask_ended_case_tenant_names()
+
+    def count_unmasked_tenant_names(self):
+        return self._notice_repo.count_unmasked_tenant_names()
 
     def find_items_pending_sale_result(self):
         return self._sale.find_items_pending_sale_result()
@@ -492,6 +498,55 @@ def test_daily_notice_limit_keeps_most_urgent():
     _run(client, FakeDailyRepository(), notice_limit=2)
 
     assert client.detail_cases == ["2024타경100", "2024타경200"]
+
+
+def test_daily_masks_tenant_names_of_ended_cases(caplog):
+    """배당종결된 사건의 점유자 성명을 지운다 (NF-03) — 파기는 법적 의무다."""
+    caplog.set_level(logging.INFO)
+    court = "B000210"
+    pages = [_search_response([_row(court, "2024타경1")], page_no=1, total="1")]
+    repository = FakeDailyRepository(ended_item_keys={(court, "2024타경1", "1")})
+    reader = FakeDocumentReader()
+
+    _run(FakeDailyClient({court: pages}), repository, document_reader=reader)
+
+    assert repository.count_unmasked_tenant_names() == 0
+    messages = "\n".join(r.getMessage() for r in caplog.records)
+    assert "daily_masking" in messages
+    assert "unmasked_remaining=0" in messages
+
+
+def test_daily_keeps_tenant_names_while_case_is_open():
+    """진행 중 사건의 성명은 지우지 않는다 — 지우면 재수집도 못 하고 되돌릴 수 없다."""
+    court = "B000210"
+    pages = [_search_response([_row(court, "2024타경1")], page_no=1, total="1")]
+    repository = FakeDailyRepository()  # 종료된 사건 없음
+    reader = FakeDocumentReader()
+
+    _run(FakeDailyClient({court: pages}), repository, document_reader=reader)
+
+    assert repository.count_unmasked_tenant_names() > 0
+
+
+def test_daily_masking_runs_even_when_earlier_stage_fails(caplog):
+    """앞 단계가 죽어도 마스킹은 돈다 — 파기 의무는 수집 성공 여부와 무관하다."""
+    caplog.set_level(logging.INFO)
+    court = "B000210"
+
+    class BrokenPhotoRepository(FakeDailyRepository):
+        def find_cases_missing_photos(self, court_office_code=None):
+            raise RuntimeError("db down")
+
+    repository = BrokenPhotoRepository(ended_item_keys={(court, "2024타경1", "1")})
+    client = FakeDailyClient(
+        {court: [_search_response([_row(court, "2024타경1")], page_no=1, total="1")]}
+    )
+
+    summary = _run(client, repository, document_reader=FakeDocumentReader())
+
+    assert summary.stage_failures == 1  # 사진 단계만 실패
+    assert repository.count_unmasked_tenant_names() == 0
+    assert "daily_masking" in "\n".join(r.getMessage() for r in caplog.records)
 
 
 def test_daily_cli_defaults_two_courts_and_tenants_disabled():

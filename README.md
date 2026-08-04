@@ -86,7 +86,15 @@ cd tools/collector
 # --with-tenants를 붙이면 명세서 PDF를 열어 점유자(임차인) 표까지 받는다.
 # 기재사항만 받아둔 물건도 다시 열고, 한 번 연 물건은 건너뛴다(tenant_scanned_at).
 .venv/Scripts/python -m collector daily --with-tenants
+
+# 개인정보 파기 — 배당종결(015)된 사건의 점유자 성명을 지운다 (NF-03, PIPC 2019-05-057).
+# daily 5단계와 같은 동작이라 평소엔 따로 돌릴 필요가 없다. 감사·수동 확인용.
+.venv/Scripts/python -m collector mask
 ```
+
+성명은 부분 마스킹(홍OO)이 아니라 **통째로 지운다**. 행·보증금·전입일은 남으므로 "임차인이 있었다"는
+사실과 `tenant_seq`(동일인 묶음)는 보존된다 — H3는 존재 여부만 쓰고 신원은 쓰지 않는다.
+지운 시각은 `masked_at`에 남아 NF-03("72시간 내 100%")의 증거가 된다.
 
 스케줄 등록은 `run_daily.cmd`(루트 `.env`에서 `DATABASE_URL`을 읽어 `daily --with-tenants` 실행,
 로그는 `tools/collector/daily.log`)를 걸어둔다. 이 머신에는 매일 19:00로 등록돼 있다.

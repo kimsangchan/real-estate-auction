@@ -317,6 +317,106 @@ def test_postgres_notice_tenants_are_replaced_not_appended():
     os.getenv("COLLECTOR_RUN_DB_TESTS") != "1",
     reason="set COLLECTOR_RUN_DB_TESTS=1 to run PostGIS integration tests",
 )
+def test_postgres_masks_tenant_names_only_for_ended_cases():
+    """배당종결(015)된 사건만 성명을 지운다 (NF-03). 진행 중 사건은 건드리지 않는다."""
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        pytest.skip("DATABASE_URL is required")
+
+    repository = PostgresAuctionRepository(database_url)
+    run_migrations(database_url)
+    _reset_or_skip(repository)
+    page = parse_search_page(json.loads(FIXTURE_PATH.read_text(encoding="utf-8")))
+    repository.upsert_items(page.items)
+
+    def _notice_with_tenant(case_no: str) -> ItemNotice:
+        return ItemNotice(
+            court_office_code="B000210",
+            case_no=case_no,
+            item_no="1",
+            document_date=date(2026, 7, 3),
+            baseline_raw=None,
+            baseline_date=None,
+            distribution_demand_deadline=None,
+            assumed_rights_kind=None,
+            risk_flags=[],
+            lien_claim_amount=None,
+            tenants=(
+                NoticeTenant(
+                    row_no=1,
+                    tenant_seq=1,
+                    tenant_name="홍길동",
+                    source_kind="권리신고",
+                    occupied_part="101호",
+                    possession_basis="주거 임차인",
+                    lease_period=None,
+                    deposit_amount=50_000_000,
+                    monthly_rent=None,
+                    move_in_date=date(2020, 1, 1),
+                    fixed_date=None,
+                    demanded_distribution=True,
+                    demanded_distribution_date=None,
+                ),
+            ),
+        )
+
+    ended, open_case = "2022타경101244", "2023타경4722"
+    repository.upsert_notices([_notice_with_tenant(ended), _notice_with_tenant(open_case)])
+    assert repository.count_unmasked_tenant_names() == 2
+
+    # 진행 중 사건에도 결과 행은 있다 — 종료 판정이 결과 유무가 아니라 015인지 확인한다
+    repository.upsert_sale_results(
+        [
+            SaleResult(
+                court_office_code="B000210",
+                case_no=ended,
+                item_no="1",
+                dxdy_date=date(2026, 7, 16),
+                dxdy_kind_code="01",
+                result_code="015",  # 배당종결
+                sale_amount=None,
+                minimum_sale_price=None,
+                failed_bid_count=None,
+                source=SOURCE_CASE_SEARCH,
+            ),
+            SaleResult(
+                court_office_code="B000210",
+                case_no=open_case,
+                item_no="1",
+                dxdy_date=date(2026, 7, 22),
+                dxdy_kind_code="01",
+                result_code="002",  # 유찰 — 아직 진행 중
+                sale_amount=None,
+                minimum_sale_price=None,
+                failed_bid_count=None,
+                source=SOURCE_CASE_SEARCH,
+            ),
+        ]
+    )
+
+    assert repository.mask_ended_case_tenant_names() == 1
+    assert repository.count_unmasked_tenant_names() == 1
+    # 재실행해도 이미 지운 행을 다시 세지 않는다 (감사 로그가 부풀지 않아야 한다)
+    assert repository.mask_ended_case_tenant_names() == 0
+
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT count(*) FROM auction_item_notice_tenant WHERE masked_at IS NOT NULL"
+            )
+            assert cur.fetchone()[0] == 1
+            # 성명만 지우고 행·보증금·전입일은 남는다 — H3는 존재 여부를 쓴다
+            cur.execute(
+                "SELECT deposit_amount, move_in_date FROM auction_item_notice_tenant "
+                "WHERE tenant_name IS NULL"
+            )
+            assert cur.fetchone() == (50_000_000, date(2020, 1, 1))
+
+
+@pytest.mark.skipif(
+    os.getenv("COLLECTOR_RUN_DB_TESTS") != "1",
+    reason="set COLLECTOR_RUN_DB_TESTS=1 to run PostGIS integration tests",
+)
 def test_postgres_photo_upsert_is_idempotent_and_updates_changed_fields():
     database_url = os.getenv("DATABASE_URL")
     if not database_url:

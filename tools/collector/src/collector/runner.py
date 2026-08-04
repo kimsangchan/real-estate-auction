@@ -121,6 +121,10 @@ class DailyRepository(
 
     def find_item_keys_with_tenant_scan(self) -> set[tuple[str, str, str, date | None]]: ...
 
+    def mask_ended_case_tenant_names(self) -> int: ...
+
+    def count_unmasked_tenant_names(self) -> int: ...
+
 
 @dataclass(frozen=True)
 class CollectionTarget:
@@ -1030,6 +1034,19 @@ def run_daily(
     except Exception as exc:
         stage_failures += 1
         logger.warning("daily_photos_failed run_id=%s error=%s", run_id, exc)
+
+    # 5단계 — 개인정보 마스킹: 법원 요청이 없어 맨 뒤에 둔다. 차단·스로틀로 앞 단계가 죽어도
+    # 이건 돌아야 한다 — 파기 의무는 수집 성공 여부와 무관하다 (NF-03).
+    try:
+        masked = repository.mask_ended_case_tenant_names()
+        remaining = repository.count_unmasked_tenant_names()
+        # NF-03의 완료 기준이 "72시간 내 100%"라 감사 로그로 남긴다
+        logger.info(
+            "daily_masking run_id=%s masked=%s unmasked_remaining=%s", run_id, masked, remaining
+        )
+    except Exception as exc:
+        stage_failures += 1
+        logger.warning("daily_masking_failed run_id=%s error=%s", run_id, exc)
 
     summary = DailySummary(
         requests_total=counting.requests,

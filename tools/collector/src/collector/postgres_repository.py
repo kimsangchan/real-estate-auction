@@ -163,6 +163,47 @@ class PostgresAuctionRepository:
                 )
                 return {(str(r[0]), str(r[1]), str(r[2]), r[3]) for r in cur.fetchall()}
 
+    def mask_ended_case_tenant_names(self) -> int:
+        """배당종결된 사건의 점유자 성명을 지우고 지운 행 수를 돌려준다 (NF-03).
+
+        종료 판정은 결과코드 015(배당종결)다. 사건이 종국되면 법원 조회 자체가 막히므로(§1-4)
+        015를 본 시점이 우리가 종료를 확인할 수 있는 마지막 신호다.
+
+        성명은 부분 마스킹(홍OO) 대신 **통째로 지운다**. 정규식 기반 한국어 이름 처리는 이 프로젝트에서
+        양방향으로 실패한 전력이 있고(§4-4), 여기서는 컬럼 전체가 성명이라 부분을 남길 이유가 없다.
+        행 자체는 남으므로 "임차인이 있었다"는 사실과 tenant_seq(동일인 묶음)는 보존된다 —
+        H3는 존재 여부만 쓰고 신원은 쓰지 않는다.
+
+        UPDATE 한 문장으로 처리한다. 조회와 쓰기를 나누면 그 사이에 들어온 행을 놓치고,
+        감사 로그의 건수가 실제 쓰기와 어긋날 수 있다.
+        """
+        with psycopg.connect(self._database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE auction_item_notice_tenant t
+                    SET tenant_name = NULL, masked_at = now()
+                    FROM auction_item_notice n
+                    JOIN auction_item ai ON ai.id = n.auction_item_id
+                    WHERE t.notice_id = n.id
+                      AND t.tenant_name IS NOT NULL
+                      AND EXISTS (
+                        SELECT 1 FROM auction_sale_result r
+                        WHERE r.auction_item_id = ai.id AND r.result_code = '015'
+                      )
+                    """
+                )
+                return cur.rowcount
+
+    def count_unmasked_tenant_names(self) -> int:
+        """아직 성명이 남아 있는 점유자 행 수 — 감사용."""
+        with psycopg.connect(self._database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT count(*) FROM auction_item_notice_tenant WHERE tenant_name IS NOT NULL"
+                )
+                return int(cur.fetchone()[0])
+
     def find_cases_missing_photos(
         self, court_office_code: str | None = None
     ) -> list[dict[str, Any]]:
