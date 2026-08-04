@@ -32,6 +32,27 @@ export function formatDropRate(
   return `↓${100 - rate}%`;
 }
 
+/** KST 기준 달력 날짜(YYYY-MM-DD). 기기 타임존과 무관하게 매각기일을 세려면 여기서 맞춰야 한다. */
+function kstDate(value: Date): string {
+  return value.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+}
+
+/**
+ * 매각기일까지 남은 일수 라벨. 시각이 아니라 **KST 달력 날짜** 차이로 센다 —
+ * "오늘 오후 2시"와 "내일 오전 10시"는 24시간이 안 되지만 D-0과 D-1이어야 한다.
+ * 기일이 지난 물건은 null (지도에 남아 있을 수 있다).
+ */
+export function formatDday(iso: string | null, now: Date = new Date()): string | null {
+  if (!iso) return null;
+  const bid = new Date(iso);
+  if (Number.isNaN(bid.getTime())) return null;
+  const days = Math.round(
+    (Date.parse(`${kstDate(bid)}T00:00:00Z`) - Date.parse(`${kstDate(now)}T00:00:00Z`)) / 86_400_000,
+  );
+  if (days < 0) return null;
+  return days === 0 ? 'D-day' : `D-${days}`;
+}
+
 export function formatBidDatetime(iso: string | null): string | null {
   if (!iso) return null;
   const date = new Date(iso);

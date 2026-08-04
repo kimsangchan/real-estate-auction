@@ -198,3 +198,19 @@
 .ctaLink:active {
   transform: translateY(0);
 }
+
+/* 매각물건명세서 구획 — 법원 공고 사실을 나열한다. 평가 색(경고·위험)을 쓰지 않는 이유는
+   이 값들이 우리 판단이 아니라 문서에 적힌 그대로이기 때문이다. */
+.noticeChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* 명세서를 못 받은 상태. "인수할 권리 없음"과 절대 같아 보이면 안 된다. */
+.noticeUnknown {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  line-height: 1.5;
+  margin: 0;
+}

@@ -4,9 +4,11 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchAuctionItem, fetchAuctionItemPhotos } from '../api-client';
+import { Badge } from '../components/Badge';
 import { FavoriteButton } from '../components/FavoriteButton';
 import { computeMinimumBidRate, formatBidDatetime, formatWon } from '../format';
 import { decodeItemId, encodeItemId } from '../item-id';
+import { assumedRightsLabel, riskFlagLabels, tenantLabel } from '../notice-labels';
 import { photoAlt, photoProxySrc } from '../photo';
 import {
   buildBreadcrumbJsonLd,
@@ -60,6 +62,13 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
   // 아래 화면 빵부스러기와 문구·순서가 정확히 같아야 한다 — 화면에 없는 정보를 구조화 데이터에만
   // 넣지 않는다 (WP-10 §1-5). 마지막 항목(현재 페이지)은 자기 URL을 생략한다
   const usageLabel = item.usageName ?? '물건';
+
+  // 명세서 신호. null(미확인)과 "인수할 권리 없음"을 구분해 표기한다 — 같게 보이면 위험을
+  // 없는 것처럼 읽힌다.
+  const rightsText = assumedRightsLabel(item.assumedRightsKind);
+  const tenantText = tenantLabel(item.tenantCount);
+  const flagTexts = riskFlagLabels(item.riskFlags);
+  const noticeMissing = rightsText === null && tenantText === null && flagTexts.length === 0;
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(SITE_URL, [
     { name: '경매 물건 목록', path: '/items' },
     { name: usageLabel },
@@ -138,6 +147,28 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
             <span className={styles.specsValue}>{item.deptName ?? '정보 없음'}</span>
           </div>
         </div>
+      </section>
+
+      {/* 매각물건명세서 — 법원이 공고한 사실이라 물건별 실데이터다(등기부 기반 권리분석은 아직 예시).
+          가격·유찰만 보고 놓치기 쉬운 인수 부담이 여기서 처음 드러나므로 CTA 바로 위에 둔다. */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>매각물건명세서</h2>
+        {noticeMissing ? (
+          <p className={styles.noticeUnknown}>
+            아직 명세서를 받지 못한 물건이에요. 인수할 권리가 없다는 뜻이 아니라 확인되지 않았다는
+            뜻이에요.
+          </p>
+        ) : (
+          <div className={styles.noticeChips}>
+            {tenantText ? <Badge tone="muted">{tenantText}</Badge> : null}
+            {rightsText ? <Badge tone="muted">{rightsText}</Badge> : null}
+            {flagTexts.map((flag) => (
+              <Badge key={flag} tone="muted">
+                {flag}
+              </Badge>
+            ))}
+          </div>
+        )}
       </section>
 
       <div className={styles.ctaBar}>

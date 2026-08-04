@@ -1,0 +1,97 @@
+/* 지도 마커 호버 카드 — 지도에서 볼 수 없는 정보만 담는다.
+   주소는 넣지 않는다: 마커 위치가 이미 그걸 말하고, 카드 폭만 잡아먹는다. */
+
+.card {
+  position: absolute;
+  z-index: 10;
+  width: 236px;
+  background-color: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 10px 12px;
+  pointer-events: none;
+}
+
+/* 용도 · 유찰 · 기일 — 물건의 성격을 한 줄로 */
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-slate);
+}
+
+.metaDivider {
+  color: var(--color-stone);
+}
+
+.usage {
+  font-weight: var(--typography-caption-bold-font-weight);
+  color: var(--color-ink-deep);
+}
+
+/* 매각기일이 임박한 물건은 눈에 띄어야 한다 — 사실(남은 일수) 자체를 강조하는 것이지
+   좋고 나쁨을 뜻하지 않는다. */
+.dday {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-primary-deep);
+  font-weight: var(--typography-caption-bold-font-weight);
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.price {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--typography-subtitle-lg-font-size);
+  font-weight: var(--typography-caption-bold-font-weight);
+  color: var(--color-ink-deep);
+}
+
+.drop {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-slate);
+}
+
+.appraisal {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-steel);
+}
+
+/* 명세서 구획 — 카드 안에서 '가격'과 '권리'를 가르는 유일한 선 */
+.notice {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-hairline-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.noticeChip {
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-ink-deep);
+  background-color: var(--color-surface-soft);
+  border-radius: var(--radius-full);
+  padding: 1px 7px;
+}
+
+/* 명세서를 아직 못 받은 물건. "인수할 권리 없음"과 절대 같아 보이면 안 된다. */
+.noticeUnknown {
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-steel);
+  font-style: italic;
+}

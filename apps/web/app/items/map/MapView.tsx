@@ -8,6 +8,7 @@ import Script from 'next/script';
 import { formatDropRate, formatWonCompact } from '../format';
 import { encodeItemId } from '../item-id';
 import { clusterPoints, type ClusterInput } from './cluster';
+import { ItemHoverCard } from './ItemHoverCard';
 import styles from './page.module.css';
 
 const NCP_MAPS_CLIENT_ID = process.env.NEXT_PUBLIC_NCP_MAPS_CLIENT_ID;
@@ -27,8 +28,14 @@ interface AuctionItemPin {
   caseNo: string;
   itemNo: string;
   address: string | null;
+  usageName: string | null;
   appraisalAmount: number | null;
   minimumSalePrice: number | null;
+  failedBidCount: number | null;
+  bidDatetime: string | null;
+  assumedRightsKind: string | null;
+  riskFlags: string[];
+  tenantCount: number | null;
   lng: number | null;
   lat: number | null;
 }
@@ -63,6 +70,11 @@ export function MapView() {
   const [scriptRetryKey, setScriptRetryKey] = useState(0);
   const [fetchState, setFetchState] = useState<FetchState>('loading');
   const [items, setItems] = useState<AuctionItemPin[]>([]);
+  const [hovered, setHovered] = useState<{
+    item: AuctionItemPin;
+    left: number;
+    top: number;
+  } | null>(null);
 
   const goToDetail = useCallback(
     (item: AuctionItemPin) => {
@@ -98,6 +110,8 @@ export function MapView() {
 
   const handleIdle = useCallback(
     (map: naver.maps.Map) => {
+      // 호버 카드는 마커의 화면 좌표에 고정돼 있어 지도가 움직이면 엉뚱한 곳을 가리킨다 — 닫는다.
+      setHovered(null);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         loadBbox(map.getBounds());
@@ -162,6 +176,8 @@ export function MapView() {
 
     markersRef.current.forEach((marker) => marker.setMap(null));
     markersRef.current = [];
+    // 마커를 다시 그리면 호버 중이던 마커 객체가 사라진다 — 카드가 유령으로 남지 않게 닫는다.
+    setHovered(null);
 
     const withCoords = items.filter(
       (item): item is AuctionItemPin & { lng: number; lat: number } => item.lng !== null && item.lat !== null,
@@ -189,6 +205,16 @@ export function MapView() {
           },
         });
         naverMaps.Event.addListener(marker, 'click', () => goToDetail(item));
+        // 호버 카드는 마커 기준 화면 좌표에 띄운다. 지도 컨테이너 안 절대 위치라
+        // 지도가 움직이면 좌표가 어긋나므로 카메라가 움직이면 닫는다(아래 idle 핸들러).
+        naverMaps.Event.addListener(marker, 'mouseover', () => {
+          const projection = map.getProjection();
+          const offset = projection.fromCoordToOffset(
+            new naverMaps.LatLng(item.lat + dupIndex * 0.00006, item.lng),
+          );
+          setHovered({ item, left: offset.x, top: offset.y });
+        });
+        naverMaps.Event.addListener(marker, 'mouseout', () => setHovered(null));
         markersRef.current.push(marker);
       }
       return;
@@ -243,6 +269,10 @@ export function MapView() {
       />
 
       <div ref={mapElementRef} className={styles.map} />
+
+      {hovered ? (
+        <ItemHoverCard item={hovered.item} left={hovered.left} top={hovered.top} />
+      ) : null}
 
       {scriptState === 'ready' ? (
         <p className={`${styles.badge} ${fetchState === 'error' ? styles.badgeError : ''}`}>{badgeLabel}</p>

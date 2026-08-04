@@ -17,6 +17,11 @@ export interface AuctionItem {
   minimumSalePrice: number | null;
   failedBidCount: number | null;
   bidDatetime: string | null;
+  // 매각물건명세서(법원 공고 사실) 기반 신호. null/빈 배열은 "확인하지 못했다"는 뜻이지
+  // "해당 없음"이 아니다 — 화면에서 구분해 표기해야 한다.
+  assumedRightsKind: string | null;
+  riskFlags: string[];
+  tenantCount: number | null;
 }
 
 // generateMetadata와 페이지 컴포넌트가 같은 요청 안에서 중복 호출하지 않도록 React cache()로 묶는다
