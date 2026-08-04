@@ -123,3 +123,52 @@ JOIN auction_item_notice n ON n.auction_item_id = s.auction_item_id
 GROUP BY 1, 2 ORDER BY 3 DESC;
 
 \echo '(위 표가 비어 있으면 아직 연결 표본이 없다는 뜻이다 — 명세서를 받아둔 물건의 매각기일이 지나야 채워진다)'
+
+-- ── 후보 필터: 인수 부담이 없는데 유찰이 쌓인 물건 ──────────────────────────
+-- 사용자 착안(2026-08-04): "권리분석상 좋은 물건이면 유찰이 적을 것" → 그 반례를 뽑아
+-- 8/11 이후 실제 낙찰 여부로 채점한다. 지금 뽑아둬야 결과를 보고 가설을 맞추는 사후 편향이 없다.
+--
+-- 걸러내는 것 2가지 (실측으로 확인한 함정):
+--   1) **재감정** — 유찰 11회인데 최저가율 100%인 물건이 있다(2024타경122368). 여러 번 유찰된 뒤
+--      법원이 재감정해 최저가를 새 감정가로 되돌리면 failed_bid_count만 누적으로 남는다.
+--      유찰 3회 이상 172건 중 22건이 최저가율 90% 이상이다. 유찰횟수를 "얼마나 싸졌나"의
+--      대리지표로 쓰면 이 22건에서 틀린다 → 최저가율을 함께 본다.
+--   2) 일괄매각 — 분자·분모 단위가 어긋난다(위 함정 3과 같은 이유).
+--
+-- 주의: 이 목록은 "좋은 물건"이 아니라 **조건에 해당하는 물건**이다. 실측상 대부분이 HUG
+-- 전세사기 사고 물건이고 점유자가 2~3명씩 있다 — 인수 금액이 없어도 명도 부담은 매수인 몫이다.
+-- "시장이 못 알아본 물건"인지 "다른 이유로 기피하는 물건"인지는 낙찰 결과로만 가려진다.
+\echo '=== 후보. 인수 부담 없음(NONE 또는 HUG) + 유찰 3회 이상 ==='
+WITH raw AS (
+  SELECT DISTINCT ON (auction_item_id) auction_item_id, payload
+  FROM auction_item_raw ORDER BY auction_item_id, observed_at DESC
+), latest_notice AS (
+  SELECT DISTINCT ON (auction_item_id) auction_item_id, assumed_rights_kind, risk_flags
+  FROM auction_item_notice ORDER BY auction_item_id, document_date DESC NULLS LAST, id DESC
+)
+SELECT c.case_no AS 사건, i.item_no AS 번호,
+       split_part(r.payload->>'dspslUsgNm', ',', 1) AS 용도,
+       i.failed_bid_count AS 유찰,
+       round(i.minimum_sale_price::numeric / NULLIF(i.appraisal_amount, 0) * 100) AS 최저가율,
+       round(i.minimum_sale_price / 100000000.0, 2) AS 최저가억,
+       CASE WHEN 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags) THEN 'HUG' ELSE 'NONE' END AS 근거,
+       COALESCE((SELECT count(DISTINCT t.tenant_seq)
+                   FROM auction_item_notice_tenant t
+                   JOIN auction_item_notice n2 ON n2.id = t.notice_id
+                  WHERE n2.auction_item_id = i.id), 0) AS 점유자
+FROM auction_item i
+JOIN auction_case c ON c.id = i.auction_case_id
+JOIN latest_notice n ON n.auction_item_id = i.id
+JOIN raw r ON r.auction_item_id = i.id
+WHERE (n.assumed_rights_kind = 'NONE' OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags))
+  AND i.failed_bid_count >= 3
+  AND round(i.minimum_sale_price::numeric / NULLIF(i.appraisal_amount, 0) * 100) < 90
+  AND COALESCE(r.payload->>'mulBigo', '') NOT LIKE '%일괄%'
+ORDER BY 최저가율 ASC, 유찰 DESC
+LIMIT 20;
+
+\echo '=== 참고. 재감정 의심 (유찰 3회 이상인데 최저가율 90% 이상) ==='
+SELECT count(*) AS 물건, round(avg(failed_bid_count), 1) AS 평균유찰
+FROM auction_item
+WHERE failed_bid_count >= 3
+  AND round(minimum_sale_price::numeric / NULLIF(appraisal_amount, 0) * 100) >= 90;
