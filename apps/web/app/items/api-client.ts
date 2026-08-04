@@ -12,8 +12,11 @@ export interface AuctionItem {
   courtName: string | null;
   deptName: string | null;
   usageName: string | null;
+  areaKind: string | null;
   /** 면적(㎡) — 건물이면 전용면적, 토지면 토지면적. 여럿이거나 없으면 null. */
   areaM2: number | null;
+  /** true면 단가를 계산하지 않는다 — 면적과 가격의 단위가 어긋난다. */
+  bulkSale: boolean;
   address: string | null;
   appraisalAmount: number | null;
   minimumSalePrice: number | null;

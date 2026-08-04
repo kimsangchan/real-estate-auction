@@ -62,6 +62,45 @@ export function formatUnitPrice(
   return `${unit === 'pyeong' ? '평당' : '㎡당'} ${manwon.toLocaleString('ko-KR')}만`;
 }
 
+/** 면적 종류 → 화면 라벨. 종류마다 평당가의 분모가 달라 라벨을 반드시 구분해 적는다. */
+const AREA_KIND_LABEL: Record<string, string> = {
+  AGGREGATE: '전용',
+  LAND: '토지',
+  BUILDING: '연면적',
+};
+
+/**
+ * "전용 8.5평 (28.2㎡)" 형태. 종류를 앞에 붙이는 이유는 토지 평당가와 건물 평당가가
+ * 두 배 가까이 차이 날 수 있어, 무엇의 면적인지 밝히지 않으면 비교할 수 없기 때문이다.
+ */
+export function formatAreaWithKind(areaM2: number | null, areaKind: string | null): string | null {
+  const pyeong = formatPyeong(areaM2);
+  const m2 = formatAreaM2(areaM2);
+  if (pyeong === null || m2 === null) return null;
+  const kind = areaKind === null ? null : (AREA_KIND_LABEL[areaKind] ?? null);
+  return kind === null ? `${pyeong} (${m2})` : `${kind} ${pyeong} (${m2})`;
+}
+
+/** "전용 평당 3,105만" 형태. 분모가 무엇인지 라벨에 드러낸다.
+ *
+ * 일괄매각(bulkSale)이면 **null을 준다** — 면적은 목적물 하나 것인데 최저가는 묶음 전체라
+ * 단위가 어긋난다(실측: 34.32㎡ 상가에 최저가 340억 → 평당 32.8억). 계산이 산술적으로는
+ * 되지만 뜻이 없는 값이라 아예 내지 않는다.
+ */
+export function formatUnitPriceWithKind(
+  amount: number | null,
+  areaM2: number | null,
+  areaKind: string | null,
+  unit: 'pyeong' | 'm2',
+  bulkSale = false,
+): string | null {
+  if (bulkSale) return null;
+  const base = formatUnitPrice(amount, areaM2, unit);
+  if (base === null) return null;
+  const kind = areaKind === null ? null : (AREA_KIND_LABEL[areaKind] ?? null);
+  return kind === null ? base : `${kind} ${base}`;
+}
+
 /** KST 기준 달력 날짜(YYYY-MM-DD). 기기 타임존과 무관하게 매각기일을 세려면 여기서 맞춰야 한다. */
 function kstDate(value: Date): string {
   return value.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });

@@ -30,7 +30,10 @@ interface AuctionItemPin {
   deptName: string | null;
   address: string | null;
   usageName: string | null;
+  areaKind: string | null;
   areaM2: number | null;
+  /** true면 단가를 계산하지 않는다 — 면적과 가격의 단위가 어긋난다. */
+  bulkSale: boolean;
   appraisalAmount: number | null;
   minimumSalePrice: number | null;
   failedBidCount: number | null;

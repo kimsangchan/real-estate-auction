@@ -5,6 +5,14 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import type { AuctionItemDto } from '../auction-items/dto/auction-item.dto';
 
+// 법원 convAddr 접두사 → 면적 종류 코드. 화면이 평당가 분모를 고르는 근거라 문자열을 그대로
+// 흘리지 않고 코드로 고정한다.
+const AREA_KIND: Record<string, 'AGGREGATE' | 'LAND' | 'BUILDING'> = {
+  집합건물: 'AGGREGATE',
+  토지: 'LAND',
+  건물: 'BUILDING',
+};
+
 export const FAVORITES_PG_POOL = Symbol('FAVORITES_PG_POOL');
 
 export interface FavoriteRecord extends AuctionItemDto {
@@ -18,7 +26,9 @@ interface FavoriteRow extends QueryResultRow {
   courtName: string | null;
   deptName: string | null;
   usageName: string | null;
+  areaKind: string | null;
   areaM2: string | null;
+  bulkSale: boolean;
   address: string | null;
   appraisalAmount: string | null;
   minimumSalePrice: string | null;
@@ -37,6 +47,7 @@ function toRecord(row: FavoriteRow): FavoriteRecord {
     ...row,
     appraisalAmount: row.appraisalAmount === null ? null : Number(row.appraisalAmount),
     minimumSalePrice: row.minimumSalePrice === null ? null : Number(row.minimumSalePrice),
+    areaKind: AREA_KIND[row.areaKind ?? ''] ?? null,
     areaM2: row.areaM2 == null ? null : Number(row.areaM2),
     bidDatetime: row.bidDatetime === null ? null : row.bidDatetime.toISOString(),
     // 명세서가 없는 물건은 "위험 없음"이 아니라 "확인 못 함"이다 (auction-items.repository와 동일 규칙)
@@ -54,13 +65,21 @@ const SELECT_FAVORITE_ITEMS = `
     ac.court_name AS "courtName",
     raw.payload->>'jpDeptNm' AS "deptName",
     raw.payload->>'dspslUsgNm' AS "usageName",
-    -- 면적(㎡) — auction-items.repository와 같은 규칙(areaList 우선, pjbBuldList 보완, 단일값만)
-    COALESCE(
-      CASE WHEN (SELECT count(*) FROM regexp_matches(COALESCE(raw.payload->>'areaList', ''), '㎡', 'g')) = 1
-           THEN NULLIF(replace((regexp_match(raw.payload->>'areaList', '([0-9][0-9,]*\.?[0-9]*)\s*㎡'))[1], ',', ''), '')::numeric END,
-      CASE WHEN (SELECT count(*) FROM regexp_matches(COALESCE(raw.payload->>'pjbBuldList', ''), '㎡', 'g')) = 1
-           THEN NULLIF(replace((regexp_match(raw.payload->>'pjbBuldList', '([0-9][0-9,]*\.?[0-9]*)\s*㎡'))[1], ',', ''), '')::numeric END
-    ) AS "areaM2",
+    -- 면적(㎡)과 그 종류. 종류마다 평당가의 분모가 다르므로 값만 주면 화면이 잘못 쓴다.
+    --   집합건물(370) → 전유면적 / 토지(63) → 대지면적 / 건물(31) → 연면적(층별 합계)
+    -- 업계도 같은 구분을 쓴다: 두인경매는 검색 파라미터가 landSqm·bldgSqm 두 스칼라이고,
+    -- 마이옥션 요약란은 "토지면적 258.00㎡ / 건물면적 382.44㎡"로 나눠 적는다.
+    -- 건물면적이 층별 합계라는 것은 실측 검산으로 확인했다(17.4 + 121.68×3 = 382.44).
+    -- 템플릿 리터럴이라 백슬래시를 \\로 써야 Postgres까지 그대로 간다 (auction-items와 동일)
+    (regexp_match(raw.payload->>'convAddr', '^\\[(집합건물|건물|토지)'))[1] AS "areaKind",
+    -- 표기된 ㎡를 모두 더한다. 다층 건물은 연면적, 여러 필지는 토지 합계가 되어 업계 표기와 맞는다.
+    -- 법원이 자유 텍스트로 주므로("철근콘크리트구조 47.52㎡", "1층 44.30㎡ 2층 44.30㎡") 정규식으로 뽑는다.
+    (SELECT NULLIF(sum(replace(m[1], ',', '')::numeric), 0)
+       FROM regexp_matches(
+         COALESCE(NULLIF(raw.payload->>'areaList', ''), raw.payload->>'pjbBuldList', ''),
+         '([0-9][0-9,]*\\.?[0-9]*)\\s*㎡', 'g') m) AS "areaM2",
+    -- 일괄매각 여부 — auction-items.repository와 같은 이유(면적과 가격의 단위가 어긋난다)
+    (COALESCE(raw.payload->>'mulBigo', '') LIKE '%일괄%') AS "bulkSale",
     ai.address AS "address",
     ai.appraisal_amount AS "appraisalAmount",
     ai.minimum_sale_price AS "minimumSalePrice",

@@ -3,11 +3,13 @@ import { test } from 'node:test';
 import {
   computeMinimumBidRate,
   formatAreaM2,
+  formatAreaWithKind,
   formatBidDatetime,
   formatDday,
   formatDropRate,
   formatPyeong,
   formatUnitPrice,
+  formatUnitPriceWithKind,
   formatWon,
   formatWonCompact,
 } from './format';
@@ -112,4 +114,31 @@ test('formatUnitPrice는 금액이나 면적이 없으면 null', () => {
   assert.equal(formatUnitPrice(null, 28.21, 'pyeong'), null);
   assert.equal(formatUnitPrice(265_000_000, null, 'pyeong'), null);
   assert.equal(formatUnitPrice(265_000_000, 0, 'm2'), null);
+});
+
+test('formatAreaWithKind는 면적 종류를 앞에 붙인다', () => {
+  // 토지 평당가와 건물 평당가는 두 배 가까이 차이 날 수 있어, 무엇의 면적인지 밝혀야 한다
+  assert.equal(formatAreaWithKind(28.21, 'AGGREGATE'), '전용 8.5평 (28.2㎡)');
+  assert.equal(formatAreaWithKind(2193, 'LAND'), '토지 663.4평 (2193.0㎡)');
+  assert.equal(formatAreaWithKind(231.66, 'BUILDING'), '연면적 70.1평 (231.7㎡)');
+});
+
+test('formatAreaWithKind는 종류를 모르면 면적만 적는다', () => {
+  assert.equal(formatAreaWithKind(28.21, null), '8.5평 (28.2㎡)');
+  assert.equal(formatAreaWithKind(28.21, 'UNKNOWN'), '8.5평 (28.2㎡)');
+  assert.equal(formatAreaWithKind(null, 'LAND'), null);
+});
+
+test('formatUnitPriceWithKind는 분모가 무엇인지 라벨에 드러낸다', () => {
+  assert.equal(formatUnitPriceWithKind(265_000_000, 28.21, 'AGGREGATE', 'pyeong'), '전용 평당 3,105만');
+  assert.equal(formatUnitPriceWithKind(265_000_000, 2193, 'LAND', 'pyeong'), '토지 평당 40만');
+  assert.equal(formatUnitPriceWithKind(null, 28.21, 'AGGREGATE', 'pyeong'), null);
+});
+
+test('formatUnitPriceWithKind는 일괄매각이면 단가를 내지 않는다', () => {
+  // 면적은 목적물 하나 것인데 최저가는 묶음 전체라 단위가 어긋난다
+  // 실측: 34.32㎡ 상가에 최저가 340억이 붙어 평당 32.8억이 나왔다
+  assert.equal(formatUnitPriceWithKind(34_076_000_000, 34.32, 'AGGREGATE', 'pyeong', true), null);
+  // 일괄매각이 아니면 그대로 계산한다
+  assert.notEqual(formatUnitPriceWithKind(34_076_000_000, 34.32, 'AGGREGATE', 'pyeong', false), null);
 });

@@ -2,11 +2,13 @@
 import {
   computeMinimumBidRate,
   formatAreaM2,
+  formatAreaWithKind,
   formatBidDatetime,
   formatDday,
   formatDropRate,
   formatPyeong,
   formatUnitPrice,
+  formatUnitPriceWithKind,
   formatWon,
   formatWonCompact,
 } from './format';
@@ -119,5 +121,30 @@ describe('면적·단위가격', () => {
     expect(formatAreaM2(0)).toBeNull();
     expect(formatUnitPrice(null, 28.21, 'pyeong')).toBeNull();
     expect(formatUnitPrice(265_000_000, null, 'm2')).toBeNull();
+  });
+});
+
+describe('면적 종류 라벨', () => {
+  it('종류를 앞에 붙인다', () => {
+    expect(formatAreaWithKind(28.21, 'AGGREGATE')).toBe('전용 8.5평 (28.2㎡)');
+    expect(formatAreaWithKind(2193, 'LAND')).toBe('토지 663.4평 (2193.0㎡)');
+    expect(formatAreaWithKind(231.66, 'BUILDING')).toBe('연면적 70.1평 (231.7㎡)');
+  });
+
+  it('종류를 모르면 면적만', () => {
+    expect(formatAreaWithKind(28.21, null)).toBe('8.5평 (28.2㎡)');
+    expect(formatAreaWithKind(null, 'LAND')).toBeNull();
+  });
+
+  it('단가 라벨에도 분모를 드러낸다', () => {
+    expect(formatUnitPriceWithKind(265_000_000, 28.21, 'AGGREGATE', 'pyeong')).toBe('전용 평당 3,105만');
+    expect(formatUnitPriceWithKind(265_000_000, 2193, 'LAND', 'pyeong')).toBe('토지 평당 40만');
+  });
+});
+
+describe('일괄매각 단가', () => {
+  it('일괄매각이면 단가를 내지 않는다', () => {
+    expect(formatUnitPriceWithKind(34_076_000_000, 34.32, 'AGGREGATE', 'pyeong', true)).toBeNull();
+    expect(formatUnitPriceWithKind(34_076_000_000, 34.32, 'AGGREGATE', 'pyeong', false)).not.toBeNull();
   });
 });

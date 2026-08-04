@@ -7,10 +7,18 @@ export interface AuctionItemDto {
   deptName: string | null;
   usageName: string | null;
   /**
-   * 면적(㎡) — 건물이면 전용면적, 토지면 토지면적. 법원이 자유 텍스트로 주는 값을 뽑는다.
-   * 일괄매각·다층건물처럼 면적이 여럿이거나 표기가 없으면 null — 추정하지 않는다.
+   * 면적의 종류 — 'AGGREGATE'(집합건물) / 'LAND'(토지) / 'BUILDING'(일반건물).
+   * 종류마다 평당가의 분모가 다르다(전유면적 / 대지면적 / 연면적). 값만 주면 화면이 잘못 쓰므로
+   * 반드시 함께 내려보낸다. 판별 불가면 null.
    */
+  areaKind: 'AGGREGATE' | 'LAND' | 'BUILDING' | null;
+  /** 면적(㎡). 표기된 값을 모두 더한 것 — 다층이면 연면적, 여러 필지면 토지 합계. */
   areaM2: number | null;
+  /**
+   * 일괄매각 여부. true면 **단가(평당·㎡당)를 계산하면 안 된다** — 면적은 목적물 하나 것인데
+   * 최저가는 묶음 전체라 단위가 어긋난다(실측: 34.32㎡ 상가에 최저가 340억 → 평당 32.8억).
+   */
+  bulkSale: boolean;
   address: string | null;
   appraisalAmount: number | null;
   minimumSalePrice: number | null;

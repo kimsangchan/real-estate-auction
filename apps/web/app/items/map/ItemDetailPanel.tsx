@@ -8,11 +8,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  formatAreaM2,
+  formatAreaWithKind,
   formatDday,
   formatDropRate,
-  formatPyeong,
-  formatUnitPrice,
+  formatUnitPriceWithKind,
   formatWon,
   formatWonCompact,
 } from '../format';
@@ -28,7 +27,9 @@ export interface PanelItem {
   courtName: string | null;
   deptName: string | null;
   usageName: string | null;
+  areaKind: string | null;
   areaM2: number | null;
+  bulkSale: boolean;
   address: string | null;
   appraisalAmount: number | null;
   minimumSalePrice: number | null;
@@ -79,14 +80,13 @@ export function ItemDetailPanel({ item, onClose }: { item: PanelItem; onClose: (
   const noticeMissing = rights === null && tenants === null && flags.length === 0;
 
   // 면적은 평·㎡ 둘 다 — 평이 익숙한 사람과 ㎡가 익숙한 사람이 갈린다.
-  const pyeong = formatPyeong(item.areaM2);
-  const areaM2 = formatAreaM2(item.areaM2);
-  const perPyeong = formatUnitPrice(item.minimumSalePrice, item.areaM2, 'pyeong');
-  const perM2 = formatUnitPrice(item.minimumSalePrice, item.areaM2, 'm2');
+  const areaText = formatAreaWithKind(item.areaM2, item.areaKind);
+  const perPyeong = formatUnitPriceWithKind(item.minimumSalePrice, item.areaM2, item.areaKind, 'pyeong', item.bulkSale);
+  const perM2 = formatUnitPriceWithKind(item.minimumSalePrice, item.areaM2, null, 'm2', item.bulkSale);
 
   const meta = [
     usage,
-    pyeong && areaM2 ? `${pyeong} (${areaM2})` : null,
+    areaText,
     item.failedBidCount !== null ? `유찰 ${item.failedBidCount}회` : null,
   ].filter((value): value is string => value !== null);
 
@@ -175,7 +175,7 @@ export function ItemDetailPanel({ item, onClose }: { item: PanelItem; onClose: (
           <span className={styles.specsValue}>{item.usageName ?? '정보 없음'}</span>
           <span className={styles.specsLabel}>면적</span>
           <span className={styles.specsValue}>
-            {pyeong && areaM2 ? `${pyeong} (${areaM2})` : '정보 없음'}
+            {areaText ?? '정보 없음'}
           </span>
           <span className={styles.specsLabel}>담당계</span>
           <span className={styles.specsValue}>{item.deptName ?? '정보 없음'}</span>

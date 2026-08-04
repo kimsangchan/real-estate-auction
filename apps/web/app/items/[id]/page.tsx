@@ -8,10 +8,9 @@ import { Badge } from '../components/Badge';
 import { FavoriteButton } from '../components/FavoriteButton';
 import {
   computeMinimumBidRate,
-  formatAreaM2,
+  formatAreaWithKind,
   formatBidDatetime,
-  formatPyeong,
-  formatUnitPrice,
+  formatUnitPriceWithKind,
   formatWon,
 } from '../format';
 import { decodeItemId, encodeItemId } from '../item-id';
@@ -67,10 +66,9 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
   const bidDatetimeLabel = formatBidDatetime(item.bidDatetime);
   // 면적은 평·㎡ 둘 다 보여준다. 건물이면 전용면적, 토지면 토지면적이다.
   // 일괄매각·다층처럼 면적이 여럿이거나 표기가 없으면 생략한다 — 추정하지 않는다.
-  const pyeong = formatPyeong(item.areaM2);
-  const areaM2 = formatAreaM2(item.areaM2);
-  const perPyeong = formatUnitPrice(item.minimumSalePrice, item.areaM2, 'pyeong');
-  const perM2 = formatUnitPrice(item.minimumSalePrice, item.areaM2, 'm2');
+  const areaText = formatAreaWithKind(item.areaM2, item.areaKind);
+  const perPyeong = formatUnitPriceWithKind(item.minimumSalePrice, item.areaM2, item.areaKind, 'pyeong', item.bulkSale);
+  const perM2 = formatUnitPriceWithKind(item.minimumSalePrice, item.areaM2, null, 'm2', item.bulkSale);
 
   // 아래 화면 빵부스러기와 문구·순서가 정확히 같아야 한다 — 화면에 없는 정보를 구조화 데이터에만
   // 넣지 않는다 (WP-10 §1-5). 마지막 항목(현재 페이지)은 자기 URL을 생략한다
@@ -163,7 +161,7 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
           <div className={styles.specsRow}>
             <span className={styles.specsLabel}>면적</span>
             <span className={styles.specsValue}>
-              {pyeong && areaM2 ? `${pyeong} (${areaM2})` : '정보 없음'}
+              {areaText ?? '정보 없음'}
             </span>
           </div>
           <div className={styles.specsRow}>
