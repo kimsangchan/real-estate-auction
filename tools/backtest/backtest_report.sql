@@ -124,113 +124,91 @@ GROUP BY 1, 2 ORDER BY 3 DESC;
 
 \echo '(위 표가 비어 있으면 아직 연결 표본이 없다는 뜻이다 — 명세서를 받아둔 물건의 매각기일이 지나야 채워진다)'
 
--- ── 후보 필터: 인수 부담이 없는데 유찰이 쌓인 물건 ──────────────────────────
--- 사용자 착안(2026-08-04): "권리분석상 좋은 물건이면 유찰이 적을 것" → 그 반례를 뽑아
--- 8/11 이후 실제 낙찰 여부로 채점한다. 지금 뽑아둬야 결과를 보고 가설을 맞추는 사후 편향이 없다.
+-- ── 매각 단위 ───────────────────────────────────────────────────────────────
+-- 아래 채점과 후보 필터가 공유하는 관측 단위.
 --
--- 걸러내는 것 2가지 (실측으로 확인한 함정):
---   1) **재감정** — 유찰 11회인데 최저가율 100%인 물건이 있다(2024타경122368). 여러 번 유찰된 뒤
---      법원이 재감정해 최저가를 새 감정가로 되돌리면 failed_bid_count만 누적으로 남는다.
---      유찰 3회 이상 172건 중 22건이 최저가율 90% 이상이다. 유찰횟수를 "얼마나 싸졌나"의
---      대리지표로 쓰면 이 22건에서 틀린다 → 최저가율을 함께 본다.
---   2) 일괄매각 — 분자·분모 단위가 어긋난다(위 함정 3과 같은 이유).
---
--- 주의: 이 목록은 "좋은 물건"이 아니라 **조건에 해당하는 물건**이다. 실측상 대부분이 HUG
--- 전세사기 사고 물건이고 점유자가 2~3명씩 있다 — 인수 금액이 없어도 명도 부담은 매수인 몫이다.
--- "시장이 못 알아본 물건"인지 "다른 이유로 기피하는 물건"인지는 낙찰 결과로만 가려진다.
-\echo '=== 후보. 인수 부담 없음(NONE 또는 HUG) + 유찰 3회 이상 ==='
+-- **일괄매각은 사건 하나가 한 번 팔린다.** 목적물마다 세면 낙찰 사건 4건이 목적물 23건으로
+-- 부풀어 낙찰률이 30.3%로 나온다(실측 2026-08-05). 임야 낙찰률 93.8%도 같은 착시였다 —
+-- 목적물 16개가 사건 2건이었다. 일괄이면 사건당 1건, 아니면 목적물당 1건으로 센다.
+CREATE TEMP VIEW sale_unit AS
 WITH raw AS (
   SELECT DISTINCT ON (auction_item_id) auction_item_id, payload
   FROM auction_item_raw ORDER BY auction_item_id, observed_at DESC
 ), latest_notice AS (
   SELECT DISTINCT ON (auction_item_id) auction_item_id, assumed_rights_kind, risk_flags
   FROM auction_item_notice ORDER BY auction_item_id, document_date DESC NULLS LAST, id DESC
-)
-SELECT c.case_no AS 사건, i.item_no AS 번호,
-       split_part(r.payload->>'dspslUsgNm', ',', 1) AS 용도,
-       i.failed_bid_count AS 유찰,
-       round(i.minimum_sale_price::numeric / NULLIF(i.appraisal_amount, 0) * 100) AS 최저가율,
-       round(i.minimum_sale_price / 100000000.0, 2) AS 최저가억,
-       CASE WHEN 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags) THEN 'HUG' ELSE 'NONE' END AS 근거,
-       COALESCE((SELECT count(DISTINCT t.tenant_seq)
-                   FROM auction_item_notice_tenant t
-                   JOIN auction_item_notice n2 ON n2.id = t.notice_id
-                  WHERE n2.auction_item_id = i.id), 0) AS 점유자
-FROM auction_item i
-JOIN auction_case c ON c.id = i.auction_case_id
-JOIN latest_notice n ON n.auction_item_id = i.id
-JOIN raw r ON r.auction_item_id = i.id
-WHERE (n.assumed_rights_kind = 'NONE' OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags))
-  AND i.failed_bid_count >= 3
-  AND round(i.minimum_sale_price::numeric / NULLIF(i.appraisal_amount, 0) * 100) < 90
-  AND COALESCE(r.payload->>'mulBigo', '') NOT LIKE '%일괄%'
-ORDER BY 최저가율 ASC, 유찰 DESC
-LIMIT 20;
-
-\echo '=== 참고. 재감정 의심 (유찰 3회 이상인데 최저가율 90% 이상) ==='
-SELECT count(*) AS 물건, round(avg(failed_bid_count), 1) AS 평균유찰
-FROM auction_item
-WHERE failed_bid_count >= 3
-  AND round(minimum_sale_price::numeric / NULLIF(appraisal_amount, 0) * 100) >= 90;
-
--- ── 채점: 인수 부담과 매각 결과의 관계 ────────────────────────────────────
--- 사용자 가설(2026-08-04): "권리분석상 좋은 물건이면 입찰자가 많고 유찰이 적을 것"
---
--- 입찰자 수는 온라인에 공개되지 않는다(§4-18). 대신 **낙찰 여부**와 **낙찰가율**을
--- 대리지표로 쓴다 — 입찰이 몰리면 낙찰되고 값이 올라간다.
---
--- 읽는 법: 낙찰률은 "기일이 지난 물건 중 실제로 팔린 비율"이다. 유찰 횟수는 우리가
--- 관측한 유찰 기일 수라서 수집 시작(2025-05) 이전 이력은 빠져 있다 — 그룹 간 비교에만 쓰고
--- 절대값으로 읽지 않는다.
-\echo '=== 채점 1. 인수 부담별 매각 결과 (명세서를 받아둔 물건 중 기일이 지난 것) ==='
-WITH latest_notice AS (
-  SELECT DISTINCT ON (auction_item_id) auction_item_id, assumed_rights_kind, risk_flags
-  FROM auction_item_notice ORDER BY auction_item_id, document_date DESC NULLS LAST, id DESC
 ), outcome AS (
-  SELECT auction_item_id,
-         bool_or(result_code = '001') AS sold,
-         count(*) FILTER (WHERE result_code = '002') AS failed,
-         max(sale_amount) AS sale_amount
+  SELECT auction_item_id, bool_or(result_code = '001') AS sold, max(sale_amount) AS sale_amount
   FROM auction_sale_result GROUP BY 1
+), base AS (
+  SELECT i.id, c.case_no, i.item_no, o.sold, o.sale_amount,
+         i.appraisal_amount, i.minimum_sale_price, i.failed_bid_count,
+         round(i.minimum_sale_price::numeric / NULLIF(i.appraisal_amount, 0) * 100) AS min_rate,
+         split_part(r.payload->>'dspslUsgNm', ',', 1) AS usage,
+         COALESCE(r.payload->>'mulBigo', '') LIKE '%일괄%' AS bulk,
+         (n.assumed_rights_kind = 'NONE' OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)) AS no_burden,
+         (n.assumed_rights_kind IS NOT NULL OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)) AS burden_known
+  FROM outcome o
+  JOIN auction_item i ON i.id = o.auction_item_id
+  JOIN auction_case c ON c.id = i.auction_case_id
+  JOIN latest_notice n ON n.auction_item_id = i.id
+  JOIN raw r ON r.auction_item_id = i.id
 )
-SELECT CASE
-         WHEN 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags) THEN 'HUG 대항력포기'
-         WHEN n.assumed_rights_kind = 'NONE' THEN '인수권리 없음'
-         WHEN n.assumed_rights_kind IS NULL THEN '기재 없음(파싱 실패 포함)'
-         ELSE n.assumed_rights_kind
-       END AS 구분,
-       count(*) AS 물건,
-       count(*) FILTER (WHERE o.sold) AS 낙찰,
-       round(100.0 * count(*) FILTER (WHERE o.sold) / count(*), 1) AS 낙찰률,
-       round(avg(o.failed), 2) AS 관측유찰,
-       round(avg(100.0 * o.sale_amount / NULLIF(i.appraisal_amount, 0)) FILTER (WHERE o.sold), 1) AS 낙찰가율
-FROM outcome o
-JOIN latest_notice n ON n.auction_item_id = o.auction_item_id
-JOIN auction_item i ON i.id = o.auction_item_id
-GROUP BY 1 ORDER BY 4 DESC NULLS LAST;
+SELECT DISTINCT ON (CASE WHEN bulk THEN case_no ELSE id::text END) *
+FROM base ORDER BY CASE WHEN bulk THEN case_no ELSE id::text END, sold DESC;
 
-\echo '=== 채점 2. 인수 부담 유무로만 묶은 비교 ==='
-WITH latest_notice AS (
-  SELECT DISTINCT ON (auction_item_id) auction_item_id, assumed_rights_kind, risk_flags
-  FROM auction_item_notice ORDER BY auction_item_id, document_date DESC NULLS LAST, id DESC
-), outcome AS (
-  SELECT auction_item_id, bool_or(result_code = '001') AS sold
-  FROM auction_sale_result GROUP BY 1
-)
-SELECT CASE
-         WHEN n.assumed_rights_kind = 'NONE' OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)
-           THEN '인수 부담 없음'
-         ELSE '인수 부담 있음'
-       END AS 구분,
-       count(*) AS 물건,
-       count(*) FILTER (WHERE o.sold) AS 낙찰,
-       round(100.0 * count(*) FILTER (WHERE o.sold) / count(*), 1) AS 낙찰률
-FROM outcome o
-JOIN latest_notice n ON n.auction_item_id = o.auction_item_id
--- 인수권리 란을 읽어낸 물건만 본다. HUG 대항력포기는 그 칸이 비어 있어도 별도 플래그로
--- 확인된 사실이라 함께 남긴다 — IS NOT NULL만 걸면 HUG 물건 절반이 통째로 빠진다.
-WHERE n.assumed_rights_kind IS NOT NULL
-   OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)
-GROUP BY 1 ORDER BY 4 DESC;
+-- ── 채점: 인수 부담과 매각 결과 ─────────────────────────────────────────────
+-- 사용자 가설(§4-17): "권리분석상 좋은 물건이면 입찰자가 많고 유찰이 적을 것."
+-- 응찰자 수는 공개되지 않으므로(§4-18) **낙찰 여부**를 대리지표로 쓴다.
+\echo '=== 채점 1. 인수 부담 유무 ==='
+SELECT CASE WHEN no_burden THEN '인수 부담 없음' ELSE '인수 부담 있음' END AS 구분,
+       count(*) AS 매각단위, count(*) FILTER (WHERE sold) AS 낙찰,
+       round(100.0 * count(*) FILTER (WHERE sold) / count(*), 1) AS 낙찰률,
+       round(avg(100.0 * sale_amount / NULLIF(appraisal_amount, 0)) FILTER (WHERE sold), 1) AS 낙찰가율
+FROM sale_unit WHERE burden_known GROUP BY 1 ORDER BY 4 DESC;
 
-\echo '(표본이 200건 남짓이라 소수 그룹은 우연으로 흔들린다 — 물건 수가 10 미만인 줄은 읽지 않는다)'
+\echo '=== 채점 2. 유찰 횟수는 낙찰률을 예측하지 못한다 (가설의 반증) ==='
+SELECT LEAST(failed_bid_count, 4) AS 유찰, count(*) AS 매각단위,
+       count(*) FILTER (WHERE sold) AS 낙찰,
+       round(100.0 * count(*) FILTER (WHERE sold) / count(*), 1) AS 낙찰률
+FROM sale_unit WHERE failed_bid_count IS NOT NULL GROUP BY 1 ORDER BY 1;
+
+\echo '=== 채점 3. 인수 부담 x 최저가율 ==='
+SELECT CASE WHEN no_burden THEN '부담없음' ELSE '부담있음' END AS 인수,
+       CASE WHEN min_rate >= 70 THEN '최저가율 70%+' ELSE '최저가율 70%미만' END AS 가격,
+       count(*) AS 매각단위, count(*) FILTER (WHERE sold) AS 낙찰,
+       round(100.0 * count(*) FILTER (WHERE sold) / count(*), 1) AS 낙찰률
+FROM sale_unit WHERE burden_known AND min_rate IS NOT NULL GROUP BY 1, 2 ORDER BY 1, 2;
+
+\echo '=== 채점 4. 용도별 (10단위 이상) ==='
+SELECT usage AS 용도, count(*) AS 매각단위, count(*) FILTER (WHERE sold) AS 낙찰,
+       round(100.0 * count(*) FILTER (WHERE sold) / count(*), 1) AS 낙찰률
+FROM sale_unit GROUP BY 1 HAVING count(*) >= 10 ORDER BY 4 DESC;
+
+-- ── 후보 필터 (2026-08-05 재작성) ──────────────────────────────────────────
+-- 이전 필터는 "인수 부담 없음 + 유찰 3회 이상"이었다. 채점 결과 두 조건 중
+-- **유찰 횟수는 낙찰률과 무관했다**(채점 2: 15~22%로 평평). 조건에서 뺀다.
+--
+-- 대신 채점 3에서 갈린 두 구간을 각각 뽑는다. 이름을 "좋은 물건"이라 붙이지 않는다 —
+-- 낙찰률이 높다는 건 경쟁이 붙는다는 뜻이지 싸게 살 수 있다는 뜻이 아니다.
+\echo '=== 후보 A. 권리 부담 없음 + 아직 많이 안 떨어짐 (실측 낙찰률 32.8%) ==='
+\echo '(경쟁이 붙는 구간이다. 값이 올라가므로 싸게 사는 것과는 반대다)'
+SELECT case_no AS 사건, item_no AS 번호, usage AS 용도, failed_bid_count AS 유찰,
+       min_rate AS 최저가율, round(minimum_sale_price / 100000000.0, 2) AS 최저가억
+FROM sale_unit
+WHERE no_burden AND min_rate >= 70 AND NOT sold
+ORDER BY min_rate ASC LIMIT 15;
+
+\echo '=== 후보 B. 권리 부담 없는데 70% 밑으로 떨어짐 (실측 낙찰률 14.3%) ==='
+\echo '(명세서에 안 나오는 이유로 기피되는 구간이다 — 명도·입지·건물 상태를 직접 확인해야 한다)'
+SELECT case_no AS 사건, item_no AS 번호, usage AS 용도, failed_bid_count AS 유찰,
+       min_rate AS 최저가율, round(minimum_sale_price / 100000000.0, 2) AS 최저가억
+FROM sale_unit
+WHERE no_burden AND min_rate < 70 AND NOT sold
+ORDER BY min_rate ASC LIMIT 15;
+
+\echo '=== 참고. 실측상 가장 안 팔린 구간: 인수 부담 있음 + 70% 미만 (66단위 중 2건, 3.0%) ==='
+SELECT count(*) AS 매각단위, count(*) FILTER (WHERE sold) AS 낙찰
+FROM sale_unit WHERE burden_known AND NOT no_burden AND min_rate < 70;
+
+\echo '(표본 200단위 남짓이다. 10단위 미만인 줄은 우연으로 흔들리므로 읽지 않는다)'
