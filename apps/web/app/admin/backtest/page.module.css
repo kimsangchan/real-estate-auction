@@ -1,0 +1,172 @@
+/* 룰 역채점 화면 — 내부 확인용. 숫자를 훑어 비교하는 것이 전부라 밀도를 높이고 장식을 뺀다. */
+
+.page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: var(--spacing-xl);
+  padding-bottom: var(--spacing-xxxl);
+}
+
+.title {
+  font-size: var(--typography-heading-lg-font-size);
+  font-weight: var(--typography-heading-lg-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-sm);
+}
+
+.note {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-slate);
+  line-height: 1.6;
+  background-color: var(--color-surface-soft);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-base);
+  margin: 0 0 var(--spacing-xl);
+}
+
+.section {
+  margin-bottom: var(--spacing-xxl);
+}
+
+.sectionTitle {
+  font-size: var(--typography-heading-sm-font-size);
+  font-weight: var(--typography-heading-sm-font-weight);
+  color: var(--color-ink-deep);
+  margin: 0 0 var(--spacing-sm);
+}
+
+.caption {
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-steel);
+  margin: 0 0 var(--spacing-sm);
+  line-height: 1.5;
+}
+
+.empty {
+  font-size: var(--typography-body-sm-font-size);
+  color: var(--color-steel);
+  background-color: var(--color-surface-soft);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-base);
+  line-height: 1.6;
+}
+
+/* 넓은 표가 화면을 밀지 않게 표만 따로 스크롤시킨다 */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--typography-body-sm-font-size);
+}
+
+.table th,
+.table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-hairline-soft);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table thead th {
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-steel);
+  font-weight: var(--typography-caption-bold-font-weight);
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.table tbody th {
+  text-align: left;
+  font-weight: var(--typography-caption-bold-font-weight);
+  color: var(--color-ink-deep);
+}
+
+/* 숫자는 모노스페이스로 자릿수를 맞춘다 — 훑어 비교하는 화면이라 정렬이 핵심이다 */
+.table td {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+}
+
+.rate {
+  font-weight: var(--typography-caption-bold-font-weight);
+}
+
+/* 10단위 미만은 우연으로 흔들린다 — 눌러서 읽지 말라고 알린다 */
+.thin {
+  opacity: 0.45;
+}
+
+.chartFigure {
+  margin: 0 0 var(--spacing-base);
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.gridLine {
+  stroke: var(--color-hairline-soft);
+  stroke-width: 1;
+}
+
+.axisLabel {
+  font-size: 11px;
+  fill: var(--color-stone);
+}
+
+.lineNoBurden,
+.lineBurden {
+  fill: none;
+  stroke-width: 2;
+}
+
+.lineNoBurden {
+  stroke: var(--color-primary);
+}
+
+.lineBurden {
+  stroke: var(--color-stone);
+}
+
+.dotNoBurden {
+  fill: var(--color-primary);
+}
+
+.dotBurden {
+  fill: var(--color-stone);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-base);
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-steel);
+}
+
+.legendNoBurden::before,
+.legendBurden::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 2px;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+.legendNoBurden::before {
+  background-color: var(--color-primary);
+}
+
+.legendBurden::before {
+  background-color: var(--color-stone);
+}
+
+.legendNote {
+  color: var(--color-stone);
+}

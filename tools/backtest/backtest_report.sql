@@ -214,7 +214,7 @@ FROM sale_unit
 WHERE no_burden AND min_rate < 70 AND NOT sold
 ORDER BY min_rate ASC LIMIT 15;
 
-\echo '=== 참고. 실측상 가장 안 팔린 구간: 인수 부담 있음 + 70% 미만 (66단위 중 2건, 3.0%) ==='
+\echo '=== 참고. 실측상 가장 안 팔린 구간: 인수 부담 있음 + 70% 미만 (36단위 중 1건, 2.8%) ==='
 SELECT count(*) AS 매각단위, count(*) FILTER (WHERE sold) AS 낙찰
 FROM sale_unit WHERE burden_known AND NOT no_burden AND min_rate < 70;
 

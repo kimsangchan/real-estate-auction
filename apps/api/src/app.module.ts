@@ -2,12 +2,13 @@
 import { Module } from '@nestjs/common';
 import { AuctionItemsModule } from './auction-items/auction-items.module';
 import { AuthModule } from './auth/auth.module';
+import { BacktestModule } from './backtest/backtest.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { HealthController } from './health/health.controller';
 import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
-  imports: [AuctionItemsModule, AuthModule, FavoritesModule, NotificationsModule],
+  imports: [AuctionItemsModule, AuthModule, BacktestModule, FavoritesModule, NotificationsModule],
   controllers: [HealthController],
 })
 export class AppModule {}
