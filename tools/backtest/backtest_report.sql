@@ -138,8 +138,15 @@ WITH raw AS (
   SELECT DISTINCT ON (auction_item_id) auction_item_id, assumed_rights_kind, risk_flags
   FROM auction_item_notice ORDER BY auction_item_id, document_date DESC NULLS LAST, id DESC
 ), outcome AS (
+  -- **관측 시작(2026-07-31) 이후 기일만 센다.** 그 전 결과는 생존 편향으로 못 쓴다:
+  -- 팔린 사건은 공고 목록에서 빠지므로 우리 물건 목록에 없고, 그래서 사건검색으로 과거를
+  -- 훑으면 안 팔린 사건의 유찰만 남는다. 실측으로 확인된다 —
+  -- 2026-06 기일은 유찰 331건인데 낙찰 0건, 2026-08(관측 후)은 낙찰 92 / 유찰 207.
+  -- 이 구간을 섞으면 낙찰률이 통째로 과소평가된다.
   SELECT auction_item_id, bool_or(result_code = '001') AS sold, max(sale_amount) AS sale_amount
-  FROM auction_sale_result GROUP BY 1
+  FROM auction_sale_result
+  WHERE dxdy_date >= DATE '2026-07-31'
+  GROUP BY 1
 ), base AS (
   SELECT i.id, c.case_no, i.item_no, o.sold, o.sale_amount,
          i.appraisal_amount, i.minimum_sale_price, i.failed_bid_count,
@@ -212,3 +219,44 @@ SELECT count(*) AS 매각단위, count(*) FILTER (WHERE sold) AS 낙찰
 FROM sale_unit WHERE burden_known AND NOT no_burden AND min_rate < 70;
 
 \echo '(표본 200단위 남짓이다. 10단위 미만인 줄은 우연으로 흔들리므로 읽지 않는다)'
+
+\echo '=== 추이. 주차별 누적 (관측 시작 이후) ==='
+-- 표본이 시간에 비례해서만 늘어난다(§5). 매주 같은 쿼리를 돌려 결론이 유지되는지 본다.
+-- 관측 시작 전은 생존 편향으로 못 쓰므로 이 표도 2026-07-31부터 시작한다.
+WITH raw AS (
+  SELECT DISTINCT ON (auction_item_id) auction_item_id, payload
+  FROM auction_item_raw ORDER BY auction_item_id, observed_at DESC
+), latest_notice AS (
+  SELECT DISTINCT ON (auction_item_id) auction_item_id, assumed_rights_kind, risk_flags
+  FROM auction_item_notice ORDER BY auction_item_id, document_date DESC NULLS LAST, id DESC
+), weeks AS (
+  SELECT generate_series(DATE '2026-08-03', date_trunc('week', now())::date + 6, interval '7 day')::date AS asof
+), per_week AS (
+  SELECT DISTINCT ON (w.asof, CASE WHEN COALESCE(r.payload->>'mulBigo','') LIKE '%일괄%'
+                                   THEN c.case_no ELSE i.id::text END)
+         w.asof,
+         (SELECT bool_or(s2.result_code = '001') FROM auction_sale_result s2
+           WHERE s2.auction_item_id = i.id
+             AND s2.dxdy_date BETWEEN DATE '2026-07-31' AND w.asof) AS sold,
+         (n.assumed_rights_kind = 'NONE' OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)) AS no_burden
+  FROM weeks w
+  JOIN auction_sale_result sr ON sr.dxdy_date BETWEEN DATE '2026-07-31' AND w.asof
+  JOIN auction_item i ON i.id = sr.auction_item_id
+  JOIN auction_case c ON c.id = i.auction_case_id
+  JOIN latest_notice n ON n.auction_item_id = i.id
+  JOIN raw r ON r.auction_item_id = i.id
+  WHERE n.assumed_rights_kind IS NOT NULL OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)
+  ORDER BY w.asof,
+           CASE WHEN COALESCE(r.payload->>'mulBigo','') LIKE '%일괄%' THEN c.case_no ELSE i.id::text END
+)
+SELECT asof AS 기준일,
+       count(*) AS 누적단위,
+       count(*) FILTER (WHERE no_burden) AS 부담없음,
+       round(100.0 * count(*) FILTER (WHERE no_burden AND sold)
+             / NULLIF(count(*) FILTER (WHERE no_burden), 0), 1) AS 부담없음_낙찰률,
+       count(*) FILTER (WHERE NOT no_burden) AS 부담있음,
+       round(100.0 * count(*) FILTER (WHERE NOT no_burden AND sold)
+             / NULLIF(count(*) FILTER (WHERE NOT no_burden), 0), 1) AS 부담있음_낙찰률
+FROM per_week GROUP BY 1 ORDER BY 1;
+
+\echo '(각 줄은 그 주까지 누적이다. 두 낙찰률의 간격이 표본이 늘어도 유지되는지가 관건이다)'
