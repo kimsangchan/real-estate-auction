@@ -11,7 +11,7 @@ export type NoticeAssumption =
 
 export interface AnalyzedTenant {
   tenantSeq: number;
-  sourceKind: string | null;
+  sourceKinds: string[];
   occupiedPart: string | null;
   moveInDate: string | null;
   fixedDate: string | null;
@@ -34,32 +34,6 @@ export interface NoticeAnalysis {
   riskFlags: string[];
   tenants: AnalyzedTenant[];
   source: 'NOTICE_ONLY';
-}
-
-/**
- * 같은 사람이 정보출처별로 여러 행에 나온다(현황조사·권리신고·등기사항전부증명서).
- * 화면에는 사람 단위로 한 줄만 보여야 하므로 순번으로 묶고, 그 안에서 값이 가장 많이 채워진
- * 행을 대표로 쓴다 — 현황조사 행은 보증금·확정일자가 비어 있는 경우가 많다.
- */
-export function dedupeTenants(tenants: readonly AnalyzedTenant[]): AnalyzedTenant[] {
-  const bySeq = new Map<number, AnalyzedTenant>();
-  for (const tenant of tenants) {
-    const current = bySeq.get(tenant.tenantSeq);
-    if (current === undefined || filledCount(tenant) > filledCount(current)) {
-      bySeq.set(tenant.tenantSeq, tenant);
-    }
-  }
-  return [...bySeq.values()].sort((a, b) => a.tenantSeq - b.tenantSeq);
-}
-
-function filledCount(tenant: AnalyzedTenant): number {
-  return [
-    tenant.depositAmount,
-    tenant.fixedDate,
-    tenant.moveInDate,
-    tenant.demandedDistributionDate,
-    tenant.occupiedPart,
-  ].filter((value) => value !== null).length;
 }
 
 /** 인수가 확정된 임차인들의 보증금 합계. 금액 미상이 하나라도 있으면 이 값은 하한이다. */

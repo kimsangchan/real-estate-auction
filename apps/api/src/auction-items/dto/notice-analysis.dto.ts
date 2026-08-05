@@ -6,10 +6,10 @@
 import type { NoticeAssumption } from '../../rights-analysis/domain/notice-assumption';
 
 export interface AnalyzedTenantDto {
-  /** 같은 사람이 정보출처별로 여러 행에 나온다 — 순번이 같으면 동일인이다 */
+  /** 명세서가 정보출처별로 나눠 적은 행을 사람 단위로 합친 것 */
   tenantSeq: number;
-  /** 현황조사 / 권리신고 / 등기사항전부증명서 */
-  sourceKind: string | null;
+  /** 이 사람의 정보가 어느 출처에서 왔는지 (현황조사 / 권리신고 / 등기사항전부증명서) */
+  sourceKinds: string[];
   occupiedPart: string | null;
   moveInDate: string | null;
   fixedDate: string | null;

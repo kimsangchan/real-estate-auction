@@ -6,8 +6,7 @@
 // 한 줄을 고르면 그 물건의 상세로 들어간다.
 //
 // 상세는 탭 두 개를 한 패널에서 갈아 끼운다: 요약(상세 페이지와 같은 내용) ↔ 권리분석.
-// 권리분석 탭에서는 패널이 넓어진다 — 권리 표는 행마다 종류·내용·인수여부 세 덩어리라
-// 380px에서는 줄바꿈으로 뭉개진다. 넓히는 이유가 "멋있어서"가 아니라 읽히지 않아서다.
+// 탭을 바꿔도 패널 폭은 그대로다 — 폭이 바뀌면 옆의 지도가 같이 밀려 탐색 맥락이 흔들린다.
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -274,10 +273,7 @@ function ItemDetail({
   ].filter((value): value is string => value !== null);
 
   return (
-    <aside
-      className={view === 'rights' ? `${styles.panel} ${styles.panelWide}` : styles.panel}
-      aria-label="물건 정보"
-    >
+    <aside className={styles.panel} aria-label="물건 정보">
       <div className={styles.header}>
         {onBack ? (
           <button type="button" className={styles.back} onClick={onBack}>

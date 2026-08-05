@@ -10,7 +10,6 @@ import { formatWon } from '../format';
 import {
   assumedHeadline,
   assumedTotal,
-  dedupeTenants,
   type AnalyzedTenant,
   type NoticeAnalysis,
   type NoticeAssumption,
@@ -85,7 +84,8 @@ export function RightsAnalysisView({
     );
   }
 
-  const tenants = dedupeTenants(analysis.tenants);
+  // API가 이미 사람 단위로 합쳐서 준다 (notice-tenant-merge.ts)
+  const tenants = analysis.tenants;
   const headline = assumedHeadline(assumedTotal(tenants));
   const assumed = tenants.filter((t) => t.assumption === 'ASSUMED_FULL');
   const unknown = tenants.filter(
@@ -190,7 +190,7 @@ export function RightsAnalysisView({
         {tenants.length > 0 ? (
           <div className={styles.table}>
             {tenants.map((tenant) => (
-              <TenantRow key={`${tenant.tenantSeq}-${tenant.sourceKind}`} tenant={tenant} />
+              <TenantRow key={tenant.tenantSeq} tenant={tenant} />
             ))}
           </div>
         ) : (

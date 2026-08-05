@@ -8,6 +8,7 @@ import type { Bbox } from './dto/bbox.dto';
 import type { NoticeAnalysisDto } from './dto/notice-analysis.dto';
 import type { RegionCountDto } from './dto/region-count.dto';
 import { classifyNoticeAssumption } from '../rights-analysis/domain/notice-assumption';
+import { mergeNoticeTenants } from './notice-tenant-merge';
 
 // 법원 convAddr 접두사 → 면적 종류 코드. 화면이 평당가 분모를 고르는 근거라 문자열을 그대로
 // 흘리지 않고 코드로 고정한다.
@@ -325,29 +326,23 @@ export class AuctionItemsRepository {
       distributionDemandDeadline: deadline,
       assumedRightsKind: notice.assumedRightsKind,
       riskFlags: notice.riskFlags ?? [],
-      tenants: tenantResult.rows.map((row) => {
-        const moveInDate = toIsoDate(row.moveInDate);
-        const demandedDistributionDate = toIsoDate(row.demandedDistributionDate);
-        const depositAmount = row.depositAmount === null ? null : Number(row.depositAmount);
-        const verdict = classifyNoticeAssumption(
-          {
-            moveInDate,
-            depositAmount,
-            demandedDistribution: row.demandedDistribution,
-            demandedDistributionDate,
-          },
-          baselineDate,
-          deadline,
-        );
-        return {
+      // 정보출처별로 흩어진 행을 사람 단위로 합친 뒤 판정한다 — 한 행만 골라 보면
+      // 다른 행에만 있는 보증금·배당요구를 버리게 된다.
+      tenants: mergeNoticeTenants(
+        tenantResult.rows.map((row) => ({
           tenantSeq: row.tenantSeq,
           sourceKind: row.sourceKind,
           occupiedPart: row.occupiedPart,
-          moveInDate,
+          moveInDate: toIsoDate(row.moveInDate),
           fixedDate: toIsoDate(row.fixedDate),
-          depositAmount,
+          depositAmount: row.depositAmount === null ? null : Number(row.depositAmount),
           demandedDistribution: row.demandedDistribution,
-          demandedDistributionDate,
+          demandedDistributionDate: toIsoDate(row.demandedDistributionDate),
+        })),
+      ).map((tenant) => {
+        const verdict = classifyNoticeAssumption(tenant, baselineDate, deadline);
+        return {
+          ...tenant,
           possessionRightDate: verdict.possessionRightDate,
           hasPriority: verdict.hasPriority,
           distributionDemandEffective: verdict.distributionDemandEffective,

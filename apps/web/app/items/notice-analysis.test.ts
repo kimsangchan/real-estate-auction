@@ -1,15 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import {
-  assumedHeadline,
-  assumedTotal,
-  dedupeTenants,
-  type AnalyzedTenant,
-} from './notice-analysis';
+import { assumedHeadline, assumedTotal, type AnalyzedTenant } from './notice-analysis';
 
 function tenant(overrides: Partial<AnalyzedTenant> & Pick<AnalyzedTenant, 'tenantSeq'>): AnalyzedTenant {
   return {
-    sourceKind: '권리신고',
+    sourceKinds: ['권리신고'],
     occupiedPart: '202호',
     moveInDate: '2020-07-29',
     fixedDate: '2023-12-20',
@@ -24,29 +19,6 @@ function tenant(overrides: Partial<AnalyzedTenant> & Pick<AnalyzedTenant, 'tenan
     ...overrides,
   };
 }
-
-test('같은 사람의 여러 정보출처 행을 한 줄로 묶는다', () => {
-  const rows = [
-    tenant({ tenantSeq: 1, sourceKind: '현황조사', depositAmount: null, fixedDate: null }),
-    tenant({ tenantSeq: 1, sourceKind: '권리신고' }),
-    tenant({ tenantSeq: 2, sourceKind: '권리신고', occupiedPart: '301호' }),
-  ];
-
-  const result = dedupeTenants(rows);
-
-  assert.equal(result.length, 2);
-  // 값이 더 많이 채워진 권리신고 행이 대표가 된다 — 현황조사는 보증금이 자주 비어 있다
-  assert.equal(result[0]?.sourceKind, '권리신고');
-  assert.equal(result[0]?.depositAmount, 50_000_000);
-});
-
-test('순번 순으로 정렬한다', () => {
-  const result = dedupeTenants([tenant({ tenantSeq: 3 }), tenant({ tenantSeq: 1 })]);
-  assert.deepEqual(
-    result.map((t) => t.tenantSeq),
-    [1, 3],
-  );
-});
 
 test('전액 인수 보증금만 합산한다', () => {
   const result = assumedTotal([
