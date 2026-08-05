@@ -172,3 +172,65 @@ SELECT count(*) AS 물건, round(avg(failed_bid_count), 1) AS 평균유찰
 FROM auction_item
 WHERE failed_bid_count >= 3
   AND round(minimum_sale_price::numeric / NULLIF(appraisal_amount, 0) * 100) >= 90;
+
+-- ── 채점: 인수 부담과 매각 결과의 관계 ────────────────────────────────────
+-- 사용자 가설(2026-08-04): "권리분석상 좋은 물건이면 입찰자가 많고 유찰이 적을 것"
+--
+-- 입찰자 수는 온라인에 공개되지 않는다(§4-18). 대신 **낙찰 여부**와 **낙찰가율**을
+-- 대리지표로 쓴다 — 입찰이 몰리면 낙찰되고 값이 올라간다.
+--
+-- 읽는 법: 낙찰률은 "기일이 지난 물건 중 실제로 팔린 비율"이다. 유찰 횟수는 우리가
+-- 관측한 유찰 기일 수라서 수집 시작(2025-05) 이전 이력은 빠져 있다 — 그룹 간 비교에만 쓰고
+-- 절대값으로 읽지 않는다.
+\echo '=== 채점 1. 인수 부담별 매각 결과 (명세서를 받아둔 물건 중 기일이 지난 것) ==='
+WITH latest_notice AS (
+  SELECT DISTINCT ON (auction_item_id) auction_item_id, assumed_rights_kind, risk_flags
+  FROM auction_item_notice ORDER BY auction_item_id, document_date DESC NULLS LAST, id DESC
+), outcome AS (
+  SELECT auction_item_id,
+         bool_or(result_code = '001') AS sold,
+         count(*) FILTER (WHERE result_code = '002') AS failed,
+         max(sale_amount) AS sale_amount
+  FROM auction_sale_result GROUP BY 1
+)
+SELECT CASE
+         WHEN 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags) THEN 'HUG 대항력포기'
+         WHEN n.assumed_rights_kind = 'NONE' THEN '인수권리 없음'
+         WHEN n.assumed_rights_kind IS NULL THEN '기재 없음(파싱 실패 포함)'
+         ELSE n.assumed_rights_kind
+       END AS 구분,
+       count(*) AS 물건,
+       count(*) FILTER (WHERE o.sold) AS 낙찰,
+       round(100.0 * count(*) FILTER (WHERE o.sold) / count(*), 1) AS 낙찰률,
+       round(avg(o.failed), 2) AS 관측유찰,
+       round(avg(100.0 * o.sale_amount / NULLIF(i.appraisal_amount, 0)) FILTER (WHERE o.sold), 1) AS 낙찰가율
+FROM outcome o
+JOIN latest_notice n ON n.auction_item_id = o.auction_item_id
+JOIN auction_item i ON i.id = o.auction_item_id
+GROUP BY 1 ORDER BY 4 DESC NULLS LAST;
+
+\echo '=== 채점 2. 인수 부담 유무로만 묶은 비교 ==='
+WITH latest_notice AS (
+  SELECT DISTINCT ON (auction_item_id) auction_item_id, assumed_rights_kind, risk_flags
+  FROM auction_item_notice ORDER BY auction_item_id, document_date DESC NULLS LAST, id DESC
+), outcome AS (
+  SELECT auction_item_id, bool_or(result_code = '001') AS sold
+  FROM auction_sale_result GROUP BY 1
+)
+SELECT CASE
+         WHEN n.assumed_rights_kind = 'NONE' OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)
+           THEN '인수 부담 없음'
+         ELSE '인수 부담 있음'
+       END AS 구분,
+       count(*) AS 물건,
+       count(*) FILTER (WHERE o.sold) AS 낙찰,
+       round(100.0 * count(*) FILTER (WHERE o.sold) / count(*), 1) AS 낙찰률
+FROM outcome o
+JOIN latest_notice n ON n.auction_item_id = o.auction_item_id
+-- 인수권리 란을 읽어낸 물건만 본다. HUG 대항력포기는 그 칸이 비어 있어도 별도 플래그로
+-- 확인된 사실이라 함께 남긴다 — IS NOT NULL만 걸면 HUG 물건 절반이 통째로 빠진다.
+WHERE n.assumed_rights_kind IS NOT NULL
+   OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)
+GROUP BY 1 ORDER BY 4 DESC;
+
+\echo '(표본이 200건 남짓이라 소수 그룹은 우연으로 흔들린다 — 물건 수가 10 미만인 줄은 읽지 않는다)'
