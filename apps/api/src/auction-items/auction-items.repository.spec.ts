@@ -269,3 +269,85 @@ describe('AuctionItemsRepository', () => {
     expect(result).toMatchObject({ lng: 126.998, lat: 37.571 });
   });
 });
+
+describe('findNoticeAnalysis — 명세서만으로 하는 권리분석 (등기부 없음)', () => {
+  function createNoticePool(notice: unknown, tenants: unknown[]) {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce({ rows: notice === null ? [] : [notice] })
+      .mockResolvedValueOnce({ rows: tenants });
+    return { query };
+  }
+
+  const notice = {
+    id: '398',
+    documentDate: new Date(2026, 5, 17), // 로컬 자정 — pg가 date 컬럼을 이렇게 준다
+    baselineRaw: '2024.02.19. 압류',
+    baselineDate: new Date(2024, 1, 19),
+    distributionDemandDeadline: new Date(2025, 0, 22),
+    assumedRightsKind: 'LEASEHOLD_REGISTRATION',
+    riskFlags: [],
+  };
+
+  it('date 컬럼을 하루 밀리지 않게 변환한다 — 대항력은 하루 차이로 뒤집힌다', async () => {
+    // toISOString()을 쓰면 KST(UTC+9)에서 전날이 된다: 2020-07-29 → 2020-07-28
+    const pool = createNoticePool(notice, [
+      {
+        tenantSeq: 1,
+        sourceKind: '권리신고',
+        occupiedPart: '202호',
+        moveInDate: new Date(2020, 6, 29),
+        fixedDate: new Date(2023, 11, 20),
+        depositAmount: '50000000',
+        demandedDistribution: true,
+        demandedDistributionDate: new Date(2024, 9, 25),
+      },
+    ]);
+    const repository = new AuctionItemsRepository(pool as never);
+
+    const result = await repository.findNoticeAnalysis('B000211', '2024타경63301', '1');
+
+    expect(result?.baselineDate).toBe('2024-02-19');
+    expect(result?.distributionDemandDeadline).toBe('2025-01-22');
+    expect(result?.tenants[0]).toMatchObject({
+      moveInDate: '2020-07-29',
+      fixedDate: '2023-12-20',
+      demandedDistributionDate: '2024-10-25',
+      possessionRightDate: '2020-07-30',
+      hasPriority: true,
+      distributionDemandEffective: true,
+      assumption: 'ASSUMED_AMOUNT_UNKNOWN',
+      depositAmount: 50_000_000,
+    });
+  });
+
+  it('점유자 성명을 응답에 담지 않는다 — 법원이 공개한 제3자 개인정보다', async () => {
+    const pool = createNoticePool(notice, [
+      {
+        tenantSeq: 1,
+        sourceKind: '현황조사',
+        occupiedPart: '202호',
+        moveInDate: new Date(2020, 6, 29),
+        fixedDate: null,
+        depositAmount: null,
+        demandedDistribution: null,
+        demandedDistributionDate: null,
+      },
+    ]);
+    const repository = new AuctionItemsRepository(pool as never);
+
+    const result = await repository.findNoticeAnalysis('B000211', '2024타경63301', '1');
+
+    expect(JSON.stringify(result)).not.toContain('tenantName');
+    // 조회 SQL 자체가 성명 컬럼을 읽지 않아야 한다 — 응답에 섞일 경로를 만들지 않는다
+    const tenantSql = (pool.query.mock.calls[1]?.[0] ?? '') as string;
+    expect(tenantSql).not.toContain('tenant_name');
+  });
+
+  it('명세서를 못 받았으면 null — 빈 결과는 "인수할 권리 없음"으로 읽힌다', async () => {
+    const pool = createNoticePool(null, []);
+    const repository = new AuctionItemsRepository(pool as never);
+
+    expect(await repository.findNoticeAnalysis('B000211', '2024타경63301', '1')).toBeNull();
+  });
+});

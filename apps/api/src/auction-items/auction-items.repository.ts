@@ -5,7 +5,9 @@ import type { Pool, QueryResultRow } from 'pg';
 import type { AuctionCasePhotoDto } from './dto/auction-case-photo.dto';
 import type { AuctionItemDto } from './dto/auction-item.dto';
 import type { Bbox } from './dto/bbox.dto';
+import type { NoticeAnalysisDto } from './dto/notice-analysis.dto';
 import type { RegionCountDto } from './dto/region-count.dto';
+import { classifyNoticeAssumption } from '../rights-analysis/domain/notice-assumption';
 
 // 법원 convAddr 접두사 → 면적 종류 코드. 화면이 평당가 분모를 고르는 근거라 문자열을 그대로
 // 흘리지 않고 코드로 고정한다.
@@ -16,6 +18,42 @@ const AREA_KIND: Record<string, 'AGGREGATE' | 'LAND' | 'BUILDING'> = {
 };
 
 export const PG_POOL = Symbol('PG_POOL');
+
+interface NoticeRow {
+  id: string;
+  documentDate: Date | string | null;
+  baselineRaw: string | null;
+  baselineDate: Date | string | null;
+  distributionDemandDeadline: Date | string | null;
+  assumedRightsKind: string | null;
+  riskFlags: string[] | null;
+}
+
+interface NoticeTenantRow {
+  tenantSeq: number;
+  sourceKind: string | null;
+  occupiedPart: string | null;
+  moveInDate: Date | string | null;
+  fixedDate: Date | string | null;
+  depositAmount: string | number | null;
+  demandedDistribution: boolean | null;
+  demandedDistributionDate: Date | string | null;
+}
+
+/**
+ * pg가 date 컬럼으로 준 값을 YYYY-MM-DD로 만든다.
+ *
+ * `toISOString()`을 쓰면 안 된다 — pg는 date를 **로컬 자정** Date로 만들어서, KST(UTC+9)에서
+ * UTC로 옮기면 전날이 된다(2020-07-29 → 2020-07-28). 대항력은 하루 차이로 뒤집히는 판정이라
+ * 여기서 밀리면 인수 여부가 통째로 달라진다. 로컬 필드를 그대로 읽는다.
+ */
+export function toIsoDate(value: Date | string | null): string | null {
+  if (value === null) return null;
+  if (typeof value === 'string') return value.slice(0, 10);
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${value.getFullYear()}-${month}-${day}`;
+}
 
 const JOIN_RAW_AND_SCHEDULE = `
   FROM auction_item ai
@@ -228,6 +266,97 @@ export class AuctionItemsRepository {
       [caseId],
     );
     return photoResult.rows.map((row) => ({ ...row, id: Number(row.id) }));
+  }
+
+  /**
+   * 매각물건명세서 기반 권리분석 — 등기부 없이 계산한다 (WP-04 CODEF 연동 전).
+   *
+   * 명세서를 아직 못 받은 물건은 null. "인수할 권리가 없다"와 구분해야 하므로 빈 결과를
+   * 돌려주지 않는다. 가장 최근에 작성된 명세서 한 건만 본다 — 기일이 바뀌면 새로 작성된다.
+   *
+   * 성명(tenant_name)은 SELECT에 넣지 않는다 — 응답에 섞여 나갈 경로 자체를 만들지 않는다.
+   */
+  async findNoticeAnalysis(
+    courtOfficeCode: string,
+    caseNo: string,
+    itemNo: string,
+  ): Promise<NoticeAnalysisDto | null> {
+    const noticeResult = await this.pool.query<NoticeRow>(
+      `SELECT n.id,
+              n.document_date AS "documentDate",
+              n.baseline_raw AS "baselineRaw",
+              n.baseline_date AS "baselineDate",
+              n.distribution_demand_deadline AS "distributionDemandDeadline",
+              n.assumed_rights_kind AS "assumedRightsKind",
+              n.risk_flags AS "riskFlags"
+       FROM auction_item_notice n
+       JOIN auction_item ai ON ai.id = n.auction_item_id
+       JOIN auction_case ac ON ac.id = ai.auction_case_id
+       WHERE ac.court_office_code = $1 AND ac.case_no = $2 AND ai.item_no = $3
+       ORDER BY n.document_date DESC NULLS LAST, n.observed_at DESC
+       LIMIT 1`,
+      [courtOfficeCode, caseNo, itemNo],
+    );
+    const notice = noticeResult.rows[0];
+    if (notice === undefined) return null;
+
+    const tenantResult = await this.pool.query<NoticeTenantRow>(
+      `SELECT tenant_seq AS "tenantSeq",
+              source_kind AS "sourceKind",
+              occupied_part AS "occupiedPart",
+              move_in_date AS "moveInDate",
+              fixed_date AS "fixedDate",
+              deposit_amount AS "depositAmount",
+              demanded_distribution AS "demandedDistribution",
+              demanded_distribution_date AS "demandedDistributionDate"
+       FROM auction_item_notice_tenant
+       WHERE notice_id = $1
+       ORDER BY row_no`,
+      [notice.id],
+    );
+
+    const baselineDate = toIsoDate(notice.baselineDate);
+    const deadline = toIsoDate(notice.distributionDemandDeadline);
+
+    return {
+      documentDate: toIsoDate(notice.documentDate),
+      baselineRaw: notice.baselineRaw,
+      baselineDate,
+      distributionDemandDeadline: deadline,
+      assumedRightsKind: notice.assumedRightsKind,
+      riskFlags: notice.riskFlags ?? [],
+      tenants: tenantResult.rows.map((row) => {
+        const moveInDate = toIsoDate(row.moveInDate);
+        const demandedDistributionDate = toIsoDate(row.demandedDistributionDate);
+        const depositAmount = row.depositAmount === null ? null : Number(row.depositAmount);
+        const verdict = classifyNoticeAssumption(
+          {
+            moveInDate,
+            depositAmount,
+            demandedDistribution: row.demandedDistribution,
+            demandedDistributionDate,
+          },
+          baselineDate,
+          deadline,
+        );
+        return {
+          tenantSeq: row.tenantSeq,
+          sourceKind: row.sourceKind,
+          occupiedPart: row.occupiedPart,
+          moveInDate,
+          fixedDate: toIsoDate(row.fixedDate),
+          depositAmount,
+          demandedDistribution: row.demandedDistribution,
+          demandedDistributionDate,
+          possessionRightDate: verdict.possessionRightDate,
+          hasPriority: verdict.hasPriority,
+          distributionDemandEffective: verdict.distributionDemandEffective,
+          assumption: verdict.assumption,
+          assumedAmount: verdict.assumedAmount,
+        };
+      }),
+      source: 'NOTICE_ONLY',
+    };
   }
 
   /** 사진 바이너리 단건 조회 — 이미지 응답용. 없으면 null */

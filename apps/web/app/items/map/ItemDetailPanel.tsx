@@ -26,6 +26,7 @@ import {
   unitLabel,
 } from '../format';
 import { encodeItemId } from '../item-id';
+import type { NoticeAnalysis } from '../notice-analysis';
 import { assumedRightsLabel, riskFlagLabels, shortUsageName, tenantLabel } from '../notice-labels';
 import { photoAlt, photoProxySrc, type AuctionItemPhoto } from '../photo';
 import { isBulkLot } from './bulk-lot';
@@ -187,6 +188,8 @@ function ItemDetail({
 }) {
   const [photos, setPhotos] = useState<AuctionItemPhoto[]>([]);
   const [view, setView] = useState<PanelView>('summary');
+  // 권리분석은 탭을 눌렀을 때만 받는다 — 지도에서 훑기만 하는 사용자에게 요청을 만들지 않는다.
+  const [analysis, setAnalysis] = useState<NoticeAnalysis | null | undefined>(undefined);
   const pathname = usePathname();
   const id = encodeItemId(item);
 
@@ -212,6 +215,30 @@ function ItemDetail({
     return () => {
       cancelled = true;
     };
+  }, [item.courtOfficeCode, item.caseNo, item.itemNo]);
+
+  // 권리분석 탭을 처음 열 때 명세서 분석을 받는다. 물건이 바뀌면 다시 받는다.
+  useEffect(() => {
+    if (view !== 'rights') return;
+    let cancelled = false;
+    const url = `/api/auction-items/${encodeURIComponent(item.courtOfficeCode)}/${encodeURIComponent(item.caseNo)}/${encodeURIComponent(item.itemNo)}/notice-analysis`;
+    fetch(url)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: unknown) => {
+        // 404(명세서 미수집)와 오류를 모두 null로 둔다 — 화면은 "확인되지 않음"으로 말한다
+        if (!cancelled) setAnalysis((data as NoticeAnalysis | null) ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setAnalysis(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, item.courtOfficeCode, item.caseNo, item.itemNo]);
+
+  // 물건이 바뀌면 앞 물건의 분석이 남지 않게 지운다 — 남으면 다른 물건의 인수액으로 읽힌다.
+  useEffect(() => {
+    setAnalysis(undefined);
   }, [item.courtOfficeCode, item.caseNo, item.itemNo]);
 
   // Esc — 한 단계씩만 되돌린다. 넓어진 패널이나 목록이 통째로 닫히면 방금 보던 물건을
@@ -376,8 +403,14 @@ function ItemDetail({
         </>
       ) : (
         <div className={styles.rightsBody}>
-          {/* 이 물건의 최저가를 넘겨 예시 요약이 실제 물건 정보와 어긋나 보이지 않게 한다. */}
-          <RightsAnalysisView itemId={id} basis={{ minimumSalePrice: item.minimumSalePrice }} />
+          {analysis === undefined ? (
+            <p className={styles.unknown}>권리분석을 불러오는 중이에요...</p>
+          ) : (
+            <RightsAnalysisView
+              analysis={analysis}
+              basis={{ minimumSalePrice: item.minimumSalePrice }}
+            />
+          )}
         </div>
       )}
 

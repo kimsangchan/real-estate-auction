@@ -4,8 +4,12 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import {
   ASSUMED_RIGHTS_LABEL,
+  NOTICE_ASSUMPTION_LABEL,
+  NOTICE_ASSUMPTION_REASON,
   RISK_FLAG_LABEL,
   assumedRightsLabel,
+  noticeAssumptionLabel,
+  noticeAssumptionReason,
   riskFlagLabels,
   shortUsageName,
   tenantLabel,
@@ -81,4 +85,28 @@ test('인수권리 라벨이 모바일 사본과 같다', () => {
 
 test('위험 플래그 라벨이 모바일 사본과 같다', () => {
   assert.deepEqual(parseLabels(mobileSource, 'RISK_FLAG_LABEL'), RISK_FLAG_LABEL);
+});
+
+test('noticeAssumptionLabel은 인수 판정을 화면 문구로 바꾼다', () => {
+  assert.equal(noticeAssumptionLabel('NOT_ASSUMED'), '인수 안 함');
+  assert.equal(noticeAssumptionLabel('ASSUMED_FULL'), '보증금 전액 인수');
+  assert.equal(noticeAssumptionLabel('ASSUMED_AMOUNT_UNKNOWN'), '인수 금액 확인 필요');
+});
+
+test('noticeAssumptionLabel은 모르는 코드를 숨기지 않고 그대로 노출한다', () => {
+  assert.equal(noticeAssumptionLabel('SOMETHING_NEW'), 'SOMETHING_NEW');
+  assert.equal(noticeAssumptionReason('SOMETHING_NEW'), null);
+});
+
+test('판정 문구에 판단·권유 표현을 쓰지 않는다 (D-011)', () => {
+  const banned = ['추천', '안전', '유리', '기회', '괜찮', '좋은'];
+  const texts = [
+    ...Object.values(NOTICE_ASSUMPTION_LABEL),
+    ...Object.values(NOTICE_ASSUMPTION_REASON),
+  ];
+  for (const text of texts) {
+    for (const word of banned) {
+      assert.ok(!text.includes(word), `"${text}"에 금지 표현 "${word}"이 있다`);
+    }
+  }
 });

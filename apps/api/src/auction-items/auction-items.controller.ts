@@ -4,6 +4,7 @@ import { BadRequestException, Controller, Get, NotFoundException, Param, Query, 
 import { AuctionItemsRepository } from './auction-items.repository';
 import type { AuctionCasePhotoDto } from './dto/auction-case-photo.dto';
 import type { AuctionItemDto } from './dto/auction-item.dto';
+import type { NoticeAnalysisDto } from './dto/notice-analysis.dto';
 import type { RegionCountDto } from './dto/region-count.dto';
 
 const DEFAULT_LIMIT = 20;
@@ -100,5 +101,24 @@ export class AuctionItemsController {
       throw new NotFoundException(`물건을 찾을 수 없어요: ${courtOfficeCode}/${caseNo}/${itemNo}`);
     }
     return item;
+  }
+
+  /**
+   * 매각물건명세서 기반 권리분석. 등기부(CODEF, WP-04)가 없어도 대항력 판정과
+   * "배당요구를 안 했으면 전액 인수"까지는 확정된다.
+   *
+   * 명세서를 아직 못 받은 물건은 404 — 빈 결과로 주면 "인수할 권리가 없다"로 읽힌다.
+   */
+  @Get(':courtOfficeCode/:caseNo/:itemNo/notice-analysis')
+  async noticeAnalysis(
+    @Param('courtOfficeCode') courtOfficeCode: string,
+    @Param('caseNo') caseNo: string,
+    @Param('itemNo') itemNo: string,
+  ): Promise<NoticeAnalysisDto> {
+    const analysis = await this.repository.findNoticeAnalysis(courtOfficeCode, caseNo, itemNo);
+    if (!analysis) {
+      throw new NotFoundException(`매각물건명세서를 아직 받지 못했어요: ${caseNo} ${itemNo}`);
+    }
+    return analysis;
   }
 }
