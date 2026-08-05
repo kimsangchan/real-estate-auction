@@ -85,6 +85,18 @@ _NO_TENANT_MARKER = "임차내역없음"
 
 
 @dataclass(frozen=True)
+class DepositTranche:
+    """확정일자별 보증금 몫. 증액분이면 `amount`는 늘어난 **차액**이다(누적 총액이 아니다).
+
+    증액 재계약을 하면 원래 보증금은 종전 확정일자 순위를 유지하고 증액분만 새 확정일자
+    날짜에 순위가 생긴다. 한 쌍(금액, 확정일자)으로는 표현할 수 없어 몫으로 나눠 둔다.
+    """
+
+    amount: int
+    fixed_date: date | None
+
+
+@dataclass(frozen=True)
 class NoticeTenant:
     """auction_item_notice_tenant 한 행 — 명세서 점유자 표의 셀 값.
 
@@ -108,6 +120,9 @@ class NoticeTenant:
     fixed_date: date | None
     demanded_distribution: bool | None
     demanded_distribution_date: date | None
+    # 증액 재계약이 확인될 때만 채운다. 여기서 안 뽑아두면 기일이 지난 뒤에는 원본을
+    # 다시 못 받아 영영 복구할 수 없다 (WP-11 §4-3과 같은 이유).
+    deposit_tranches: tuple[DepositTranche, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -370,6 +385,9 @@ def _to_tenants(rows: list[dict[str, str]]) -> tuple[NoticeTenant, ...]:
                 fixed_date=_parse_date(row.get("fixed_date")),
                 demanded_distribution=_parse_demanded(demanded_text, demanded_date),
                 demanded_distribution_date=demanded_date,
+                deposit_tranches=_parse_deposit_tranches(
+                    row.get("deposit_amount"), row.get("fixed_date")
+                ),
             )
         )
     return tuple(tenants)
@@ -413,6 +431,61 @@ def _parse_amount(text: str | None) -> int | None:
         return int(chosen.replace(",", ""))
 
     return _parse_korean_amount(cleaned)
+
+
+_NUMBERED_ENTRY_PATTERN = re.compile(r"(\d)\)\s*(\d{1,3}(?:,\d{3})+)")
+_NUMBERED_DATE_PATTERN = re.compile(r"(\d)\)\s*(\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2})")
+
+
+def _parse_deposit_tranches(
+    deposit_text: str | None, fixed_text: str | None
+) -> tuple[DepositTranche, ...] | None:
+    """보증금 셀과 확정일자 셀에서 확정일자별 몫을 뽑는다. 확신이 없으면 None.
+
+    명세서가 증액을 적는 방식이 둘이라 둘 다 받는다 (실측 서울동부 2025타경908 물건1):
+
+    - 순번형: 보증금 `1)200,000,000 2)210,000,000`, 확정일자 `1)2020.06.12. 2)2022.06.03.`
+      금액은 **누적 총액**이라 차액으로 바꿔야 몫이 된다 → [2억 @2020-06-12, 1천만 @2022-06-03]
+    - 괄호형: 보증금 `210,000,000(2022.6.1. 10,000,000 증액)` + 위와 같은 확정일자 셀
+      괄호 앞이 총액, 괄호 안이 증액분이라 총액에서 빼면 원금이 된다 → 같은 결과
+
+    금액과 확정일자의 개수가 안 맞거나 누적이 증가하지 않으면 지어내지 않고 None을 준다.
+    """
+    if deposit_text is None or fixed_text is None:
+        return None
+
+    dates = [_parse_date(raw) for _, raw in _NUMBERED_DATE_PATTERN.findall(fixed_text)]
+    if len(dates) < 2:
+        return None
+
+    cleaned = deposit_text.replace(" ", "")
+    numbered = [entry for _, entry in _NUMBERED_ENTRY_PATTERN.findall(cleaned)]
+
+    if len(numbered) >= 2:
+        cumulative = [int(value.replace(",", "")) for value in numbered]
+    elif "증액" in cleaned and len(dates) == 2:
+        amounts = [int(v.replace(",", "")) for v in _AMOUNT_IN_TEXT_PATTERN.findall(cleaned)]
+        if len(amounts) != 2:
+            return None
+        total, increase = amounts
+        if increase <= 0 or increase >= total:
+            return None
+        cumulative = [total - increase, total]
+    else:
+        return None
+
+    if len(cumulative) != len(dates):
+        return None
+
+    tranches: list[DepositTranche] = []
+    previous = 0
+    for total, fixed_date in zip(cumulative, dates, strict=True):
+        amount = total - previous
+        if amount <= 0:
+            return None  # 누적이 줄면 우리가 아는 증액 형태가 아니다 — 추측하지 않는다
+        tranches.append(DepositTranche(amount=amount, fixed_date=fixed_date))
+        previous = total
+    return tuple(tranches)
 
 
 def _parse_korean_amount(text: str) -> int | None:

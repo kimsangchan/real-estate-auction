@@ -522,7 +522,24 @@ _TENANT_FIELDS = (
     "fixed_date",
     "demanded_distribution",
     "demanded_distribution_date",
+    "deposit_tranches",
 )
+
+
+def _tenant_value(tenant: Any, field: str) -> Any:
+    """점유자 한 칸의 저장값. 보증금 몫만 JSONB로 바꾸고 나머지는 그대로 넘긴다."""
+    value = getattr(tenant, field)
+    if field != "deposit_tranches" or value is None:
+        return value
+    return Jsonb(
+        [
+            {
+                "amount": tranche.amount,
+                "fixedDate": tranche.fixed_date.isoformat() if tranche.fixed_date else None,
+            }
+            for tranche in value
+        ]
+    )
 
 
 def _upsert_notice(cur: psycopg.Cursor[Any], notice: ItemNotice) -> str:
@@ -611,7 +628,7 @@ def _replace_notice_tenants(cur: psycopg.Cursor[Any], notice_id: int, notice: It
             INSERT INTO auction_item_notice_tenant (notice_id, {", ".join(_TENANT_FIELDS)})
             VALUES (%s, {", ".join(["%s"] * len(_TENANT_FIELDS))})
             """,
-            (notice_id, *(getattr(tenant, field) for field in _TENANT_FIELDS)),
+            (notice_id, *(_tenant_value(tenant, field) for field in _TENANT_FIELDS)),
         )
 
 

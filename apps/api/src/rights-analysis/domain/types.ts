@@ -61,14 +61,36 @@ export interface TaxClaim {
   amount?: number;
 }
 
+/**
+ * 보증금의 한 몫. 증액 재계약을 하면 몫마다 우선변제 순위가 갈린다 —
+ * 원래 보증금은 종전 확정일자 순위를 유지하고, **증액된 차액만** 새로 받은 확정일자
+ * 날짜에 순위가 생긴다. 그래서 금액·확정일자 한 쌍으로는 표현할 수 없다.
+ *
+ * 실측 예 (서울동부 2025타경908 물건1, 503호): 2020.06.12. 확정일자로 2억 →
+ * 2022.06.03. 확정일자로 1천만 증액 → 명세서는 총액을 `1)200,000,000 2)210,000,000`으로
+ * 적는다. 몫으로 옮기면 [2억 @2020-06-12, 1천만 @2022-06-03]이다(총액이 아니라 **차액**).
+ */
+export interface DepositTranche {
+  /** 이 몫의 금액. 증액분이면 늘어난 차액만 담는다 (누적 총액이 아니다). */
+  amount: number;
+  /** 이 몫의 확정일자 (YYYY-MM-DD). 없으면 이 몫에는 우선변제권이 없다. */
+  fixedDate: string | null;
+}
+
 export interface Tenant {
   id: string;
-  /** 전입신고일 (YYYY-MM-DD) */
+  /** 전입신고일 (YYYY-MM-DD) — 증액 재계약을 해도 다시 하지 않으므로 임차인당 하나다 */
   moveInDate: string;
-  /** 확정일자 (YYYY-MM-DD), 없으면 null */
+  /** 확정일자 (YYYY-MM-DD), 없으면 null. 몫이 여럿이면 가장 이른 확정일자를 넣는다. */
   fixedDate: string | null;
-  /** 임차보증금 */
+  /** 임차보증금 총액 — 인수액(총액 - 배당받은 총액) 계산의 기준이다 */
   depositAmount: number;
+  /**
+   * 확정일자별로 나눈 보증금 몫. 증액 재계약이 있을 때만 넣는다.
+   * 없으면 depositAmount 전액이 fixedDate 하나의 순위를 갖는 것으로 본다.
+   * 금액 합계는 depositAmount와 같아야 한다 — 어긋나면 배당 계산이 인수액을 왜곡한다.
+   */
+  depositTranches?: DepositTranche[];
   demandedDistribution: boolean;
   /** 배당요구 신청일 — 배당요구종기 경과 여부 판정용 (demandedDistribution=true일 때만 의미 있음) */
   demandedDistributionDate: string | null;

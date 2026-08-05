@@ -224,3 +224,66 @@ def test_parse_amount_handles_increase_notations(cell, expected):
     from collector.notice_tenant_parser import _parse_amount
 
     assert _parse_amount(cell) == expected
+
+
+def test_deposit_tranches_split_increase_into_dated_shares():
+    """증액 재계약은 확정일자별 몫으로 남긴다 — 원금과 증액분의 우선변제 순위가 다르다.
+
+    명세서는 총액을 누적으로 적으므로(`1)2억 2)2.1억`) 차액으로 바꿔야 몫이 된다.
+    """
+    table = parse_tenant_table(_pages("notice_pdf_texts_908_1.json"))
+    with_tranches = [t for t in table.tenants if t.deposit_tranches]
+
+    # 증액 임차인 셋. 505호·503호는 등기와 권리신고 두 행 모두에 금액이 적혀 있고,
+    # 501호는 권리신고 행에만 있다 (현황조사 행에는 보증금이 안 적혔다) → 2+2+1
+    assert len(with_tranches) == 5
+    for tenant in with_tranches:
+        assert sum(tranche.amount for tranche in tenant.deposit_tranches) == tenant.deposit_amount
+
+    seq_503 = [t for t in with_tranches if t.deposit_amount == 210_000_000]
+    assert [(tr.amount, tr.fixed_date) for tr in seq_503[0].deposit_tranches] == [
+        (200_000_000, date(2020, 6, 12)),
+        (10_000_000, date(2022, 6, 3)),
+    ]
+
+
+def test_tenant_without_increase_has_no_tranches():
+    """증액이 없으면 몫을 만들지 않는다 — 보증금 하나에 확정일자 하나면 나눌 게 없다."""
+    table = parse_tenant_table([_page0()])
+
+    assert all(t.deposit_tranches is None for t in table.tenants)
+
+
+@pytest.mark.parametrize(
+    ("deposit", "fixed", "expected"),
+    [
+        # 순번형 — 누적 총액을 차액으로 바꾼다
+        (
+            "1)200,000,0002)210,000,000",
+            "1)2020.06.12.2)2022.06.03.",
+            [(200_000_000, date(2020, 6, 12)), (10_000_000, date(2022, 6, 3))],
+        ),
+        # 괄호형 — 괄호 앞이 총액, 괄호 안이 증액분
+        (
+            "200,000,000(2023.2.2.10,000,000증액)",
+            "1)2020.08.18.2)2023.03.02.",
+            [(190_000_000, date(2020, 8, 18)), (10_000_000, date(2023, 3, 2))],
+        ),
+        # 확정일자가 하나뿐이면 나눌 근거가 없다
+        ("1)200,000,0002)210,000,000", "2020.06.12.", None),
+        # 누적이 줄어들면 우리가 아는 증액 형태가 아니다 — 추측하지 않는다
+        ("1)210,000,0002)200,000,000", "1)2020.06.12.2)2022.06.03.", None),
+        # 평범한 단일 보증금
+        ("200,000,000", "2020.06.12.", None),
+        (None, "1)2020.06.12.2)2022.06.03.", None),
+    ],
+)
+def test_parse_deposit_tranches_only_when_unambiguous(deposit, fixed, expected):
+    from collector.notice_tenant_parser import _parse_deposit_tranches
+
+    result = _parse_deposit_tranches(deposit, fixed)
+
+    if expected is None:
+        assert result is None
+    else:
+        assert [(tr.amount, tr.fixed_date) for tr in result] == expected

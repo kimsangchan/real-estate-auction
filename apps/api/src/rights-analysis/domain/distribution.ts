@@ -3,7 +3,14 @@
 // (docs/work-orders/WP-03-rights-analysis-engine.md §범위 제외).
 import { classifySmallDepositTenant, resolveMortgageReferenceDate } from './small-deposit-tenant';
 import { analyzeTenantPriority } from './tenant-priority';
-import type { RegionTier, RegisteredRight, RuleTag, TaxClaim, Tenant } from './types';
+import type {
+  DepositTranche,
+  RegionTier,
+  RegisteredRight,
+  RuleTag,
+  TaxClaim,
+  Tenant,
+} from './types';
 
 // v2: 당해세 단계 추가 — 이전 버전은 당해세를 누락해 인수액을 과소평가했다 (WP-11 §4)
 export const DISTRIBUTION_RULE: RuleTag = { ruleId: 'DISTRIBUTION_TABLE', ruleVersion: 2 };
@@ -60,6 +67,40 @@ interface PriorityClaim {
   claimantKind: 'PRIORITY_TENANT' | 'REGISTERED_RIGHT' | 'TAX_CLAIM';
   priorityDate: string;
   remainingClaim: number;
+}
+
+export class DepositTrancheMismatchError extends Error {
+  constructor(tenantId: string, sum: number, depositAmount: number) {
+    super(
+      `임차인 ${tenantId}의 보증금 몫 합계(${sum})가 보증금 총액(${depositAmount})과 다릅니다`,
+    );
+  }
+}
+
+/**
+ * 보증금을 확정일자별 몫으로 편다. 몫을 안 넘기면 전액이 한 몫이라 종전과 같이 계산된다.
+ *
+ * 합계가 총액과 다르면 던진다 — 조용히 넘어가면 인수액이 그만큼 틀어지는데,
+ * 화면에는 정상적인 금액처럼 보여서 알아챌 방법이 없다.
+ */
+function depositTranchesOf(tenant: Tenant): DepositTranche[] {
+  const tranches = tenant.depositTranches;
+  if (tranches === undefined || tranches.length === 0) {
+    return [{ amount: tenant.depositAmount, fixedDate: tenant.fixedDate }];
+  }
+
+  const sum = tranches.reduce((total, tranche) => total + tranche.amount, 0);
+  if (sum !== tenant.depositAmount) {
+    throw new DepositTrancheMismatchError(tenant.id, sum, tenant.depositAmount);
+  }
+
+  // 확정일자가 이른 몫부터. 확정일자가 없는 몫은 우선변제권이 없어 맨 뒤로 보낸다.
+  return [...tranches].sort((a, b) => {
+    if (a.fixedDate === b.fixedDate) return 0;
+    if (a.fixedDate === null) return 1;
+    if (b.fixedDate === null) return -1;
+    return a.fixedDate < b.fixedDate ? -1 : 1;
+  });
 }
 
 export function computeDistribution(input: DistributionInput): DistributionResult {
@@ -164,22 +205,35 @@ export function computeDistribution(input: DistributionInput): DistributionResul
   const priorityClaims: PriorityClaim[] = [];
 
   for (const tenant of participatingTenants) {
-    if (!tenant.fixedDate) {
-      continue;
-    }
     const priority = priorityByTenant.get(tenant.id);
     if (!priority) {
       continue;
     }
-    const alreadyReceived =
+    // 이미 받은 돈(최우선변제·당해세 특례)은 **순위가 앞선 몫부터** 차감한다.
+    // 어느 몫에 충당할지는 법이 정하지 않아 총액은 어느 쪽이든 같지만, 앞선 몫부터 지우면
+    // 남는 청구가 뒤 순위로 몰려 배당을 덜 받는 쪽으로 계산된다 — 인수액을 작게 보이게 하지 않는다.
+    let toOffset =
       (receivedFromSmallDeposit.get(tenant.id) ?? 0) + (receivedFromTaxRelief.get(tenant.id) ?? 0);
-    const remainingClaim = tenant.depositAmount - alreadyReceived;
-    if (remainingClaim <= 0) {
-      continue;
+
+    for (const tranche of depositTranchesOf(tenant)) {
+      const offset = Math.min(toOffset, tranche.amount);
+      toOffset -= offset;
+      const remainingClaim = tranche.amount - offset;
+      // 확정일자가 없는 몫은 우선변제권이 없다 — 배당 순위를 다툴 자격 자체가 없다
+      if (remainingClaim <= 0 || tranche.fixedDate === null) {
+        continue;
+      }
+      const priorityDate =
+        tranche.fixedDate > priority.possessionRightDate
+          ? tranche.fixedDate
+          : priority.possessionRightDate;
+      priorityClaims.push({
+        claimantId: tenant.id,
+        claimantKind: 'PRIORITY_TENANT',
+        priorityDate,
+        remainingClaim,
+      });
     }
-    const priorityDate =
-      tenant.fixedDate > priority.possessionRightDate ? tenant.fixedDate : priority.possessionRightDate;
-    priorityClaims.push({ claimantId: tenant.id, claimantKind: 'PRIORITY_TENANT', priorityDate, remainingClaim });
   }
 
   for (const right of registeredRights) {

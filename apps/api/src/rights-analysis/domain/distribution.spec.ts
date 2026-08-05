@@ -1,5 +1,9 @@
-import { computeDistribution, type DistributionInput } from './distribution';
-import type { RegisteredRight, Tenant } from './types';
+import {
+  computeDistribution,
+  DepositTrancheMismatchError,
+  type DistributionInput,
+} from './distribution';
+import type { DepositTranche, RegisteredRight, Tenant } from './types';
 
 const BASELINE_DATE = '2024-03-10';
 const DEMAND_DEADLINE = '2024-06-30';
@@ -323,6 +327,118 @@ describe('computeDistribution — 최우선변제 주택가액 1/2 상한', () =
 
     expect(result.tenantOutcomes).toEqual([
       { tenantId: 't1', hasPriority: true, totalReceived: 50_000_000, assumedAmount: 0 },
+    ]);
+  });
+});
+
+// 증액 재계약 — 원래 보증금은 종전 확정일자 순위를 유지하고 증액분만 새 확정일자 순위를 갖는다.
+// 한 덩어리로 계산하면 증액분까지 원래 순위를 얻어 인수액이 실제보다 작게 나온다.
+describe('computeDistribution — 확정일자별 보증금 몫 (증액 재계약)', () => {
+  // 실측 서울동부 2025타경908 물건1 503호: 2020.06.12. 확정 2억 → 2022.06.03. 확정 1천만 증액.
+  // 그 사이(2021년)에 근저당이 끼면 증액분만 근저당보다 후순위가 된다.
+  const MORTGAGE_DATE = '2021-07-01';
+
+  function increasedDepositInput(depositTranches?: DepositTranche[]): DistributionInput {
+    return baseInput({
+      saleAmount: 250_000_000,
+      auctionCost: 0,
+      registeredRights: [
+        { id: 'm1', type: 'MORTGAGE', receivedDate: MORTGAGE_DATE, amount: 100_000_000 },
+      ],
+      baselineDate: MORTGAGE_DATE,
+      tenants: [
+        tenant({
+          id: 't1',
+          moveInDate: '2020-06-29', // 대항력 발생 2020-06-30, 말소기준(2021-07-01)보다 선순위
+          depositAmount: 210_000_000, // 서울 소액임차인 상한(1억 5,000만, 2021 기준) 초과 → 최우선변제 없음
+          fixedDate: '2020-06-12',
+          demandedDistribution: true,
+          demandedDistributionDate: '2024-04-01',
+          depositTranches,
+        }),
+      ],
+    });
+  }
+
+  it('정상: 몫을 나누면 증액분이 근저당보다 후순위가 되어 인수액이 생긴다', () => {
+    const result = computeDistribution(
+      increasedDepositInput([
+        { amount: 200_000_000, fixedDate: '2020-06-12' },
+        { amount: 10_000_000, fixedDate: '2022-06-03' },
+      ]),
+    );
+
+    expect(result.tenantOutcomes).toEqual([
+      { tenantId: 't1', hasPriority: true, totalReceived: 200_000_000, assumedAmount: 10_000_000 },
+    ]);
+  });
+
+  it('대조: 몫을 안 나누면 증액분까지 원래 순위를 얻어 인수액이 0으로 나온다', () => {
+    const result = computeDistribution(increasedDepositInput());
+
+    expect(result.tenantOutcomes).toEqual([
+      { tenantId: 't1', hasPriority: true, totalReceived: 210_000_000, assumedAmount: 0 },
+    ]);
+  });
+
+  it('경계: 확정일자가 없는 몫은 우선변제 순위를 다투지 못한다', () => {
+    const result = computeDistribution(
+      increasedDepositInput([
+        { amount: 200_000_000, fixedDate: '2020-06-12' },
+        { amount: 10_000_000, fixedDate: null }, // 증액분 계약서에 확정일자를 안 받은 경우
+      ]),
+    );
+
+    expect(result.tenantOutcomes).toEqual([
+      { tenantId: 't1', hasPriority: true, totalReceived: 200_000_000, assumedAmount: 10_000_000 },
+    ]);
+  });
+
+  it('경계: 몫 합계가 보증금 총액과 다르면 조용히 넘어가지 않고 던진다', () => {
+    const input = increasedDepositInput([
+      { amount: 200_000_000, fixedDate: '2020-06-12' },
+      { amount: 5_000_000, fixedDate: '2022-06-03' }, // 합계 2억 5백만 ≠ 총액 2억 1천만
+    ]);
+
+    expect(() => computeDistribution(input)).toThrow(DepositTrancheMismatchError);
+  });
+
+  it('정상: 최우선변제로 받은 돈은 순위가 앞선 몫부터 차감한다', () => {
+    // 보증금 5,000만(서울 소액임차인) + 증액분이 근저당보다 뒤인 구성.
+    // 최우선변제분을 뒤 몫부터 지우면 앞 몫이 남아 배당을 더 받게 되어 인수액이 작아진다.
+    const input = baseInput({
+      saleAmount: 60_000_000,
+      auctionCost: 0,
+      registeredRights: [
+        { id: 'm1', type: 'MORTGAGE', receivedDate: MORTGAGE_DATE, amount: 100_000_000 },
+      ],
+      baselineDate: MORTGAGE_DATE,
+      tenants: [
+        tenant({
+          id: 't1',
+          moveInDate: '2020-06-29',
+          depositAmount: 50_000_000,
+          fixedDate: '2020-06-12',
+          demandedDistribution: true,
+          demandedDistributionDate: '2024-04-01',
+          depositTranches: [
+            { amount: 40_000_000, fixedDate: '2020-06-12' },
+            { amount: 10_000_000, fixedDate: '2022-06-03' },
+          ],
+        }),
+      ],
+    });
+
+    const result = computeDistribution(input);
+
+    // 최우선변제 한도 = 주택가액 6,000만의 1/2 = 3,000만. 이걸 앞 몫(4,000만)에서 지우면
+    // 앞 몫 1,000만 + 뒤 몫 1,000만이 남는다. 남은 재원 3,000만은 앞 몫 1,000만 → 근저당
+    // 2,000만 순으로 나가고 뒤 몫(2022-06-03)은 근저당보다 후순위라 한 푼도 못 받는다.
+    //
+    // 뒤 몫부터 지웠다면 앞 몫 2,000만이 근저당보다 먼저 전액 변제돼 인수액이 0으로 나온다.
+    // 같은 사실에서 인수액이 1,000만이냐 0이냐가 갈리므로, 위험을 감추지 않는 쪽을 택했다.
+    expect(result.tenantOutcomes).toEqual([
+      { tenantId: 't1', hasPriority: true, totalReceived: 40_000_000, assumedAmount: 10_000_000 },
     ]);
   });
 });

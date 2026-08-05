@@ -40,6 +40,10 @@ export class RightsAnalysisService {
       moveInDate: dto.moveInDate,
       fixedDate: dto.fixedDate ?? null,
       depositAmount: dto.depositAmount,
+      depositTranches: dto.depositTranches?.map((tranche) => ({
+        amount: tranche.amount,
+        fixedDate: tranche.fixedDate ?? null,
+      })),
       demandedDistribution: dto.demandedDistribution,
       demandedDistributionDate: dto.demandedDistributionDate ?? null,
     }));
