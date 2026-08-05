@@ -101,6 +101,21 @@ export function formatUnitPriceWithKind(
   return kind === null ? base : `${kind} ${base}`;
 }
 
+/**
+ * 주소 끝의 호수 표기를 뽑는다 — "…이룸타워 지1층비101호" → "지1층비101호".
+ *
+ * 같은 지번에 호수만 다른 물건을 한 마커로 묶어 목록으로 보여줄 때, 각 줄을 구분하는 건
+ * 호수뿐이다. 주소 전체를 쓰면 앞부분이 전부 같아 읽히지 않는다.
+ * 끝의 괄호(동명·건물명)는 떼고 본다 — "…10층1002호 (성내동,에스아이팰리스)" 형태가 흔하다.
+ */
+export function unitLabel(address: string | null): string | null {
+  if (!address) return null;
+  const base = address.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const match = base.match(/(\S*\d+층\s*)?(\S*\d+호)$/);
+  if (!match) return null;
+  return `${match[1] ?? ''}${match[2]}`.trim();
+}
+
 /** KST 기준 달력 날짜(YYYY-MM-DD). 기기 타임존과 무관하게 매각기일을 세려면 여기서 맞춰야 한다. */
 function kstDate(value: Date): string {
   return value.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });

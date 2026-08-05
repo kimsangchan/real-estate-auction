@@ -118,6 +118,20 @@
   flex-shrink: 0;
 }
 
+/* 좌표가 같은 물건 묶음의 건수. 하락률 자리를 대신 쓴다 —
+   묶음은 하락률이 물건마다 달라 대표값이 없다. */
+.markerCount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-primary-deep);
+  background-color: var(--color-primary-soft);
+  border-radius: var(--radius-full);
+  padding: 0 5px;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
 .clusterBubble {
   display: flex;
   align-items: center;

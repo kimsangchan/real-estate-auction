@@ -12,6 +12,7 @@ import {
   formatUnitPriceWithKind,
   formatWon,
   formatWonCompact,
+  unitLabel,
 } from './format';
 
 test('formatWon은 천단위 콤마와 원 단위를 붙인다', () => {
@@ -141,4 +142,25 @@ test('formatUnitPriceWithKind는 일괄매각이면 단가를 내지 않는다',
   assert.equal(formatUnitPriceWithKind(34_076_000_000, 34.32, 'AGGREGATE', 'pyeong', true), null);
   // 일괄매각이 아니면 그대로 계산한다
   assert.notEqual(formatUnitPriceWithKind(34_076_000_000, 34.32, 'AGGREGATE', 'pyeong', false), null);
+});
+
+test('unitLabel은 주소 끝의 호수 표기를 뽑는다 — 같은 지번 묶음에서 줄을 구분하는 유일한 값', () => {
+  assert.equal(
+    unitLabel('서울특별시 서대문구 대현동 144 신촌럭키아파트 이룸타워 지1층비101호'),
+    '지1층비101호',
+  );
+  assert.equal(unitLabel('서울특별시 강서구 화곡동 24-102 더프라임 제10층 제1001호'), '제10층 제1001호');
+  assert.equal(unitLabel('서울특별시 서초구 반포동 705 지층지하1호'), '지층지하1호');
+});
+
+test('unitLabel은 끝의 괄호(동명·건물명)를 떼고 본다', () => {
+  assert.equal(
+    unitLabel('서울특별시 강동구 성내로 64 10층1002호 (성내동,에스아이팰리스센트럴성내)'),
+    '10층1002호',
+  );
+});
+
+test('unitLabel은 호수가 없으면 null — 토지·단독주택은 묶어도 구분할 값이 없다', () => {
+  assert.equal(unitLabel('서울특별시 강남구 역삼동 647-5'), null);
+  assert.equal(unitLabel(null), null);
 });

@@ -109,6 +109,90 @@
   font-weight: var(--typography-caption-bold-font-weight);
 }
 
+/* 목록으로 돌아가기 — 같은 지번 묶음에서 한 물건을 골라 들어왔을 때만 나온다. */
+.back {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0 6px 0 0;
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-primary-deep);
+}
+
+.back:hover {
+  text-decoration: underline;
+}
+
+/* 일괄매각 고지 — 목록의 가격이 왜 비어 있는지 여기서 설명한다. */
+.lotNotice {
+  margin: 10px 16px 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-soft);
+  display: grid;
+  gap: 4px;
+}
+
+.lotNoticeText {
+  margin: 0;
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-slate);
+  line-height: 1.5;
+}
+
+/* 같은 지번의 물건 목록. 호수만 다르므로 호수를 첫 줄에 크게 둔다. */
+.list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.listRow {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 10px 16px;
+  border-top: 1px solid var(--color-hairline-soft);
+}
+
+.listRow:hover {
+  background-color: var(--color-surface-soft);
+}
+
+.listTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.listUnit {
+  font-size: var(--typography-body-sm-font-size);
+  font-weight: var(--typography-caption-bold-font-weight);
+  color: var(--color-ink-deep);
+}
+
+.listMeta {
+  font-size: var(--typography-caption-font-size);
+  color: var(--color-slate);
+}
+
+.listPrice {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--typography-body-sm-font-size);
+  font-weight: var(--typography-caption-bold-font-weight);
+  color: var(--color-ink-deep);
+}
+
 /* 요약 ↔ 권리분석. 페이지를 넘기지 않고 같은 패널 안에서 갈아 끼운다. */
 .tabs {
   display: flex;

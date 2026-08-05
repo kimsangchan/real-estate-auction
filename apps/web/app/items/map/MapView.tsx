@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
 import { formatDropRate, formatWonCompact } from '../format';
+import { isBulkLot } from './bulk-lot';
 import { clusterPoints, type ClusterInput } from './cluster';
 import { ItemDetailPanel } from './ItemDetailPanel';
 import { ItemHoverCard } from './ItemHoverCard';
@@ -52,10 +53,56 @@ function itemKey(item: { courtOfficeCode: string; caseNo: string; itemNo: string
   return `${item.courtOfficeCode}_${item.caseNo}_${item.itemNo}`;
 }
 
-function markerHtml(priceLabel: string | null, drop: string | null): string {
+/**
+ * 마커 하나의 내용. 묶음이면 하락률 대신 건수를 붙인다 —
+ * 하락률은 물건마다 달라서 묶음을 대표할 값이 없다.
+ */
+function markerHtml(
+  priceLabel: string | null,
+  drop: string | null,
+  count: number,
+  bulkLot: boolean,
+): string {
+  // 일괄매각은 가격이 묶음 전체 값이라 건수만 붙이면 "한 채에 421억"으로 읽힌다 —
+  // 묶음이라는 사실을 뱃지에 적는다.
+  const tail =
+    count > 1
+      ? `<span class="${styles.markerCount}">${bulkLot ? `일괄 ${count}` : `${count}건`}</span>`
+      : drop
+        ? `<span class="${styles.markerDrop}">${drop}</span>`
+        : '';
   return `<div class="${styles.marker}"><span class="${styles.markerDot}"></span>${
     priceLabel ? `<span class="${styles.markerPrice}">${priceLabel}</span>` : ''
-  }${drop ? `<span class="${styles.markerDrop}">${drop}</span>` : ''}</div>`;
+  }${tail}</div>`;
+}
+
+interface PinGroup {
+  lat: number;
+  lng: number;
+  items: AuctionItemPin[];
+}
+
+/**
+ * 좌표가 같은 물건을 한 마커로 묶는다.
+ *
+ * 같은 지번의 다세대·오피스텔은 좌표가 완전히 같아서 마커를 따로 찍으면 서로 가려진다
+ * (실측 2026-08: 물건 2,004건이 좌표 1,131개에 몰려 있고 한 지점에 362건).
+ * 예전에는 겹친 마커를 위도로 6.7m씩 밀어냈는데, 362번째는 실제 건물에서 2.4km 떨어져
+ * 엉뚱한 곳을 가리켰다. 밀어내지 않고 묶는다.
+ */
+function groupByCoord(items: (AuctionItemPin & { lng: number; lat: number })[]): PinGroup[] {
+  const groups = new Map<string, PinGroup>();
+  for (const item of items) {
+    const key = `${item.lng},${item.lat}`;
+    const group = groups.get(key);
+    if (group) group.items.push(item);
+    else groups.set(key, { lat: item.lat, lng: item.lng, items: [item] });
+  }
+  // 묶음 안은 최저가 오름차순 — 마커에 쓰는 대표 가격과 패널 목록의 첫 줄을 맞춘다.
+  for (const group of groups.values()) {
+    group.items.sort((a, b) => (a.minimumSalePrice ?? Infinity) - (b.minimumSalePrice ?? Infinity));
+  }
+  return [...groups.values()];
 }
 
 function clusterHtml(count: number): string {
@@ -75,9 +122,10 @@ export function MapView() {
   const [fetchState, setFetchState] = useState<FetchState>('loading');
   const [items, setItems] = useState<AuctionItemPin[]>([]);
   // 마커를 누르면 페이지를 떠나지 않고 패널을 연다 — 지도 탐색의 맥락(줌·위치·주변 물건)을 지킨다.
-  const [selected, setSelected] = useState<AuctionItemPin | null>(null);
+  // 한 마커가 좌표가 같은 물건 여럿을 담으므로 배열로 넘긴다.
+  const [selected, setSelected] = useState<AuctionItemPin[] | null>(null);
   const [hovered, setHovered] = useState<{
-    item: AuctionItemPin;
+    items: AuctionItemPin[];
     left: number;
     top: number;
   } | null>(null);
@@ -184,37 +232,35 @@ export function MapView() {
     const zoom = map.getZoom();
 
     if (zoom >= CAPTION_ZOOM) {
-      // 동일 좌표 물건(같은 건물 다세대 등)이 완전히 겹쳐 아래 마커가 클릭 불가가 되지 않게,
-      // 같은 좌표의 두 번째 물건부터 위도를 살짝(≈7m/개) 어긋나게 배치한다.
-      const seenCoords = new Map<string, number>();
-      for (const item of withCoords) {
-        const coordKey = `${item.lng},${item.lat}`;
-        const dupIndex = seenCoords.get(coordKey) ?? 0;
-        seenCoords.set(coordKey, dupIndex + 1);
-        const priceLabel = item.minimumSalePrice !== null ? formatWonCompact(item.minimumSalePrice) : null;
+      for (const group of groupByCoord(withCoords)) {
+        // 대표는 가장 싼 물건 — 지도에서 가격을 훑는 흐름과 맞다.
+        const lead = group.items[0];
+        if (lead === undefined) continue;
+        const priceLabel =
+          lead.minimumSalePrice !== null ? formatWonCompact(lead.minimumSalePrice) : null;
+        const position = new naverMaps.LatLng(group.lat, group.lng);
         const marker = new naverMaps.Marker({
-          position: new naverMaps.LatLng(item.lat + dupIndex * 0.00006, item.lng),
+          position,
           map,
           icon: {
             content: markerHtml(
               priceLabel,
-              formatDropRate(item.appraisalAmount, item.minimumSalePrice),
+              formatDropRate(lead.appraisalAmount, lead.minimumSalePrice),
+              group.items.length,
+              isBulkLot(group.items),
             ),
             anchor: new naverMaps.Point(28, 12),
           },
         });
         naverMaps.Event.addListener(marker, 'click', () => {
-          setSelected(item);
+          setSelected(group.items);
           setHovered(null); // 패널이 열리면 호버 카드는 중복이다
         });
         // 호버 카드는 마커 기준 화면 좌표에 띄운다. 지도 컨테이너 안 절대 위치라
         // 지도가 움직이면 좌표가 어긋나므로 카메라가 움직이면 닫는다(아래 idle 핸들러).
         naverMaps.Event.addListener(marker, 'mouseover', () => {
-          const projection = map.getProjection();
-          const offset = projection.fromCoordToOffset(
-            new naverMaps.LatLng(item.lat + dupIndex * 0.00006, item.lng),
-          );
-          setHovered({ item, left: offset.x, top: offset.y });
+          const offset = map.getProjection().fromCoordToOffset(position);
+          setHovered({ items: group.items, left: offset.x, top: offset.y });
         });
         naverMaps.Event.addListener(marker, 'mouseout', () => setHovered(null));
         markersRef.current.push(marker);
@@ -273,11 +319,11 @@ export function MapView() {
       <div ref={mapElementRef} className={styles.map} />
 
       {selected ? (
-        <ItemDetailPanel item={selected} onClose={() => setSelected(null)} />
+        <ItemDetailPanel items={selected} onClose={() => setSelected(null)} />
       ) : null}
 
       {hovered ? (
-        <ItemHoverCard item={hovered.item} left={hovered.left} top={hovered.top} />
+        <ItemHoverCard items={hovered.items} left={hovered.left} top={hovered.top} />
       ) : null}
 
       {scriptState === 'ready' ? (
