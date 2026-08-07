@@ -21,5 +21,7 @@ export interface Backtest {
   byFailedCount: BacktestGroup[];
   cross: BacktestGroup[];
   byUsage: BacktestGroup[];
+  /** H3 — 임차인 존재. "없음"은 스캔이 행 0 + 버림 0으로 확정한 물건만 */
+  tenant: BacktestGroup[];
   trend: BacktestTrend[];
 }

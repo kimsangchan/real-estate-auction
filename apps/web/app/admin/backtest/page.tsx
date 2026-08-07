@@ -141,6 +141,16 @@ export default async function BacktestPage() {
       </section>
 
       <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>임차인 존재 (H3)</h2>
+        <p className={styles.caption}>
+          점유자 표 기준이에요. &ldquo;없음&rdquo;은 스캔이 행 0건 + 버림 0건으로 확정한 물건만
+          셉니다 — 확정 표시는 2026-08-07부터 쌓여서, 없음 줄은 그 뒤 기일(8/10~)이 지나야
+          채워져요.
+        </p>
+        <GroupTable rows={data.tenant} showPriceRate />
+      </section>
+
+      <section className={styles.section}>
         <h2 className={styles.sectionTitle}>유찰 횟수</h2>
         <p className={styles.caption}>
           가설과 달리 평평해요 — 유찰 횟수는 낙찰률을 예측하지 못합니다 (§4-20).

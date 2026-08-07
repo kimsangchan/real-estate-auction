@@ -25,5 +25,7 @@ export interface BacktestDto {
   byFailedCount: BacktestGroupDto[];
   cross: BacktestGroupDto[];
   byUsage: BacktestGroupDto[];
+  /** H3 — 임차인 존재. "없음"은 스캔이 행 0 + 버림 0으로 확정한 물건만 (WP-11 §4-7) */
+  tenant: BacktestGroupDto[];
   trend: BacktestTrendDto[];
 }

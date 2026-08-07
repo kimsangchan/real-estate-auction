@@ -135,8 +135,11 @@ WITH raw AS (
   SELECT DISTINCT ON (auction_item_id) auction_item_id, payload
   FROM auction_item_raw ORDER BY auction_item_id, observed_at DESC
 ), latest_notice AS (
-  SELECT DISTINCT ON (auction_item_id) auction_item_id, assumed_rights_kind, risk_flags
+  SELECT DISTINCT ON (auction_item_id) id, auction_item_id, assumed_rights_kind, risk_flags,
+         tenant_scanned_at, tenant_rows_rejected
   FROM auction_item_notice ORDER BY auction_item_id, document_date DESC NULLS LAST, id DESC
+), tenant_count AS (
+  SELECT notice_id, count(*) AS rows FROM auction_item_notice_tenant GROUP BY 1
 ), outcome AS (
   -- **관측 시작(2026-07-31) 이후 기일만 센다.** 그 전 결과는 생존 편향으로 못 쓴다:
   -- 팔린 사건은 공고 목록에서 빠지므로 우리 물건 목록에 없고, 그래서 사건검색으로 과거를
@@ -154,12 +157,18 @@ WITH raw AS (
          split_part(r.payload->>'dspslUsgNm', ',', 1) AS usage,
          COALESCE(r.payload->>'mulBigo', '') LIKE '%일괄%' AS bulk,
          (n.assumed_rights_kind = 'NONE' OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)) AS no_burden,
-         (n.assumed_rights_kind IS NOT NULL OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)) AS burden_known
+         (n.assumed_rights_kind IS NOT NULL OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)) AS burden_known,
+         COALESCE(tc.rows, 0) > 0 AS tenant_present,
+         -- H3 표본 자격 (§4-7): 임차인 행이 있거나, 스캔이 "행 0 + 버림 0"으로 확정한 물건만.
+         -- 게이트가 행을 버린 물건과 결함 파서 시절(013 백필 NULL) 스캔은 "없음"을 믿을 수 없다
+         (COALESCE(tc.rows, 0) > 0
+          OR (n.tenant_scanned_at IS NOT NULL AND n.tenant_rows_rejected = 0)) AS tenant_known
   FROM outcome o
   JOIN auction_item i ON i.id = o.auction_item_id
   JOIN auction_case c ON c.id = i.auction_case_id
   JOIN latest_notice n ON n.auction_item_id = i.id
   JOIN raw r ON r.auction_item_id = i.id
+  LEFT JOIN tenant_count tc ON tc.notice_id = n.id
 )
 SELECT DISTINCT ON (CASE WHEN bulk THEN case_no ELSE id::text END) *
 FROM base ORDER BY CASE WHEN bulk THEN case_no ELSE id::text END, sold DESC;
@@ -191,6 +200,29 @@ FROM sale_unit WHERE burden_known AND min_rate IS NOT NULL GROUP BY 1, 2 ORDER B
 SELECT usage AS 용도, count(*) AS 매각단위, count(*) FILTER (WHERE sold) AS 낙찰,
        round(100.0 * count(*) FILTER (WHERE sold) / count(*), 1) AS 낙찰률
 FROM sale_unit GROUP BY 1 HAVING count(*) >= 10 ORDER BY 4 DESC;
+
+-- ── H3. 임차인 존재 ↔ 매각 결과 ─────────────────────────────────────────────
+-- 원인 변수는 점유자 표(§4-6)다. "없음"은 스캔이 "행 0 + 버림 0"으로 확정한 물건만 —
+-- 게이트가 행을 버린 물건(§4-7, 버려진 행도 실존 임차인이다)과 결함 파서 시절 스캔은
+-- 품질 불명이라 표본에서 뺀다. 제외 수를 같이 찍는다(조용히 빠지면 왜 줄었는지 모른다).
+\echo '=== H3. 임차인 존재 x 매각 결과 ==='
+SELECT CASE WHEN tenant_present THEN '임차인 있음' ELSE '임차인 없음' END AS 구분,
+       count(*) AS 매각단위, count(*) FILTER (WHERE sold) AS 낙찰,
+       round(100.0 * count(*) FILTER (WHERE sold) / count(*), 1) AS 낙찰률,
+       round(avg(100.0 * sale_amount / NULLIF(appraisal_amount, 0)) FILTER (WHERE sold), 1) AS 낙찰가율
+FROM sale_unit WHERE tenant_known GROUP BY 1 ORDER BY 1;
+
+\echo '--- H3 세부: 임차인 x 인수부담 ---'
+SELECT CASE WHEN tenant_present THEN '임차인有' ELSE '임차인無' END AS 임차인,
+       CASE WHEN no_burden THEN '부담없음' ELSE '부담있음' END AS 인수,
+       count(*) AS 매각단위, count(*) FILTER (WHERE sold) AS 낙찰,
+       round(100.0 * count(*) FILTER (WHERE sold) / count(*), 1) AS 낙찰률
+FROM sale_unit WHERE tenant_known AND burden_known GROUP BY 1, 2 ORDER BY 1, 2;
+
+\echo '--- H3 제외: 임차인 유무를 확정할 수 없는 매각단위 (미스캔·버림>0·결함 파서 스캔) ---'
+SELECT count(*) AS 제외단위 FROM sale_unit WHERE NOT tenant_known;
+
+\echo '("임차인 없음" 줄이 없으면 없음-확정 표본의 기일이 아직 안 지난 것이다 — 확정은 013 도입(2026-08-07)부터 쌓이고 첫 기일이 2026-08-10이다)'
 
 -- ── 후보 필터 (2026-08-05 재작성) ──────────────────────────────────────────
 -- 이전 필터는 "인수 부담 없음 + 유찰 3회 이상"이었다. 채점 결과 두 조건 중

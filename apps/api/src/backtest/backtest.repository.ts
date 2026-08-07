@@ -25,8 +25,11 @@ const SALE_UNIT = `
     SELECT DISTINCT ON (auction_item_id) auction_item_id, payload
     FROM auction_item_raw ORDER BY auction_item_id, observed_at DESC
   ), latest_notice AS (
-    SELECT DISTINCT ON (auction_item_id) auction_item_id, assumed_rights_kind, risk_flags
+    SELECT DISTINCT ON (auction_item_id) id, auction_item_id, assumed_rights_kind, risk_flags,
+           tenant_scanned_at, tenant_rows_rejected
     FROM auction_item_notice ORDER BY auction_item_id, document_date DESC NULLS LAST, id DESC
+  ), tenant_count AS (
+    SELECT notice_id, count(*) AS rows FROM auction_item_notice_tenant GROUP BY 1
   ), outcome AS (
     SELECT auction_item_id, bool_or(result_code = '001') AS sold, max(sale_amount) AS sale_amount
     FROM auction_sale_result WHERE dxdy_date >= $1::date GROUP BY 1
@@ -36,12 +39,19 @@ const SALE_UNIT = `
            split_part(r.payload->>'dspslUsgNm', ',', 1) AS usage,
            COALESCE(r.payload->>'mulBigo', '') LIKE '%일괄%' AS bulk,
            (n.assumed_rights_kind = 'NONE' OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)) AS no_burden,
-           (n.assumed_rights_kind IS NOT NULL OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)) AS burden_known
+           (n.assumed_rights_kind IS NOT NULL OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)) AS burden_known,
+           COALESCE(tc.rows, 0) > 0 AS tenant_present,
+           -- H3 표본 자격 (WP-11 §4-7): 임차인 행이 있거나 스캔이 "행 0 + 버림 0"으로 확정한
+           -- 물건만. 게이트가 행을 버린 물건과 결함 파서 시절 스캔(013 백필 NULL)은
+           -- "없음"을 믿을 수 없어 뺀다
+           (COALESCE(tc.rows, 0) > 0
+            OR (n.tenant_scanned_at IS NOT NULL AND n.tenant_rows_rejected = 0)) AS tenant_known
     FROM outcome o
     JOIN auction_item i ON i.id = o.auction_item_id
     JOIN auction_case c ON c.id = i.auction_case_id
     JOIN latest_notice n ON n.auction_item_id = i.id
     JOIN raw r ON r.auction_item_id = i.id
+    LEFT JOIN tenant_count tc ON tc.notice_id = n.id
   ), sale_unit AS (
     SELECT DISTINCT ON (CASE WHEN bulk THEN case_no ELSE id::text END) *
     FROM base ORDER BY CASE WHEN bulk THEN case_no ELSE id::text END, sold DESC
@@ -81,7 +91,7 @@ export class BacktestRepository {
   constructor(@Inject(BACKTEST_PG_POOL) private readonly pool: Pool) {}
 
   async findScoring(): Promise<BacktestDto> {
-    const [burden, byFailedCount, cross, byUsage, trend] = await Promise.all([
+    const [burden, byFailedCount, cross, byUsage, tenant, trend] = await Promise.all([
       this.groupBy(`CASE WHEN no_burden THEN '인수 부담 없음' ELSE '인수 부담 있음' END`, 'burden_known'),
       this.groupBy(`'유찰 ' || LEAST(failed_bid_count, 4)::text || CASE WHEN failed_bid_count >= 4 THEN '회+' ELSE '회' END`, 'failed_bid_count IS NOT NULL'),
       this.groupBy(
@@ -90,10 +100,11 @@ export class BacktestRepository {
         'burden_known AND min_rate IS NOT NULL',
       ),
       this.groupBy('usage', 'true', 10),
+      this.groupBy(`CASE WHEN tenant_present THEN '임차인 있음' ELSE '임차인 없음' END`, 'tenant_known'),
       this.findTrend(),
     ]);
 
-    return { observedFrom: OBSERVED_FROM, burden, byFailedCount, cross, byUsage, trend };
+    return { observedFrom: OBSERVED_FROM, burden, byFailedCount, cross, byUsage, tenant, trend };
   }
 
   /** 매각단위를 어떤 식으로 묶든 같은 모양(라벨·건수·낙찰률)으로 돌려준다. */
