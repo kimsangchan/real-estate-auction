@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FavoriteButton } from '../components/FavoriteButton';
+import { AffordabilityCustomBid } from '../components/AffordabilityCustomBid';
 import { RightsAnalysisView } from '../components/RightsAnalysisView';
 import {
   computeMinimumBidRate,
@@ -414,11 +415,21 @@ function ItemDetail({
           {analysis === undefined ? (
             <p className={styles.unknown}>권리분석을 불러오는 중이에요...</p>
           ) : (
-            <RightsAnalysisView
-              analysis={analysis}
-              basis={{ minimumSalePrice: item.minimumSalePrice }}
-              affordability={affordability}
-            />
+            <>
+              <RightsAnalysisView
+                analysis={analysis}
+                basis={{ minimumSalePrice: item.minimumSalePrice }}
+                affordability={affordability}
+              />
+              {/* 상세 페이지와 같은 입찰가 계산기 — 패널이 기본 동선이라 여기서도 완결돼야 한다 */}
+              {analysis !== null ? (
+                <AffordabilityCustomBid
+                  courtOfficeCode={item.courtOfficeCode}
+                  caseNo={item.caseNo}
+                  itemNo={item.itemNo}
+                />
+              ) : null}
+            </>
           )}
         </div>
       )}
@@ -430,8 +441,15 @@ function ItemDetail({
           itemNo={item.itemNo}
           currentPath={pathname}
         />
-        <Link href={`/items/${id}`} className={styles.secondaryLink}>
-          물건 상세 페이지
+        {/* 패널이 상세의 실질을 다 담으므로 이 링크는 공유·큰 화면용이다 — 지도 맥락을 잃지 않게
+            새 탭으로 연다 (사용자 확정 2026-08-07: 패널 완결형) */}
+        <Link
+          href={`/items/${id}`}
+          className={styles.secondaryLink}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          상세 페이지 새 탭으로 ↗
         </Link>
       </div>
     </aside>
