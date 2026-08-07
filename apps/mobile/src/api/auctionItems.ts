@@ -1,6 +1,8 @@
 // apps/api 물건 조회 엔드포인트를 호출하는 RN 클라이언트.
 // 안드로이드 에뮬레이터는 호스트 localhost를 10.0.2.2로 접근한다(개발 서버 포트 4000).
 import { Platform } from 'react-native';
+import type { Affordability } from '../lib/affordability';
+import type { NoticeAnalysis } from '../lib/notice-analysis';
 
 export const API_BASE_URL =
   Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
@@ -94,6 +96,48 @@ export async function fetchAuctionItemPhotos(
     throw new Error(`물건 사진 조회 실패: ${response.status}`);
   }
   return (await response.json()) as AuctionItemPhoto[];
+}
+
+/**
+ * 매각물건명세서 기반 권리분석. 명세서를 아직 못 받은 물건은 404이며 null로 돌려준다 —
+ * 빈 결과를 주면 화면이 "인수할 권리 없음"으로 읽는다.
+ */
+export async function fetchNoticeAnalysis(
+  key: ItemKey,
+): Promise<NoticeAnalysis | null> {
+  const path = `${encodeURIComponent(key.courtOfficeCode)}/${encodeURIComponent(
+    key.caseNo,
+  )}/${encodeURIComponent(key.itemNo)}`;
+  const response = await fetch(
+    `${API_BASE_URL}/auction-items/${path}/notice-analysis`,
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`명세서 권리분석 조회 실패: ${response.status}`);
+  }
+  return (await response.json()) as NoticeAnalysis;
+}
+
+/**
+ * 실부담 시나리오. 명세서가 없는 물건은 404이며 null — 인수액을 모르는 채 계산하지 않는다.
+ * bidPrice를 주면 CUSTOM 시나리오가 함께 온다 (취득세율·명도 구간 정의는 API에만 둔다).
+ */
+export async function fetchAffordability(
+  key: ItemKey,
+  bidPrice?: number,
+): Promise<Affordability | null> {
+  const path = `${encodeURIComponent(key.courtOfficeCode)}/${encodeURIComponent(
+    key.caseNo,
+  )}/${encodeURIComponent(key.itemNo)}`;
+  const query = bidPrice === undefined ? '' : `?bidPrice=${bidPrice}`;
+  const response = await fetch(
+    `${API_BASE_URL}/auction-items/${path}/affordability${query}`,
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`실부담 시나리오 조회 실패: ${response.status}`);
+  }
+  return (await response.json()) as Affordability;
 }
 
 export async function fetchAuctionItems(

@@ -15,7 +15,12 @@ export type RootStackParamList = {
     itemNo: string;
     address: string | null;
   };
-  RightsAnalysis: undefined;
+  // 권리분석은 물건별 실데이터를 조회한다 — 사건키가 없으면 화면을 열 수 없다.
+  RightsAnalysis: {
+    courtOfficeCode: string;
+    caseNo: string;
+    itemNo: string;
+  };
   Risks: undefined;
   Checklist: undefined;
   Login: undefined;

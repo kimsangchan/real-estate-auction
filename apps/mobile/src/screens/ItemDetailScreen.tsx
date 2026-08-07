@@ -1,5 +1,5 @@
 // 물건 상세 — 라우트 파라미터의 사건키로 실제 수집 데이터를 조회해 가격 헤더·물건 개요·하단 CTA를 표시한다.
-// 하단 CTA는 권리분석 화면(예시 데이터)으로 이동한다(웹 apps/web의 상세 화면과 동일한 구성).
+// 하단 CTA는 같은 사건키로 권리분석 화면을 연다(웹 apps/web의 상세 화면과 동일한 구성).
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -177,7 +177,13 @@ export function ItemDetailScreen({ route, navigation }: Props) {
         />
         <Pressable
           style={styles.cta}
-          onPress={() => navigation.navigate('RightsAnalysis')}
+          onPress={() =>
+            navigation.navigate('RightsAnalysis', {
+              courtOfficeCode,
+              caseNo,
+              itemNo,
+            })
+          }
         >
           <Text style={styles.ctaText}>권리분석 보기</Text>
         </Pressable>

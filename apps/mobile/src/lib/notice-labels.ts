@@ -50,3 +50,31 @@ export function tenantLabel(tenantCount: number | null): string | null {
   if (tenantCount === null) return null;
   return tenantCount === 0 ? '점유자 없음' : `점유자 ${tenantCount}명`;
 }
+
+/**
+ * 명세서 기반 인수 판정 → 화면 라벨. 등기부 없이 나온 결과라 "금액 미상"이 정상 상태다.
+ * 판단·권유가 아니라 상태를 그대로 옮긴 문구만 쓴다 (D-011).
+ */
+export const NOTICE_ASSUMPTION_LABEL: Record<string, string> = {
+  NOT_ASSUMED: '인수 안 함',
+  ASSUMED_FULL: '보증금 전액 인수',
+  ASSUMED_AMOUNT_UNKNOWN: '인수 금액 확인 필요',
+  UNKNOWN: '판정 불가',
+};
+
+/** 그 판정이 왜 그렇게 나왔는지 — 사실만 적는다. */
+export const NOTICE_ASSUMPTION_REASON: Record<string, string> = {
+  NOT_ASSUMED: '대항력이 말소기준보다 늦어요',
+  ASSUMED_FULL: '대항력이 있는데 배당요구가 없거나 종기를 넘겼어요',
+  ASSUMED_AMOUNT_UNKNOWN:
+    '대항력과 배당요구가 모두 있어요. 배당으로 얼마를 회수할지는 등기부가 있어야 알 수 있어요',
+  UNKNOWN: '전입일이나 최선순위 설정일이 명세서에 없어요',
+};
+
+export function noticeAssumptionLabel(assumption: string): string {
+  return NOTICE_ASSUMPTION_LABEL[assumption] ?? assumption;
+}
+
+export function noticeAssumptionReason(assumption: string): string | null {
+  return NOTICE_ASSUMPTION_REASON[assumption] ?? null;
+}
