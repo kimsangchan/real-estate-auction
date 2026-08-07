@@ -29,6 +29,42 @@ if not defined DATABASE_URL (
   exit /b 2
 )
 
+REM A reboot leaves Docker Desktop (and the auction-db container) down, and then every
+REM collection stage fails on DB connect after long timeouts (observed 2026-08-06: a full
+REM run wasted 35 minutes to report 9 stage failures). Bring the DB up before collecting.
+REM Sleep uses ping because timeout.exe needs an interactive console and dies under the
+REM Task Scheduler.
+docker info >nul 2>&1
+if not errorlevel 1 goto engine_ready
+start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+set /a engine_tries=0
+:wait_engine
+docker info >nul 2>&1
+if not errorlevel 1 goto engine_ready
+set /a engine_tries+=1
+if %engine_tries% geq 36 (
+  echo run_daily: docker engine did not start within 3 minutes 1>&2
+  exit /b 3
+)
+ping -n 6 127.0.0.1 >nul
+goto wait_engine
+:engine_ready
+
+docker compose -f "%HERE%..\..\docker-compose.yml" up -d db >nul 2>&1
+set /a db_tries=0
+:wait_db
+REM /b: match at line start only - "unhealthy" must not pass as "healthy"
+docker inspect --format "{{.State.Health.Status}}" auction-db 2>nul | findstr /b /i /c:"healthy" >nul
+if not errorlevel 1 goto db_ready
+set /a db_tries+=1
+if %db_tries% geq 24 (
+  echo run_daily: auction-db did not become healthy within 2 minutes 1>&2
+  exit /b 3
+)
+ping -n 6 127.0.0.1 >nul
+goto wait_db
+:db_ready
+
 cd /d "%HERE%"
 ".venv\Scripts\python.exe" -m collector daily --with-tenants >> "%HERE%daily.log" 2>&1
 exit /b %ERRORLEVEL%
