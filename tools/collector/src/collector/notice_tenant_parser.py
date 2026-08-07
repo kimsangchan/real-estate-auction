@@ -22,6 +22,17 @@ _COLUMNS: tuple[tuple[str, int, int], ...] = (
     ("demanded_distribution", 506, 570),
 )
 
+# 표준 양식에서 머리글 "정보출처" 첫 글자의 x1 (실측 — 보유 픽스처 5종 모두 114.0).
+# 일부 문서는 같은 표가 통째로 좌우로 밀려 렌더된다 (실측 2026-08-06 서울중앙 2025타경102642:
+# -9pt). 고정 경계로는 각 컬럼의 첫 글자가 이전 컬럼으로 새어 정보출처가 "리신고임"처럼
+# 깨지고, 검증 게이트가 전 행을 버린다 — 임차인이 있는 문서가 통째로 사라지는 경로였다.
+# 머리글 실측 x1과 이 기준의 차를 컬럼 경계에 더해 문서별로 보정한다.
+_HEADER_SOURCE_LABEL = "정보출처"
+_HEADER_SOURCE_X1 = 114.0
+# 보정 한도 — 이보다 크게 어긋나면 아는 양식이 아니다. 엉뚱한 문서에 경계를 끌려가느니
+# 보정 없이 파싱해 게이트가 버리게 두는 쪽이 안전하다.
+_MAX_COLUMN_OFFSET = 30.0
+
 # 값이 줄바꿈 없이 한 줄로만 적히는 컬럼들 — 행의 기준선(anchor)을 잡는 데 쓴다.
 # 점유부분은 앵커가 아니다 — "공부상 505호(실제표시 605호)"처럼 5줄로 감싸인 실측이 있다.
 # 앵커로 쓰면 감싸인 줄마다 가짜 행이 생긴다 (WP-11 §4-7의 수율 붕괴 원인).
@@ -32,8 +43,12 @@ _COLUMNS: tuple[tuple[str, int, int], ...] = (
 # `1)`,`2)`로 나뉜다. 이들을 앵커로 쓰면 한 임차인이 3~4행으로 쪼개지고, 쪼개진 조각은
 # 정보출처가 없어 검증 게이트에서 버려진다 — 보증금이 통째로 사라지는 경로였다.
 #
-# 전입신고일자와 배당요구여부는 값이 날짜 하나뿐이라 실제로 행마다 한 줄이다
-# (실측 같은 문서: 전입일 앵커 간격 최소 32pt, 셀 내부 줄바꿈 간격 6.5pt).
+# 전입신고일자와 배당요구여부를 앵커로 쓴다. 주거 사건은 값이 날짜 하나라 행마다 한 줄이지만,
+# 상가 사건은 "2023.10.31.(상가건물임대차현황서)"가 3줄로 감싸인다 (실측 2025타경9542) —
+# 그래서 앵커는 "날짜가 있는 줄"이 행을 시작하고, 날짜 없는 감싸임 조각은 직전 행에 붙는
+# 클러스터로 잡는다 (_anchors_from). 셀 안 줄바꿈 간격 실측 12.5~13pt, 행 사이 앵커 간격은
+# 32pt 이상인데 **인접 행의 조각과 다음 행 날짜 사이가 11pt**인 문서가 있어 간격만으로는
+# 못 가른다 — 날짜 유무가 행 경계의 근거다.
 _ANCHOR_FIELDS = (
     "move_in_date",
     "demanded_distribution",
@@ -78,6 +93,14 @@ _UNKNOWN_VALUES = ("미상", "불명", "없음", "-")
 # 같은 행의 앵커 후보(한 줄 컬럼 값들의 세로 중앙)를 하나로 묶는 허용 오차.
 # 실측 줄높이 ~10pt, 인접 행의 앵커 간격은 45pt 이상이라 8이면 안전하다
 _ANCHOR_MERGE_TOLERANCE = 8
+
+# 셀 안 줄바꿈으로 감싸인 조각을 같은 행으로 붙이는 최대 간격.
+# 실측 12.5~13pt(상가 사건 전입신고일자 셀), 행 사이 앵커 간격은 32pt 이상이라 20이 가른다
+_CELL_WRAP_GAP_MAX = 20.0
+
+# 한 라인 안에서 글자 덩어리(run)를 끊는 x 벌어짐. 같은 셀의 글자 상자는 맞닿아 있고(간격 ~0),
+# 셀 사이는 컬럼 여백만큼 벌어진다
+_RUN_SPLIT_GAP = 4.0
 
 # 법원이 점유자 없음을 명시할 때 표 안에 이 문구 한 줄만 렌더된다 (실측: "조사된 임차내역없음").
 # 행이 아니라 빈 표이므로 파싱 대상에서 제외한다
@@ -146,10 +169,14 @@ _VALID_SOURCE_KINDS = ("현황조사", "권리신고", "등기사항전부증명
 def _is_usable(tenant: NoticeTenant) -> bool:
     """저장할 가치가 있는 행인지 판정한다.
 
-    정보출처가 정상값이어야 하고(행 경계가 제대로 잡혔다는 신호), 그 위에 권리분석에 쓸 값이
-    하나라도 있어야 한다. 전입일은 엔진 `Tenant`의 필수 입력이고, 보증금은 인수액 계산의 기초다.
+    정보출처가 정상값으로 시작해야 하고(행 경계가 제대로 잡혔다는 신호), 그 위에 권리분석에 쓸
+    값이 하나라도 있어야 한다. 전입일은 엔진 `Tenant`의 필수 입력이고, 보증금은 인수액 계산의
+    기초다. 완전일치가 아니라 시작 일치인 이유: "현황조사 등"처럼 꼬리를 붙여 적는 법원이
+    실재한다 (실측 2023타경5380 — 보증금 2억 행이 이 표기 때문에 통째로 버려졌다).
     """
-    if tenant.source_kind not in _VALID_SOURCE_KINDS:
+    if tenant.source_kind is None or not any(
+        tenant.source_kind.startswith(kind) for kind in _VALID_SOURCE_KINDS
+    ):
         return False
     return tenant.move_in_date is not None or tenant.deposit_amount is not None
 
@@ -168,7 +195,8 @@ def parse_tenant_table(pages: list[list[Any]]) -> TenantTable:
         if bounds is None:
             continue
         top, bottom, has_end_marker = bounds
-        rows.extend(_rows_in_region(fragments, top=top, bottom=bottom))
+        offset = _column_offset(fragments)
+        rows.extend(_rows_in_region(fragments, top=top, bottom=bottom, offset=offset))
         continued = not has_end_marker
 
     parsed = _to_tenants(rows)
@@ -179,7 +207,13 @@ def parse_tenant_table(pages: list[list[Any]]) -> TenantTable:
 
 
 def _fragments(lines: list[Any]) -> list[dict[str, Any]]:
-    """라인 목록을 문자 단위 조각으로 펼친다 — 한 라인에 여러 셀이 섞여 있어 문자로 나눠야 한다."""
+    """라인 목록을 문자 단위 조각으로 펼친다 — 한 라인에 여러 셀이 섞여 있어 문자로 나눠야 한다.
+
+    컬럼 판정용 x(column_x)는 글자 자신이 아니라 글자가 속한 덩어리(run)의 중앙이다.
+    셀 값이 컬럼 상자보다 넓으면 첫 글자가 이웃 컬럼 영역에서 시작하는데(실측 2024타경136950:
+    전입신고일자 "2022.11.09.(상…"의 앞자리가 차임 컬럼으로 샜다), 덩어리 중앙으로 정하면
+    덩어리 전체가 제 컬럼에 붙는다.
+    """
     fragments: list[dict[str, Any]] = []
     for line in lines:
         if not isinstance(line, dict):
@@ -189,10 +223,11 @@ def _fragments(lines: list[Any]) -> list[dict[str, Any]]:
         if not isinstance(text, str) or not isinstance(rects, list):
             continue
         last_index = len(text) - 1
+        entries: list[dict[str, Any]] = []
         for index, (char, rect) in enumerate(zip(text, rects, strict=False)):
             if not isinstance(rect, dict):
                 continue
-            fragments.append(
+            entries.append(
                 {
                     "char": char,
                     "x1": _number(rect.get("left")),
@@ -203,7 +238,31 @@ def _fragments(lines: list[Any]) -> list[dict[str, Any]]:
                     "at_line_end": index == last_index,
                 }
             )
+        _assign_run_centers(entries)
+        fragments.extend(entries)
     return fragments
+
+
+def _assign_run_centers(entries: list[dict[str, Any]]) -> None:
+    """한 라인의 조각을 공백·x 벌어짐으로 덩어리(run)로 묶고 각 조각에 덩어리 중앙을 기록한다."""
+    runs: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    for entry in entries:
+        if entry["char"].isspace():
+            if current:
+                runs.append(current)
+                current = []
+            continue
+        if current and entry["x1"] - current[-1]["x2"] > _RUN_SPLIT_GAP:
+            runs.append(current)
+            current = []
+        current.append(entry)
+    if current:
+        runs.append(current)
+    for run in runs:
+        center = (run[0]["x1"] + run[-1]["x2"]) / 2
+        for member in run:
+            member["column_x"] = center
 
 
 def _table_bounds(fragments: list[dict[str, Any]]) -> tuple[float, float, bool] | None:
@@ -255,8 +314,27 @@ def _group_lines(fragments: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def _column_offset(fragments: list[dict[str, Any]]) -> float:
+    """머리글 "정보출처" 실측 x1과 표준 위치의 차 — 표가 좌우로 밀린 문서의 컬럼 보정값."""
+    lines = _group_lines(fragments)
+    header = next(
+        (line for line in lines if "점유자" in line["text"] and "정보출처" in line["text"]),
+        None,
+    )
+    if header is None:
+        return 0.0
+    band = sorted(
+        (f for f in fragments if abs(f["y2"] - header["y2"]) <= 3), key=lambda f: f["x1"]
+    )
+    index = "".join(f["char"] for f in band).find(_HEADER_SOURCE_LABEL)
+    if index < 0:
+        return 0.0
+    offset = band[index]["x1"] - _HEADER_SOURCE_X1
+    return offset if abs(offset) <= _MAX_COLUMN_OFFSET else 0.0
+
+
 def _rows_in_region(
-    fragments: list[dict[str, Any]], *, top: float, bottom: float
+    fragments: list[dict[str, Any]], *, top: float, bottom: float, offset: float = 0.0
 ) -> list[dict[str, str]]:
     """표 영역의 조각을 행으로 묶고 컬럼별 문자열 셀을 만든다.
 
@@ -268,7 +346,7 @@ def _rows_in_region(
     if not region:
         return []
 
-    anchors = _row_anchors(region)
+    anchors = _row_anchors(region, offset)
     if not anchors:
         return []
 
@@ -285,7 +363,7 @@ def _rows_in_region(
                 buckets[index].append(fragment)
         upper = lower
 
-    rows = [cells for cells in (_cells(bucket) for bucket in buckets) if cells]
+    rows = [cells for cells in (_cells(bucket, offset) for bucket in buckets) if cells]
     return [
         row
         for row in rows
@@ -293,29 +371,61 @@ def _rows_in_region(
     ]
 
 
-def _row_anchors(region: list[dict[str, Any]]) -> list[float]:
-    """행의 세로 중앙 y 목록. 한 줄로만 적히는 컬럼 값의 세로 중앙이 행의 중앙과 일치한다."""
-    anchors = _anchors_from(region, _ANCHOR_FIELDS)
-    return anchors if anchors else _anchors_from(region, _FALLBACK_ANCHOR_FIELDS)
+def _row_anchors(region: list[dict[str, Any]], offset: float = 0.0) -> list[float]:
+    """행의 세로 중앙 y 목록. 앵커 컬럼 값의 세로 중앙이 행의 중앙과 일치한다."""
+    anchors = _anchors_from(region, _ANCHOR_FIELDS, offset, date_starts_row=True)
+    if anchors:
+        return anchors
+    # 대비책 컬럼은 금액이 여러 줄로 적히는 사건(908 증액)이 있어 날짜 규칙을 쓰지 않는다
+    return _anchors_from(region, _FALLBACK_ANCHOR_FIELDS, offset, date_starts_row=False)
 
 
-def _anchors_from(region: list[dict[str, Any]], fields: tuple[str, ...]) -> list[float]:
-    candidates = sorted(
-        {
-            (fragment["y1"] + fragment["y2"]) / 2
-            for fragment in region
-            if _column_of(fragment) in fields and not fragment["char"].isspace()
-        },
-        reverse=True,
-    )
+def _anchors_from(
+    region: list[dict[str, Any]],
+    fields: tuple[str, ...],
+    offset: float = 0.0,
+    *,
+    date_starts_row: bool,
+) -> list[float]:
+    """컬럼별로 줄을 행 묶음(cluster)으로 나누고 묶음의 세로 중앙을 앵커로 쓴다.
+
+    상가 사건은 앵커 컬럼(전입신고일자)이 "2023.10.31.(상가건물임대차현황서)" 3줄로 감싸이고,
+    감싸임 조각과 **다음 행의 날짜 줄 사이(11pt)가 셀 안 줄 간격(12.5~13pt)보다 좁은** 문서가
+    실재한다 (2025타경9542) — 간격만으로는 행을 못 가르므로 날짜가 있는 줄만 행을 시작하게
+    한다. 날짜 없는 줄은 "미상"처럼 그 자체가 값인 경우가 있어, 간격이 행 간격(32pt+)이면
+    새 행으로 연다.
+    """
     anchors: list[float] = []
-    for y in candidates:
-        if not anchors or anchors[-1] - y > _ANCHOR_MERGE_TOLERANCE:
-            anchors.append(y)
-    return anchors
+    for field in fields:
+        lines: dict[float, list[tuple[float, str]]] = {}
+        for fragment in region:
+            if _column_of(fragment, offset) == field and not fragment["char"].isspace():
+                center = round((fragment["y1"] + fragment["y2"]) / 2, 1)
+                lines.setdefault(center, []).append((fragment["x1"], fragment["char"]))
+        clusters: list[list[float]] = []
+        for y in sorted(lines, reverse=True):
+            text = "".join(char for _, char in sorted(lines[y]))
+            has_date = _DATE_PATTERN.search(text) is not None
+            starts_row = (
+                not clusters
+                or clusters[-1][-1] - y > _CELL_WRAP_GAP_MAX
+                or (date_starts_row and has_date)
+            )
+            if starts_row:
+                clusters.append([y])
+            else:
+                clusters[-1].append(y)
+        anchors.extend((cluster[0] + cluster[-1]) / 2 for cluster in clusters)
+
+    # 컬럼별 앵커를 합치고, 같은 행의 두 컬럼이 낸 가까운 앵커는 하나로 본다
+    merged: list[float] = []
+    for y in sorted(anchors, reverse=True):
+        if not merged or merged[-1] - y > _ANCHOR_MERGE_TOLERANCE:
+            merged.append(y)
+    return merged
 
 
-def _cells(fragments: list[dict[str, Any]]) -> dict[str, str]:
+def _cells(fragments: list[dict[str, Any]], offset: float = 0.0) -> dict[str, str]:
     """한 행의 조각을 컬럼별 문자열로 만든다.
 
     셀 안에서 줄바꿈된 값은 위에서 아래 순으로 이어붙인다. 이때 원문 라인 끝의 공백만 살린다 —
@@ -326,7 +436,7 @@ def _cells(fragments: list[dict[str, Any]]) -> dict[str, str]:
     for fragment in fragments:
         if fragment["char"].isspace() and not fragment["at_line_end"]:
             continue
-        column = _column_of(fragment)
+        column = _column_of(fragment, offset)
         if column is not None:
             by_column.setdefault(column, []).append(fragment)
 
@@ -339,8 +449,9 @@ def _cells(fragments: list[dict[str, Any]]) -> dict[str, str]:
     return cells
 
 
-def _column_of(fragment: dict[str, Any]) -> str | None:
-    center = (fragment["x1"] + fragment["x2"]) / 2
+def _column_of(fragment: dict[str, Any], offset: float = 0.0) -> str | None:
+    # column_x가 없는 조각은 공백(run에 안 묶임) — 자기 중앙으로 판정한다
+    center = fragment.get("column_x", (fragment["x1"] + fragment["x2"]) / 2) - offset
     for name, left, right in _COLUMNS:
         if left <= center < right:
             return name

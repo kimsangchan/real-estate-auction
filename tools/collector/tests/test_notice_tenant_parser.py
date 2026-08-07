@@ -103,6 +103,79 @@ def test_corporate_name_wrapped_over_five_lines_stays_one_row():
     assert tenant.deposit_amount == 5_000_000
 
 
+def test_left_shifted_layout_gets_column_offset_correction():
+    """표 전체가 왼쪽으로 ~9pt 밀린 변형 레이아웃 — 머리글 실측 x로 컬럼 경계를 보정한다.
+
+    2025타경102642 물건1 실측(서울중앙, 2026-08-06). 고정 경계로는 각 컬럼의 첫 글자가 이전
+    컬럼으로 새어 정보출처가 "리신고임"처럼 깨지고 전 행이 게이트에서 버려졌다 — 보증금
+    2.9억도 앞자리 2가 새어 9천만으로 읽혔다. HUG 승계·임차권등기 사건이라 권리분석에
+    가장 중요한 유형의 문서가 통째로 사라지는 경로였다.
+    """
+    table = parse_tenant_table(_pages("notice_pdf_texts_102642_1.json"))
+
+    assert table.rejected == 0
+    claim, registry = table.tenants
+    assert claim.tenant_name == "주택도시보증공사"
+    assert claim.source_kind == "권리신고"
+    assert claim.occupied_part == "전부"
+    assert claim.deposit_amount == 290_000_000
+    assert claim.move_in_date == date(2022, 2, 23)
+    assert claim.fixed_date == date(2022, 1, 25)
+    assert claim.demanded_distribution is True
+    assert registry.tenant_name == "정다운"
+    assert registry.source_kind == "등기사항전부증명서"
+    assert registry.deposit_amount == 290_000_000
+    assert [t.tenant_seq for t in table.tenants] == [1, 2]
+
+
+def test_commercial_wrapped_anchor_cell_does_not_split_rows():
+    """상가 사건 — 전입신고일자 셀 "2023.10.31.(상가건물임대차현황서)"가 3줄로 감싸여도
+    행이 쪼개지지 않는다.
+
+    2025타경9542 물건1 실측(서울남부, 2026-08-06). 앵커 컬럼이 "한 줄"이라는 전제가 상가
+    문서에서 깨졌고, 감싸임 조각과 다음 행 날짜 줄 사이(11pt)가 셀 안 줄 간격(12.5~13pt)보다
+    좁아 간격 병합으로도 못 가른다 — 날짜 있는 줄만 행을 시작하는 규칙의 회귀 테스트.
+    셀 값이 컬럼 상자보다 넓어 앞자리가 이웃 컬럼으로 새는 문제(run 중앙 배정)도 함께 덮는다.
+    """
+    table = parse_tenant_table(_pages("notice_pdf_texts_9542_1.json"))
+
+    assert table.rejected == 0
+    survey, claim = table.tenants
+    assert survey.tenant_name == "한가을"
+    assert survey.source_kind == "현황조사"
+    assert survey.occupied_part == "1301호(31.5700㎡)"
+    assert survey.deposit_amount == 7_000_000
+    assert survey.monthly_rent == 700_000
+    assert survey.move_in_date == date(2023, 10, 31)  # 사업자등록 신청일 (상가건물임대차현황서)
+    assert survey.lease_period == "2023.10.31.~2025.10.30."
+    assert claim.tenant_name is None  # 병합 셀 rowspan — 같은 사람의 권리신고 행
+    assert claim.tenant_seq == survey.tenant_seq
+    assert claim.source_kind == "권리신고"
+    assert claim.demanded_distribution is True
+    assert claim.demanded_distribution_date == date(2025, 7, 14)
+
+
+def test_source_kind_with_trailing_text_passes_gate():
+    """정보출처를 "현황조사 등"처럼 꼬리 붙여 적는 법원 — 시작 일치로 게이트를 통과해야 한다.
+
+    2023타경5380 물건1 실측(서울북부, 2026-08-07). 완전일치 게이트가 이 표기를 깨진 행으로
+    오판해 보증금 2억 행을 통째로 버렸다. 셀 5줄 감싸임(점유부분 3줄 + 정보출처 2줄)의
+    단일 행 복원도 함께 덮는다.
+    """
+    table = parse_tenant_table(_pages("notice_pdf_texts_5380_1.json"))
+
+    assert table.rejected == 0
+    (tenant,) = table.tenants
+    assert tenant.tenant_name == "이바다"
+    assert tenant.source_kind == "현황조사등"
+    assert tenant.occupied_part == "B101호202호203호"
+    assert tenant.deposit_amount == 200_000_000
+    assert tenant.monthly_rent == 2_000_000
+    assert tenant.move_in_date == date(2018, 11, 8)
+    assert tenant.fixed_date is None  # 미상
+    assert tenant.lease_period == "2018.10.15.~2020.10.14."
+
+
 @pytest.mark.parametrize("goods_seq", [1, 2, 3, 4])
 def test_explicit_no_tenant_notice_is_empty_not_rejected(goods_seq):
     # 2022타경55450 — 표 안에 "조사된 임차내역없음" 한 줄만 렌더되는 빈 표.
