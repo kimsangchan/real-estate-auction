@@ -105,12 +105,86 @@ describe('RightsAnalysisService — 검증 시나리오 10건 (01-domain-discove
       saleAmount: 300_000_000,
     });
 
-    expect(result.totalBurden).toEqual({
+    expect(result.totalBurden).toMatchObject({
       bidPrice: 300_000_000,
       totalAssumedAmount: 50_000_000,
       totalBurden: 350_000_000,
+      unknownItems: ['UNPAID_MAINTENANCE_FEE'],
       ruleId: 'TOTAL_BURDEN',
-      ruleVersion: 1,
+      ruleVersion: 2,
     });
+    // 인수액이 남는 임차인 → 명도 전망은 손실 측(2백만~7백만) 구간이다
+    const eviction = result.totalBurden?.extras.find((e) => e.kind === 'EVICTION_COST');
+    expect(eviction?.range).toEqual({ min: 2_000_000, max: 7_000_000 });
+    // 확정 합계 + 취득세(주택여부 미상 1.1%~13.4%) + 등기(0.5%~1.5%) + 명도
+    expect(result.totalBurden?.totalWithExtras).toEqual({ min: 356_800_000, max: 401_700_000 });
+  });
+
+  it('임차인이 없으면 명도 전망은 점유자 없음 구간이다', () => {
+    const result = service.analyze({
+      registeredRights: [{ id: 'r1', type: 'MORTGAGE', receivedDate: '2024-03-10' }],
+      tenants: [],
+      region: 'SEOUL',
+      distributionDemandDeadline: '2024-06-01',
+      saleAmount: 100_000_000,
+      propertyKind: 'NON_HOUSING',
+    });
+
+    const eviction = result.totalBurden?.extras.find((e) => e.kind === 'EVICTION_COST');
+    expect(eviction?.range).toEqual({ min: 0, max: 1_500_000 });
+    // 비주택은 취득세 구간이 4.6% 한 점으로 좁혀진다
+    const acquisition = result.totalBurden?.extras.find((e) => e.kind === 'ACQUISITION_TAX');
+    expect(acquisition?.range).toEqual({ min: 4_600_000, max: 4_600_000 });
+  });
+
+  it('배당으로 보증금을 전액 회수하는 임차인이면 명도 전망이 중간 구간으로 내려온다', () => {
+    // 후순위(전입이 말소기준보다 늦음) 소액 아님 임차인 — 확정일자·배당요구 유효, 재원 충분
+    const result = service.analyze({
+      registeredRights: [{ id: 'r1', type: 'MORTGAGE', receivedDate: '2024-03-10' }],
+      tenants: [
+        {
+          id: 't1',
+          moveInDate: '2024-04-01',
+          fixedDate: '2024-04-01',
+          depositAmount: 50_000_000,
+          demandedDistribution: true,
+          demandedDistributionDate: '2024-05-01',
+        },
+      ],
+      region: 'SEOUL',
+      distributionDemandDeadline: '2024-06-01',
+      saleAmount: 300_000_000,
+    });
+
+    expect(result.tenantClassifications[0]?.assumedAmount).toBe(0);
+    const eviction = result.totalBurden?.extras.find((e) => e.kind === 'EVICTION_COST');
+    expect(eviction?.range).toEqual({ min: 500_000, max: 3_000_000 });
+  });
+
+  it('소멸했지만 배당으로 보증금을 다 못 받는 임차인은 손실 측 명도 구간이다', () => {
+    // 후순위 임차인 — 인수액은 0(소멸)이지만 근저당이 재원을 다 가져가 배당을 못 받는다.
+    // 보증금 2억은 서울 소액임차인 범위 밖이라 최우선변제도 없다
+    const result = service.analyze({
+      registeredRights: [
+        { id: 'r1', type: 'MORTGAGE', receivedDate: '2024-03-10', amount: 300_000_000 },
+      ],
+      tenants: [
+        {
+          id: 't1',
+          moveInDate: '2024-04-01',
+          fixedDate: '2024-04-01',
+          depositAmount: 200_000_000,
+          demandedDistribution: true,
+          demandedDistributionDate: '2024-05-01',
+        },
+      ],
+      region: 'SEOUL',
+      distributionDemandDeadline: '2024-06-01',
+      saleAmount: 200_000_000,
+    });
+
+    expect(result.tenantClassifications[0]?.assumedAmount).toBe(0);
+    const eviction = result.totalBurden?.extras.find((e) => e.kind === 'EVICTION_COST');
+    expect(eviction?.range).toEqual({ min: 2_000_000, max: 7_000_000 });
   });
 });

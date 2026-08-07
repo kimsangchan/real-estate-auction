@@ -4,7 +4,11 @@ import { Injectable } from '@nestjs/common';
 import { findBaselineRight, type BaselineRight } from '../domain/baseline-right';
 import { computeDistribution, type DistributionResult } from '../domain/distribution';
 import { classifyRegisteredRight, classifyUnregisteredRisk } from '../domain/right-classification';
-import { calculateTotalBurden, type TotalBurdenResult } from '../domain/total-burden';
+import {
+  calculateTotalBurden,
+  type EvictionOutlook,
+  type TotalBurdenResult,
+} from '../domain/total-burden';
 import { analyzeTenantPriority } from '../domain/tenant-priority';
 import type {
   RegisteredRight,
@@ -81,6 +85,10 @@ export class RightsAnalysisService {
         : calculateTotalBurden(
             request.saleAmount,
             tenantClassifications.map((t) => t.assumedAmount),
+            {
+              propertyKind: request.propertyKind ?? null,
+              evictionOutlook: this.evictionOutlook(tenants, tenantClassifications, distribution),
+            },
           );
 
     return {
@@ -91,6 +99,30 @@ export class RightsAnalysisService {
       distribution,
       totalBurden,
     };
+  }
+
+  /**
+   * 인도(명도) 전망 — 보증금을 다 돌려받지 못하고 나가야 하는 점유자가 있으면 협의가 어려워
+   * 비용 구간이 높다. 인수액이 남거나(ASSUMED) 판단 보류(NEEDS_REVIEW)면 손실 측으로 본다.
+   */
+  private evictionOutlook(
+    tenants: Tenant[],
+    classifications: TenantClassification[],
+    distribution: DistributionResult | null,
+  ): EvictionOutlook {
+    if (tenants.length === 0) return 'NO_REPORTED_TENANT';
+
+    const lossByStatus = classifications.some(
+      (t) => t.status === 'NEEDS_REVIEW' || t.assumedAmount > 0,
+    );
+    if (lossByStatus) return 'TENANT_WITH_LOSS';
+
+    // 대항력 없이 소멸한 임차인도 배당으로 보증금을 다 못 받으면 손실을 안고 나간다
+    const depositById = new Map(tenants.map((t) => [t.id, t.depositAmount]));
+    const shortfall = distribution?.tenantOutcomes.some(
+      (outcome) => outcome.totalReceived < (depositById.get(outcome.tenantId) ?? 0),
+    );
+    return shortfall ? 'TENANT_WITH_LOSS' : 'TENANT_FULLY_COVERED';
   }
 
   private classifyTenant(

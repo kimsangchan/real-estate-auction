@@ -60,4 +60,12 @@ export class RightsAnalysisRequestDto {
   @IsOptional()
   @IsNumber()
   bidPrice?: number;
+
+  /**
+   * 주택 여부 — 취득세율 체계가 다르다 (주택 1.1%~13.4% 구간, 비주택 4.6% 고정).
+   * 안 주면 두 체계를 아우르는 구간으로 계산한다.
+   */
+  @IsOptional()
+  @IsIn(['HOUSING', 'NON_HOUSING'])
+  propertyKind?: 'HOUSING' | 'NON_HOUSING';
 }
