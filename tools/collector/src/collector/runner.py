@@ -500,7 +500,12 @@ def _collect_notices_for_rows(
             tenants, rejected, scanned = _collect_notice_tenants(
                 run_id=run_id, reader=document_reader, detail_payload=response, case_no=case_no
             )
-            notice = replace(notice, tenants=tenants, tenants_scanned=scanned)
+            notice = replace(
+                notice,
+                tenants=tenants,
+                tenants_scanned=scanned,
+                tenants_rejected=rejected if scanned else None,
+            )
             tenant_rows += len(tenants)
             tenant_rejected += rejected
         notices.append(notice)
@@ -543,9 +548,18 @@ def _collect_notice_tenants(
         pages.append(reader.fetch_text_page(session, page))
         table = parse_tenant_table(pages)
         if not table.continued:
-            return (table.tenants, table.rejected, True)
-    final = parse_tenant_table(pages)
-    return (final.tenants, final.rejected, True)
+            break
+    if not table.tenants and table.rejected:
+        # 행이 있었는데 전부 검증 게이트에서 버려졌다 — 새 변형 레이아웃일 가능성이 크다.
+        # 이 로그가 없으면 "임차인 없음"과 구분되지 않아 소실을 알아챌 수 없다 (실측 2026-08-06:
+        # 좌측 밀림 레이아웃 문서들이 이 경로로 조용히 사라졌다).
+        logger.warning(
+            "notice_tenants_all_rejected run_id=%s case=%s rejected=%s",
+            run_id,
+            case_no,
+            table.rejected,
+        )
+    return (table.tenants, table.rejected, True)
 
 
 def _search_result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:

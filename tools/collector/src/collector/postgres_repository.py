@@ -613,9 +613,15 @@ def _replace_notice_tenants(cur: psycopg.Cursor[Any], notice_id: int, notice: It
     가르는 유일한 기록이고, daily가 PDF를 다시 열지 여기서 판단한다.
     """
     if notice.tenants_scanned:
+        # 버린 행 수도 함께 남긴다 (013, WP-11 §4-7) — 표가 비어도 이 값이 >0이면
+        # "임차인 없음"이 아니라 "행이 있었는데 버림"이라서 H3 표본에서 빼야 한다
         cur.execute(
-            "UPDATE auction_item_notice SET tenant_scanned_at = now() WHERE id = %s",
-            (notice_id,),
+            """
+            UPDATE auction_item_notice
+            SET tenant_scanned_at = now(), tenant_rows_rejected = %s
+            WHERE id = %s
+            """,
+            (notice.tenants_rejected, notice_id),
         )
 
     if not notice.tenants:

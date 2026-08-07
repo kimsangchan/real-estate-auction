@@ -409,10 +409,33 @@ def test_daily_marks_scan_even_when_table_is_empty():
 
     _run(FakeDailyClient({court: pages}), repository, document_reader=reader)
     assert repository.find_item_keys_with_tenant_scan() == {(court, "2024타경1", "1", None)}
+    # 행이 아예 없는 문서는 버림 0으로 확정된다 — "임차인 없음"으로 믿어도 되는 근거 (§4-7)
+    assert next(iter(repository.notices.values())).tenants_rejected == 0
 
     second_client = FakeDailyClient({court: pages})
     _run(second_client, repository, document_reader=reader)
     assert len(reader.opened) == 1
+
+
+def test_daily_records_rejected_row_count():
+    """게이트가 행을 버린 문서는 버림 수가 남는다 — '임차인 없음'과 구분하는 표시다 (§4-7)."""
+    court = "B000210"
+    pages = [_search_response([_row(court, "2024타경1")], page_no=1, total="1")]
+
+    class RejectedRowReader(FakeDocumentReader):
+        def fetch_text_page(self, session, page: int):
+            if page == 0:
+                # 실측 문서 — 행 3개 중 1개(전입일·보증금 모두 미상)가 게이트에서 버려진다
+                fixture = TEXTS_FIXTURE.parent / "notice_pdf_texts_52802_2.json"
+                return json.loads(fixture.read_text(encoding="utf-8"))
+            return []
+
+    repository = FakeDailyRepository()
+    _run(FakeDailyClient({court: pages}), repository, document_reader=RejectedRowReader())
+
+    stored = next(iter(repository.notices.values()))
+    assert len(stored.tenants) == 2
+    assert stored.tenants_rejected == 1
 
 
 def test_daily_keeps_scan_mark_when_rerun_without_tenants():
@@ -425,11 +448,16 @@ def test_daily_keeps_scan_mark_when_rerun_without_tenants():
     _run(FakeDailyClient({court: pages}), repository, document_reader=reader)
     stored = next(iter(repository.notices.values()))
     assert stored.tenants_scanned
+    assert stored.tenants_rejected == 0
 
     # 표를 안 받는 실행 — 같은 명세서(같은 작성일)를 표 없이 다시 저장한다
-    repository.upsert_notices([replace(stored, tenants=(), tenants_scanned=False)])
+    repository.upsert_notices(
+        [replace(stored, tenants=(), tenants_scanned=False, tenants_rejected=None)]
+    )
 
     assert repository.find_item_keys_with_tenant_scan() == {(court, "2024타경1", "1", None)}
+    # 버림 수도 스캔 표시와 함께 살아남아야 한다 — 지워지면 H3가 그 물건의 품질을 다시 모른다
+    assert next(iter(repository.notices.values())).tenants_rejected == 0
 
 
 def test_daily_refetches_notice_when_bid_date_rolled_over():

@@ -271,6 +271,9 @@ class ItemNotice:
     # PDF를 실제로 열어 표 파싱까지 끝냈는지 — 표가 비어 있어도(법원이 임차인 없다고 적은 문서) True다.
     # tenants가 비었다는 사실만으로는 "못 열었다"와 "열었더니 없다"를 구분할 수 없다
     tenants_scanned: bool = False
+    # 검증 게이트가 버린 행 수 (WP-11 §4-7). tenants가 비었어도 이 값이 >0이면 "임차인 없음"이
+    # 아니라 "행이 있었는데 버림"이다 — H3는 그 물건을 표본에서 빼야 한다. None = 스캔 전이라 모름
+    tenants_rejected: int | None = None
     # 이 명세서가 어느 매각기일 것인지. 명세서는 기일마다 새로 작성되므로, 이게 없으면
     # 유찰 후 새 기일의 명세서를 받아야 하는지 판단할 수 없다 (WP-11 §4-13)
     bid_date: date | None = None
