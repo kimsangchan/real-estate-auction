@@ -1,5 +1,6 @@
 // apps/api의 물건 조회 엔드포인트를 호출하는 서버 전용 클라이언트 (WP-02 수집 데이터)
 import { cache } from 'react';
+import type { Affordability } from './affordability';
 import type { ItemKey } from './item-id';
 import type { NoticeAnalysis } from './notice-analysis';
 import type { AuctionItemPhoto } from './photo';
@@ -64,6 +65,17 @@ export async function fetchNoticeAnalysis(key: ItemKey): Promise<NoticeAnalysis 
     throw new Error(`명세서 권리분석 조회 실패: ${response.status}`);
   }
   return (await response.json()) as NoticeAnalysis;
+}
+
+/** 실부담 시나리오. 명세서가 없는 물건은 404이며 null — 인수액을 모르는 채 계산하지 않는다 */
+export async function fetchAffordability(key: ItemKey): Promise<Affordability | null> {
+  const url = `${API_BASE_URL}/auction-items/${encodeURIComponent(key.courtOfficeCode)}/${encodeURIComponent(key.caseNo)}/${encodeURIComponent(key.itemNo)}/affordability`;
+  const response = await fetch(url, { cache: 'no-store' });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`실부담 시나리오 조회 실패: ${response.status}`);
+  }
+  return (await response.json()) as Affordability;
 }
 
 export interface AuctionItemFilter {

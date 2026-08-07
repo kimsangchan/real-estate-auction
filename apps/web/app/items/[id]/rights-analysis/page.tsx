@@ -4,7 +4,8 @@
 // 그래서 인수액이 확정되지 않는 임차인이 생긴다. 그 한계는 본문에서 밝힌다.
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { fetchAuctionItem, fetchNoticeAnalysis } from '../../api-client';
+import { fetchAffordability, fetchAuctionItem, fetchNoticeAnalysis } from '../../api-client';
+import { AffordabilityCustomBid } from '../../components/AffordabilityCustomBid';
 import { RightsAnalysisView } from '../../components/RightsAnalysisView';
 import { decodeItemId } from '../../item-id';
 import { NOINDEX } from '../../../seo';
@@ -19,7 +20,11 @@ export default async function RightsAnalysisPage({ params }: { params: Promise<{
   const key = decodeItemId(id);
   if (!key) notFound();
 
-  const [item, analysis] = await Promise.all([fetchAuctionItem(key), fetchNoticeAnalysis(key)]);
+  const [item, analysis, affordability] = await Promise.all([
+    fetchAuctionItem(key),
+    fetchNoticeAnalysis(key),
+    fetchAffordability(key),
+  ]);
   if (!item) notFound();
 
   return (
@@ -28,7 +33,16 @@ export default async function RightsAnalysisPage({ params }: { params: Promise<{
       <RightsAnalysisView
         analysis={analysis}
         basis={{ minimumSalePrice: item.minimumSalePrice }}
+        affordability={affordability}
       />
+      {/* 직접 입력은 상세에서만 — 시나리오 정의는 API 한 곳에 있다 */}
+      {analysis !== null ? (
+        <AffordabilityCustomBid
+          courtOfficeCode={key.courtOfficeCode}
+          caseNo={key.caseNo}
+          itemNo={key.itemNo}
+        />
+      ) : null}
     </main>
   );
 }

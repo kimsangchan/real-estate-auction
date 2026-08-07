@@ -25,6 +25,7 @@ import {
   unitLabel,
 } from '../format';
 import { encodeItemId } from '../item-id';
+import type { Affordability } from '../affordability';
 import type { NoticeAnalysis } from '../notice-analysis';
 import { assumedRightsLabel, riskFlagLabels, shortUsageName, tenantLabel } from '../notice-labels';
 import { photoAlt, photoProxySrc, type AuctionItemPhoto } from '../photo';
@@ -189,6 +190,7 @@ function ItemDetail({
   const [view, setView] = useState<PanelView>('summary');
   // 권리분석은 탭을 눌렀을 때만 받는다 — 지도에서 훑기만 하는 사용자에게 요청을 만들지 않는다.
   const [analysis, setAnalysis] = useState<NoticeAnalysis | null | undefined>(undefined);
+  const [affordability, setAffordability] = useState<Affordability | null | undefined>(undefined);
   const pathname = usePathname();
   const id = encodeItemId(item);
 
@@ -220,8 +222,8 @@ function ItemDetail({
   useEffect(() => {
     if (view !== 'rights') return;
     let cancelled = false;
-    const url = `/api/auction-items/${encodeURIComponent(item.courtOfficeCode)}/${encodeURIComponent(item.caseNo)}/${encodeURIComponent(item.itemNo)}/notice-analysis`;
-    fetch(url)
+    const base = `/api/auction-items/${encodeURIComponent(item.courtOfficeCode)}/${encodeURIComponent(item.caseNo)}/${encodeURIComponent(item.itemNo)}`;
+    fetch(`${base}/notice-analysis`)
       .then((response) => (response.ok ? response.json() : null))
       .then((data: unknown) => {
         // 404(명세서 미수집)와 오류를 모두 null로 둔다 — 화면은 "확인되지 않음"으로 말한다
@@ -229,6 +231,15 @@ function ItemDetail({
       })
       .catch(() => {
         if (!cancelled) setAnalysis(null);
+      });
+    // 실부담은 보조 정보다 — 실패해도 권리분석의 나머지는 그대로 쓸 수 있게 null로 둔다
+    fetch(`${base}/affordability`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: unknown) => {
+        if (!cancelled) setAffordability((data as Affordability | null) ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setAffordability(null);
       });
     return () => {
       cancelled = true;
@@ -238,6 +249,7 @@ function ItemDetail({
   // 물건이 바뀌면 앞 물건의 분석이 남지 않게 지운다 — 남으면 다른 물건의 인수액으로 읽힌다.
   useEffect(() => {
     setAnalysis(undefined);
+    setAffordability(undefined);
   }, [item.courtOfficeCode, item.caseNo, item.itemNo]);
 
   // Esc — 한 단계씩만 되돌린다. 넓어진 패널이나 목록이 통째로 닫히면 방금 보던 물건을
@@ -405,6 +417,7 @@ function ItemDetail({
             <RightsAnalysisView
               analysis={analysis}
               basis={{ minimumSalePrice: item.minimumSalePrice }}
+              affordability={affordability}
             />
           )}
         </div>

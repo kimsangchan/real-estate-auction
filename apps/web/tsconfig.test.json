@@ -18,6 +18,8 @@
     "app/items/favorite-match.test.ts",
     "app/items/notice-analysis.ts",
     "app/items/notice-analysis.test.ts",
+    "app/items/affordability.ts",
+    "app/items/affordability.test.ts",
     "app/items/notice-labels.ts",
     "app/items/notice-labels.test.ts",
     "app/items/photo.ts",

@@ -3,11 +3,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import type { AuctionCasePhotoDto } from './dto/auction-case-photo.dto';
+import type { AffordabilityDto, ComparableSaleStatsDto } from './dto/affordability.dto';
 import type { AuctionItemDto } from './dto/auction-item.dto';
 import type { Bbox } from './dto/bbox.dto';
 import type { NoticeAnalysisDto } from './dto/notice-analysis.dto';
 import type { RegionCountDto } from './dto/region-count.dto';
 import { classifyNoticeAssumption } from '../rights-analysis/domain/notice-assumption';
+import { OBSERVED_FROM } from '../backtest/backtest.repository';
+import { computeAffordability } from './affordability';
 import { mergeNoticeTenants } from './notice-tenant-merge';
 
 // 법원 convAddr 접두사 → 면적 종류 코드. 화면이 평당가 분모를 고르는 근거라 문자열을 그대로
@@ -185,6 +188,20 @@ interface PhotoBytesRow extends QueryResultRow {
   bytes: Buffer;
 }
 
+interface AffordabilityItemRow extends QueryResultRow {
+  appraisalAmount: string | number | null;
+  minimumSalePrice: string | number | null;
+  usageName: string | null;
+  bulkSale: boolean;
+}
+
+interface ComparableStatsRow extends QueryResultRow {
+  sampleCount: string | number;
+  rateP25: string | number | null;
+  rateMedian: string | number | null;
+  rateP75: string | number | null;
+}
+
 @Injectable()
 export class AuctionItemsRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
@@ -351,6 +368,92 @@ export class AuctionItemsRepository {
         };
       }),
       source: 'NOTICE_ONLY',
+    };
+  }
+
+  /**
+   * 실부담 시나리오 — 명세서가 없으면 null (인수액을 알 수 없어 시나리오가 성립하지 않는다).
+   * 유사 낙찰가율은 백테스트와 같은 정의(관측 창·비일괄·용도 첫 조각)를 쓴다.
+   */
+  async findAffordability(
+    courtOfficeCode: string,
+    caseNo: string,
+    itemNo: string,
+    customBidPrice: number | null,
+  ): Promise<AffordabilityDto | null> {
+    const itemResult = await this.pool.query<AffordabilityItemRow>(
+      `SELECT ai.appraisal_amount AS "appraisalAmount",
+              ai.minimum_sale_price AS "minimumSalePrice",
+              split_part(raw.payload->>'dspslUsgNm', ',', 1) AS "usageName",
+              (COALESCE(raw.payload->>'mulBigo', '') LIKE '%일괄%') AS "bulkSale"
+       FROM auction_item ai
+       JOIN auction_case ac ON ac.id = ai.auction_case_id
+       LEFT JOIN LATERAL (
+         SELECT payload FROM auction_item_raw
+         WHERE auction_item_id = ai.id ORDER BY observed_at DESC LIMIT 1
+       ) raw ON true
+       WHERE ac.court_office_code = $1 AND ac.case_no = $2 AND ai.item_no = $3`,
+      [courtOfficeCode, caseNo, itemNo],
+    );
+    const item = itemResult.rows[0];
+    if (item === undefined) return null;
+
+    const analysis = await this.findNoticeAnalysis(courtOfficeCode, caseNo, itemNo);
+    if (analysis === null) return null;
+
+    const usage = item.usageName === null || item.usageName === '' ? null : item.usageName;
+    return computeAffordability({
+      appraisalAmount: item.appraisalAmount === null ? null : Number(item.appraisalAmount),
+      minimumSalePrice: item.minimumSalePrice === null ? null : Number(item.minimumSalePrice),
+      bulkSale: item.bulkSale,
+      usageName: usage,
+      tenants: analysis.tenants,
+      comparableSales: await this.comparableSaleStats(usage),
+      customBidPrice,
+    });
+  }
+
+  /** 같은 용도 물건의 실측 낙찰가율(감정가 대비 %) 분포 — 관측 창 안·비일괄만 (WP-11 §4-2·§4-20) */
+  private async comparableSaleStats(usage: string | null): Promise<ComparableSaleStatsDto> {
+    const empty: ComparableSaleStatsDto = {
+      usage,
+      sampleCount: 0,
+      rateP25: null,
+      rateMedian: null,
+      rateP75: null,
+    };
+    if (usage === null) return empty;
+
+    const result = await this.pool.query<ComparableStatsRow>(
+      `WITH raw AS (
+         SELECT DISTINCT ON (auction_item_id) auction_item_id, payload
+         FROM auction_item_raw ORDER BY auction_item_id, observed_at DESC
+       )
+       SELECT count(*)::int AS "sampleCount",
+              round(percentile_cont(0.25) WITHIN GROUP (ORDER BY s.rate)::numeric, 1) AS "rateP25",
+              round(percentile_cont(0.5) WITHIN GROUP (ORDER BY s.rate)::numeric, 1) AS "rateMedian",
+              round(percentile_cont(0.75) WITHIN GROUP (ORDER BY s.rate)::numeric, 1) AS "rateP75"
+       FROM (
+         SELECT r.sale_amount::numeric / NULLIF(i.appraisal_amount, 0) * 100 AS rate
+         FROM auction_sale_result r
+         JOIN auction_item i ON i.id = r.auction_item_id
+         JOIN raw ON raw.auction_item_id = i.id
+         WHERE r.result_code = '001' AND r.sale_amount IS NOT NULL
+           AND r.dxdy_date >= $2::date
+           AND COALESCE(raw.payload->>'mulBigo', '') NOT LIKE '%일괄%'
+           AND split_part(raw.payload->>'dspslUsgNm', ',', 1) = $1
+           AND i.appraisal_amount IS NOT NULL
+       ) s`,
+      [usage, OBSERVED_FROM],
+    );
+    const row = result.rows[0];
+    if (row === undefined || Number(row.sampleCount) === 0) return empty;
+    return {
+      usage,
+      sampleCount: Number(row.sampleCount),
+      rateP25: row.rateP25 === null ? null : Number(row.rateP25),
+      rateMedian: row.rateMedian === null ? null : Number(row.rateMedian),
+      rateP75: row.rateP75 === null ? null : Number(row.rateP75),
     };
   }
 

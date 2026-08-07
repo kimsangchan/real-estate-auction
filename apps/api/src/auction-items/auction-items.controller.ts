@@ -2,6 +2,7 @@
 import type { ServerResponse } from 'node:http';
 import { BadRequestException, Controller, Get, NotFoundException, Param, Query, Res } from '@nestjs/common';
 import { AuctionItemsRepository } from './auction-items.repository';
+import type { AffordabilityDto } from './dto/affordability.dto';
 import type { AuctionCasePhotoDto } from './dto/auction-case-photo.dto';
 import type { AuctionItemDto } from './dto/auction-item.dto';
 import type { NoticeAnalysisDto } from './dto/notice-analysis.dto';
@@ -101,6 +102,33 @@ export class AuctionItemsController {
       throw new NotFoundException(`물건을 찾을 수 없어요: ${courtOfficeCode}/${caseNo}/${itemNo}`);
     }
     return item;
+  }
+
+  /**
+   * 실부담 시나리오 — 입찰가 가정별 총부담 구간과 감정가 대비 %.
+   * bidPrice 쿼리로 직접 입력 시나리오를 추가할 수 있다.
+   * 명세서가 없으면 404 — 인수액을 모르는 채 계산하면 "부담 없음"으로 잘못 읽힌다.
+   */
+  @Get(':courtOfficeCode/:caseNo/:itemNo/affordability')
+  async affordability(
+    @Param('courtOfficeCode') courtOfficeCode: string,
+    @Param('caseNo') caseNo: string,
+    @Param('itemNo') itemNo: string,
+    @Query('bidPrice') bidPrice?: string,
+  ): Promise<AffordabilityDto> {
+    let customBidPrice: number | null = null;
+    if (bidPrice !== undefined) {
+      const parsed = Number(bidPrice);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new BadRequestException(`bidPrice 값이 올바른 양수가 아니에요: ${bidPrice}`);
+      }
+      customBidPrice = Math.round(parsed);
+    }
+    const result = await this.repository.findAffordability(courtOfficeCode, caseNo, itemNo, customBidPrice);
+    if (!result) {
+      throw new NotFoundException(`매각물건명세서를 아직 받지 못했어요: ${caseNo} ${itemNo}`);
+    }
+    return result;
   }
 
   /**

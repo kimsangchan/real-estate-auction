@@ -6,7 +6,13 @@
 // 확정되지 않는 임차인이 생긴다. 그 한계를 화면에 반드시 적는다 — 빈 값이 "위험 없음"으로
 // 읽히면 안 된다. 판단·권유 문구는 넣지 않는다 (D-011).
 import { Badge, type BadgeTone } from './Badge';
-import { formatWon } from '../format';
+import {
+  formatRatioRange,
+  formatWonRangeCompact,
+  SCENARIO_LABELS,
+  type Affordability,
+} from '../affordability';
+import { formatWon, formatWonCompact } from '../format';
 import {
   assumedHeadline,
   assumedTotal,
@@ -65,13 +71,68 @@ export interface RightsBasis {
   minimumSalePrice: number | null;
 }
 
+/**
+ * 실부담 시나리오 — "결국 얼마 들고, 감정가 대비 몇 %인가". 감정가는 시세가 아니므로
+ * 기준을 화면에 밝힌다 (실거래가 연동 전 한계).
+ */
+function AffordabilitySection({ affordability }: { affordability: Affordability }) {
+  const stats = affordability.comparableSales;
+
+  return (
+    <section className={styles.groupBlock}>
+      <h3 className={styles.groupTitle}>결국 얼마가 드나</h3>
+      {affordability.bulkSale ? (
+        <p className={styles.groupEmpty}>
+          일괄매각 물건이라 최저가가 묶음 전체 값이에요. 목적물 하나 기준의 시나리오를 만들면
+          숫자가 틀리게 나와서 계산하지 않아요.
+        </p>
+      ) : affordability.scenarios.length === 0 ? (
+        <p className={styles.groupEmpty}>시나리오를 만들 가격 정보가 부족해요.</p>
+      ) : (
+        <div className={styles.table}>
+          {affordability.scenarios.map((scenario) => (
+            <div className={styles.row} key={scenario.kind}>
+              <span className={styles.rowKind}>{formatWonCompact(scenario.bidPrice)}</span>
+              <div className={styles.rowMain}>
+                <div className={styles.rowLabelLine}>
+                  <span className={styles.rowLabel}>
+                    총 {formatWonRangeCompact(scenario.totalWithExtras)}
+                    {affordability.assumedIsLowerBound ? ' 이상' : ''}
+                  </span>
+                </div>
+                <p className={styles.rowDetail}>
+                  {SCENARIO_LABELS[scenario.kind]} · 인수·취득세·등기·명도비 포함
+                  {scenario.appraisalRatio
+                    ? ` · 감정가의 ${formatRatioRange(scenario.appraisalRatio)}`
+                    : ''}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className={styles.footnote}>
+        비교 기준은 감정가예요 — 감정가는 시세가 아니라서 실거래 시세 연동 전까지는 참고
+        기준이에요. 취득세는 매수인 사정(주택 수·면적)에 따라 달라 구간으로 계산했고, 등기·명도
+        비용은 추정치예요. 체납 관리비(공용부분)는 금액을 알 수 없어 합산에 없어요.
+        {stats.sampleCount > 0
+          ? ` 유사 가격대는 같은 용도(${stats.usage ?? '미상'}) 낙찰 ${stats.sampleCount}건의 실측 분포예요.`
+          : ''}
+      </p>
+    </section>
+  );
+}
+
 export function RightsAnalysisView({
   analysis,
   basis,
+  affordability,
 }: {
   /** null이면 명세서를 아직 못 받은 물건이다 — "인수할 권리 없음"과 다르다 */
   analysis: NoticeAnalysis | null;
   basis?: RightsBasis;
+  /** 실부담 시나리오 — 없으면(미로딩·조회 실패) 섹션을 그리지 않는다 */
+  affordability?: Affordability | null;
 }) {
   if (analysis === null) {
     return (
@@ -132,6 +193,8 @@ export function RightsAnalysisView({
           금액이 확정되지 않은 임차인이 있어 실제 인수액은 위 금액보다 클 수 있어요.
         </p>
       ) : null}
+
+      {affordability ? <AffordabilitySection affordability={affordability} /> : null}
 
       <div className={styles.glanceBar}>
         <div className={`${styles.glanceChip} ${styles.glanceAssumed}`}>
