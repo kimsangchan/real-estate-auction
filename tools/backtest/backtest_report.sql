@@ -141,6 +141,11 @@ WITH raw AS (
 ), tenant_count AS (
   SELECT notice_id, count(*) AS rows FROM auction_item_notice_tenant GROUP BY 1
 ), outcome AS (
+  -- **매각기일(dxdy_kind_code='01') 행만 본다.** 종류 02는 대금지급기한·배당기일이라 결과코드가
+  -- 003/005/017이고 낙찰 여부와 무관하다(실측 2026-08-11: 사건검색 dlt_rletCsGdsDtsDxdyInf가
+  -- 01=매각기일 001/002와 02=그 외 003을 함께 준다). 이걸 안 거르면 창 이전에 팔린 물건이
+  -- 대금지급기한 행만으로 창에 들어와 "미낙찰"로 세어져 낙찰률이 깎인다 — §4-20의 분모 오류와 같은 계열.
+  --
   -- **관측 시작(2026-07-31) 이후 기일만 센다.** 그 전 결과는 생존 편향으로 못 쓴다:
   -- 팔린 사건은 공고 목록에서 빠지므로 우리 물건 목록에 없고, 그래서 사건검색으로 과거를
   -- 훑으면 안 팔린 사건의 유찰만 남는다. 실측으로 확인된다 —
@@ -148,7 +153,7 @@ WITH raw AS (
   -- 이 구간을 섞으면 낙찰률이 통째로 과소평가된다.
   SELECT auction_item_id, bool_or(result_code = '001') AS sold, max(sale_amount) AS sale_amount
   FROM auction_sale_result
-  WHERE dxdy_date >= DATE '2026-07-31'
+  WHERE dxdy_date >= DATE '2026-07-31' AND dxdy_kind_code = '01'
   GROUP BY 1
 ), base AS (
   SELECT i.id, c.case_no, i.item_no, o.sold, o.sale_amount,
@@ -317,10 +322,12 @@ WITH raw AS (
          w.asof,
          (SELECT bool_or(s2.result_code = '001') FROM auction_sale_result s2
            WHERE s2.auction_item_id = i.id
+             AND s2.dxdy_kind_code = '01'
              AND s2.dxdy_date BETWEEN DATE '2026-07-31' AND w.asof) AS sold,
          (n.assumed_rights_kind = 'NONE' OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)) AS no_burden
   FROM weeks w
-  JOIN auction_sale_result sr ON sr.dxdy_date BETWEEN DATE '2026-07-31' AND w.asof
+  JOIN auction_sale_result sr ON sr.dxdy_kind_code = '01'
+                             AND sr.dxdy_date BETWEEN DATE '2026-07-31' AND w.asof
   JOIN auction_item i ON i.id = sr.auction_item_id
   JOIN auction_case c ON c.id = i.auction_case_id
   JOIN latest_notice n ON n.auction_item_id = i.id

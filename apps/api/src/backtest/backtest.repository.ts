@@ -31,8 +31,10 @@ const SALE_UNIT = `
   ), tenant_count AS (
     SELECT notice_id, count(*) AS rows FROM auction_item_notice_tenant GROUP BY 1
   ), outcome AS (
+    -- 매각기일(01) 행만 본다 — 종류 02는 대금지급기한·배당기일이라 낙찰 여부와 무관하고,
+    -- 안 거르면 창 이전에 팔린 물건이 그 행만으로 창에 들어와 "미낙찰"로 세어진다 (§4-25)
     SELECT auction_item_id, bool_or(result_code = '001') AS sold, max(sale_amount) AS sale_amount
-    FROM auction_sale_result WHERE dxdy_date >= $1::date GROUP BY 1
+    FROM auction_sale_result WHERE dxdy_date >= $1::date AND dxdy_kind_code = '01' GROUP BY 1
   ), base AS (
     SELECT i.id, c.case_no, o.sold, o.sale_amount, i.appraisal_amount, i.failed_bid_count,
            round(i.minimum_sale_price::numeric / NULLIF(i.appraisal_amount, 0) * 100) AS min_rate,
@@ -230,10 +232,12 @@ export class BacktestRepository {
                                           THEN c.case_no ELSE i.id::text END)
                 w.asof,
                 (SELECT bool_or(s2.result_code = '001') FROM auction_sale_result s2
-                  WHERE s2.auction_item_id = i.id AND s2.dxdy_date BETWEEN $1::date AND w.asof) AS sold,
+                  WHERE s2.auction_item_id = i.id AND s2.dxdy_kind_code = '01'
+                    AND s2.dxdy_date BETWEEN $1::date AND w.asof) AS sold,
                 (n.assumed_rights_kind = 'NONE' OR 'HUG_PRIORITY_WAIVER' = ANY(n.risk_flags)) AS no_burden
          FROM weeks w
-         JOIN auction_sale_result sr ON sr.dxdy_date BETWEEN $1::date AND w.asof
+         JOIN auction_sale_result sr ON sr.dxdy_kind_code = '01'
+                                    AND sr.dxdy_date BETWEEN $1::date AND w.asof
          JOIN auction_item i ON i.id = sr.auction_item_id
          JOIN auction_case c ON c.id = i.auction_case_id
          JOIN latest_notice n ON n.auction_item_id = i.id
