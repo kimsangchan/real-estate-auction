@@ -224,6 +224,54 @@ SELECT count(*) AS 제외단위 FROM sale_unit WHERE NOT tenant_known;
 
 \echo '("임차인 없음" 줄이 없으면 없음-확정 표본의 기일이 아직 안 지난 것이다 — 확정은 013 도입(2026-08-07)부터 쌓이고 첫 기일이 2026-08-10이다)'
 
+-- ── H8. 관심등록 증가 속도 ↔ 매각 결과 ─────────────────────────────────────
+-- **절대값은 쓰지 않는다** (§4-1) — 관심등록 누적치는 노출 기간(유찰)의 대리변수다.
+-- 스냅샷(auction_item_raw)의 처음·마지막 값 차이를 관측 일수로 나눈 일일 증가로 재고,
+-- 관측 3일 미만은 노이즈라 뺀다. 유찰 통제 교차표를 같이 본다.
+CREATE TEMP VIEW interest_growth AS
+SELECT auction_item_id,
+       ((array_agg(cnt ORDER BY observed_at DESC))[1]
+        - (array_agg(cnt ORDER BY observed_at ASC))[1])
+       / (EXTRACT(epoch FROM max(observed_at) - min(observed_at)) / 86400) AS per_day
+FROM (
+  SELECT auction_item_id, (payload->>'gwansMulRegCnt')::int AS cnt, observed_at
+  FROM auction_item_raw
+  WHERE payload->>'gwansMulRegCnt' ~ '^[0-9]+$'
+) s
+GROUP BY 1
+HAVING count(*) >= 2 AND max(observed_at) - min(observed_at) >= interval '3 days';
+
+\echo '=== H8. 관심등록 증가 속도 x 매각 결과 ==='
+WITH joined AS (
+  SELECT u.*, g.per_day FROM sale_unit u JOIN interest_growth g ON g.auction_item_id = u.id
+), split AS (
+  SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY per_day) AS mid
+  FROM joined WHERE per_day > 0
+)
+SELECT CASE WHEN j.per_day <= 0 THEN '1_증가 없음'
+            WHEN j.per_day <= s.mid THEN '2_느린 증가(중위 이하)'
+            ELSE '3_빠른 증가(중위 초과)' END AS 구분,
+       count(*) AS 매각단위, count(*) FILTER (WHERE sold) AS 낙찰,
+       round(100.0 * count(*) FILTER (WHERE sold) / count(*), 1) AS 낙찰률,
+       round(avg(100.0 * sale_amount / NULLIF(appraisal_amount, 0)) FILTER (WHERE sold), 1) AS 낙찰가율
+FROM joined j, split s GROUP BY 1 ORDER BY 1;
+
+\echo '--- H8 유찰 통제: 증가 유무 x 유찰 구간 ---'
+SELECT CASE WHEN g.per_day > 0 THEN '증가' ELSE '증가 없음' END AS 관심,
+       CASE WHEN u.failed_bid_count <= 1 THEN '유찰 0~1'
+            WHEN u.failed_bid_count <= 3 THEN '유찰 2~3'
+            ELSE '유찰 4+' END AS 유찰,
+       count(*) AS 매각단위, count(*) FILTER (WHERE u.sold) AS 낙찰,
+       round(100.0 * count(*) FILTER (WHERE u.sold) / count(*), 1) AS 낙찰률
+FROM sale_unit u
+JOIN interest_growth g ON g.auction_item_id = u.id
+WHERE u.failed_bid_count IS NOT NULL
+GROUP BY 1, 2 ORDER BY 2, 1;
+
+\echo '--- H8 제외: 관측 3일 미만이라 증가를 잴 수 없는 매각단위 ---'
+SELECT count(*) AS 제외단위 FROM sale_unit u
+WHERE NOT EXISTS (SELECT 1 FROM interest_growth g WHERE g.auction_item_id = u.id);
+
 -- ── 후보 필터 (2026-08-05 재작성) ──────────────────────────────────────────
 -- 이전 필터는 "인수 부담 없음 + 유찰 3회 이상"이었다. 채점 결과 두 조건 중
 -- **유찰 횟수는 낙찰률과 무관했다**(채점 2: 15~22%로 평평). 조건에서 뺀다.

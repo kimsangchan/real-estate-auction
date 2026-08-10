@@ -58,6 +58,26 @@ const SALE_UNIT = `
   )
 `;
 
+/**
+ * 관심등록 일일 증가 (H8). **절대값은 쓰지 않는다** — 누적치는 노출 기간(유찰)의 대리변수다.
+ * 스냅샷 처음·마지막 차이를 관측 일수로 나누고, 관측 3일 미만은 노이즈라 뺀다.
+ */
+const INTEREST_GROWTH = `
+  , interest_growth AS (
+    SELECT auction_item_id,
+           ((array_agg(cnt ORDER BY observed_at DESC))[1]
+            - (array_agg(cnt ORDER BY observed_at ASC))[1])
+           / (EXTRACT(epoch FROM max(observed_at) - min(observed_at)) / 86400) AS per_day
+    FROM (
+      SELECT auction_item_id, (payload->>'gwansMulRegCnt')::int AS cnt, observed_at
+      FROM auction_item_raw
+      WHERE payload->>'gwansMulRegCnt' ~ '^[0-9]+$'
+    ) s
+    GROUP BY 1
+    HAVING count(*) >= 2 AND max(observed_at) - min(observed_at) >= interval '3 days'
+  )
+`;
+
 interface CountRow extends QueryResultRow {
   label: string;
   units: string;
@@ -91,7 +111,7 @@ export class BacktestRepository {
   constructor(@Inject(BACKTEST_PG_POOL) private readonly pool: Pool) {}
 
   async findScoring(): Promise<BacktestDto> {
-    const [burden, byFailedCount, cross, byUsage, tenant, trend] = await Promise.all([
+    const [burden, byFailedCount, cross, byUsage, tenant, interestGrowth, interestByFailedCount, trend] = await Promise.all([
       this.groupBy(`CASE WHEN no_burden THEN '인수 부담 없음' ELSE '인수 부담 있음' END`, 'burden_known'),
       this.groupBy(`'유찰 ' || LEAST(failed_bid_count, 4)::text || CASE WHEN failed_bid_count >= 4 THEN '회+' ELSE '회' END`, 'failed_bid_count IS NOT NULL'),
       this.groupBy(
@@ -101,10 +121,22 @@ export class BacktestRepository {
       ),
       this.groupBy('usage', 'true', 10),
       this.groupBy(`CASE WHEN tenant_present THEN '임차인 있음' ELSE '임차인 없음' END`, 'tenant_known'),
+      this.findInterestGrowth(),
+      this.findInterestByFailedCount(),
       this.findTrend(),
     ]);
 
-    return { observedFrom: OBSERVED_FROM, burden, byFailedCount, cross, byUsage, tenant, trend };
+    return {
+      observedFrom: OBSERVED_FROM,
+      burden,
+      byFailedCount,
+      cross,
+      byUsage,
+      tenant,
+      interestGrowth,
+      interestByFailedCount,
+      trend,
+    };
   }
 
   /** 매각단위를 어떤 식으로 묶든 같은 모양(라벨·건수·낙찰률)으로 돌려준다. */
@@ -122,13 +154,64 @@ export class BacktestRepository {
        ORDER BY 1`,
       [OBSERVED_FROM],
     );
-    return result.rows.map((row) => ({
+    return result.rows.map((row) => this.toGroup(row));
+  }
+
+  /** H8 — 관심등록 일일 증가 구간별. 양수 증가의 중위값으로 느린/빠른을 가른다. */
+  private async findInterestGrowth() {
+    const result = await this.pool.query<CountRow>(
+      `${SALE_UNIT}${INTEREST_GROWTH},
+       joined AS (
+         SELECT u.*, g.per_day FROM sale_unit u JOIN interest_growth g ON g.auction_item_id = u.id
+       ), split AS (
+         SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY per_day) AS mid FROM joined WHERE per_day > 0
+       )
+       SELECT CASE WHEN j.per_day <= 0 THEN '증가 없음'
+                   WHEN j.per_day <= s.mid THEN '느린 증가(중위 이하)'
+                   ELSE '빠른 증가(중위 초과)' END AS label,
+              count(*) AS units,
+              count(*) FILTER (WHERE sold) AS sold,
+              round(100.0 * count(*) FILTER (WHERE sold) / count(*), 1) AS "soldRate",
+              round(avg(100.0 * sale_amount / NULLIF(appraisal_amount, 0)) FILTER (WHERE sold), 1)
+                AS "salePriceRate"
+       FROM joined j, split s
+       GROUP BY 1
+       ORDER BY min(CASE WHEN j.per_day <= 0 THEN 0 WHEN j.per_day <= s.mid THEN 1 ELSE 2 END)`,
+      [OBSERVED_FROM],
+    );
+    return result.rows.map((row) => this.toGroup(row));
+  }
+
+  /** H8 유찰 통제 — 증가 유무 x 유찰 구간. 절대값이 유찰의 대리변수인 함정(§4-1)을 가른다. */
+  private async findInterestByFailedCount() {
+    const result = await this.pool.query<CountRow>(
+      `${SALE_UNIT}${INTEREST_GROWTH}
+       SELECT CASE WHEN u.failed_bid_count <= 1 THEN '유찰 0~1'
+                   WHEN u.failed_bid_count <= 3 THEN '유찰 2~3'
+                   ELSE '유찰 4+' END || ' · ' ||
+              CASE WHEN g.per_day > 0 THEN '증가' ELSE '증가 없음' END AS label,
+              count(*) AS units,
+              count(*) FILTER (WHERE u.sold) AS sold,
+              round(100.0 * count(*) FILTER (WHERE u.sold) / count(*), 1) AS "soldRate",
+              round(avg(100.0 * u.sale_amount / NULLIF(u.appraisal_amount, 0)) FILTER (WHERE u.sold), 1)
+                AS "salePriceRate"
+       FROM sale_unit u
+       JOIN interest_growth g ON g.auction_item_id = u.id
+       WHERE u.failed_bid_count IS NOT NULL
+       GROUP BY 1 ORDER BY 1`,
+      [OBSERVED_FROM],
+    );
+    return result.rows.map((row) => this.toGroup(row));
+  }
+
+  private toGroup(row: CountRow) {
+    return {
       label: row.label,
       units: Number(row.units),
       sold: Number(row.sold),
       soldRate: row.soldRate === null ? null : Number(row.soldRate),
       salePriceRate: row.salePriceRate === null ? null : Number(row.salePriceRate),
-    }));
+    };
   }
 
   /** 주차별 누적 — 표본이 늘어도 두 낙찰률의 간격이 유지되는지 본다. */

@@ -27,5 +27,9 @@ export interface BacktestDto {
   byUsage: BacktestGroupDto[];
   /** H3 — 임차인 존재. "없음"은 스캔이 행 0 + 버림 0으로 확정한 물건만 (WP-11 §4-7) */
   tenant: BacktestGroupDto[];
+  /** H8 — 관심등록 일일 증가 구간별. 절대값은 노출 기간의 대리변수라 쓰지 않는다 (§4-1) */
+  interestGrowth: BacktestGroupDto[];
+  /** H8 유찰 통제 — 증가 유무 x 유찰 구간 */
+  interestByFailedCount: BacktestGroupDto[];
   trend: BacktestTrendDto[];
 }

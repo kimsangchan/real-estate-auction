@@ -151,6 +151,17 @@ export default async function BacktestPage() {
       </section>
 
       <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>관심등록 증가 (H8)</h2>
+        <p className={styles.caption}>
+          스냅샷 처음·마지막 차이를 관측 일수로 나눈 일일 증가예요. 누적 절대값은 노출
+          기간(유찰)의 대리변수라 쓰지 않고, 관측 3일 미만 물건은 뺐어요.
+        </p>
+        <GroupTable rows={data.interestGrowth} showPriceRate />
+        <p className={styles.caption}>유찰 구간을 나눠도 유지되는지 — 통제 교차표예요.</p>
+        <GroupTable rows={data.interestByFailedCount} />
+      </section>
+
+      <section className={styles.section}>
         <h2 className={styles.sectionTitle}>유찰 횟수</h2>
         <p className={styles.caption}>
           가설과 달리 평평해요 — 유찰 횟수는 낙찰률을 예측하지 못합니다 (§4-20).
