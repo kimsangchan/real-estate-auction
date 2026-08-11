@@ -48,9 +48,9 @@ it('summaryScenario는 유사 중위를 우선하고 없으면 최저가를 쓴�
   ]);
   expect(summaryScenario(withMedian)?.kind).toBe('COMPARABLE_MEDIAN');
 
-  expect(summaryScenario(affordability([scenario('MINIMUM_PRICE')]))?.kind).toBe(
-    'MINIMUM_PRICE',
-  );
+  expect(
+    summaryScenario(affordability([scenario('MINIMUM_PRICE')]))?.kind,
+  ).toBe('MINIMUM_PRICE');
 
   expect(summaryScenario(affordability([]))).toBeNull();
 });

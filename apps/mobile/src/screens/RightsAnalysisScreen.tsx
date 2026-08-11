@@ -56,7 +56,13 @@ function tenantTitle(tenant: AnalyzedTenant): string {
   return tenant.occupiedPart ?? `점유자 ${tenant.tenantSeq}`;
 }
 
-function TenantRow({ tenant, last }: { tenant: AnalyzedTenant; last: boolean }) {
+function TenantRow({
+  tenant,
+  last,
+}: {
+  tenant: AnalyzedTenant;
+  last: boolean;
+}) {
   const reason = noticeAssumptionReason(tenant.assumption);
   const facts = [
     tenant.moveInDate ? `전입 ${tenant.moveInDate}` : null,
@@ -110,7 +116,9 @@ function AffordabilitySection({
           시나리오를 만들면 숫자가 틀리게 나와서 계산하지 않아요.
         </Text>
       ) : affordability.scenarios.length === 0 ? (
-        <Text style={styles.groupEmpty}>시나리오를 만들 가격 정보가 부족해요.</Text>
+        <Text style={styles.groupEmpty}>
+          시나리오를 만들 가격 정보가 부족해요.
+        </Text>
       ) : (
         <View style={styles.table}>
           {affordability.scenarios.map((scenario, index) => (
@@ -132,7 +140,8 @@ function AffordabilitySection({
                   </Text>
                 </View>
                 <Text style={styles.rowDetail}>
-                  {SCENARIO_LABELS[scenario.kind]} · 인수·취득세·등기·명도비 포함
+                  {SCENARIO_LABELS[scenario.kind]} · 인수·취득세·등기·명도비
+                  포함
                   {scenario.appraisalRatio
                     ? ` · 감정가의 ${formatRatioRange(scenario.appraisalRatio)}`
                     : ''}
@@ -148,9 +157,9 @@ function AffordabilitySection({
         구간으로 계산했고, 등기·명도 비용은 추정치예요. 체납 관리비(공용부분)는
         금액을 알 수 없어 합산에 없어요.
         {stats.sampleCount > 0
-          ? ` 유사 가격대는 같은 용도(${
-              stats.usage ?? '미상'
-            }) 낙찰 ${stats.sampleCount}건의 실측 분포예요.`
+          ? ` 유사 가격대는 같은 용도(${stats.usage ?? '미상'}) 낙찰 ${
+              stats.sampleCount
+            }건의 실측 분포예요.`
           : ''}
       </Text>
     </View>
@@ -161,7 +170,9 @@ export function RightsAnalysisScreen({ route }: Props) {
   // 인라인 객체를 그대로 의존성에 걸면 매 렌더마다 재조회된다 — 원시값으로 분해해서 건다.
   const { courtOfficeCode, caseNo, itemNo } = route.params;
   const [analysis, setAnalysis] = useState<NoticeAnalysis | null>(null);
-  const [affordability, setAffordability] = useState<Affordability | null>(null);
+  const [affordability, setAffordability] = useState<Affordability | null>(
+    null,
+  );
   const [status, setStatus] = useState<Status>('loading');
 
   const load = useCallback(async () => {
@@ -267,9 +278,9 @@ export function RightsAnalysisScreen({ route }: Props) {
 
       {headline.kind === 'UNCONFIRMED' ? (
         <Text style={styles.footnote}>
-          대항력이 있는 임차인이 배당으로 보증금을 다 못 받으면 그만큼을 매수인이
-          인수해요. 얼마를 회수하는지는 등기부의 권리와 채권액이 있어야 계산할 수
-          있어요.
+          대항력이 있는 임차인이 배당으로 보증금을 다 못 받으면 그만큼을
+          매수인이 인수해요. 얼마를 회수하는지는 등기부의 권리와 채권액이 있어야
+          계산할 수 있어요.
         </Text>
       ) : null}
       {headline.kind === 'AMOUNT' && headline.isLowerBound ? (

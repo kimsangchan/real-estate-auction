@@ -59,7 +59,11 @@ describe('assumedTotal', () => {
   it('전액 인수인데 보증금을 못 읽었으면 합계에 넣지 않고 하한으로 표시한다', () => {
     expect(
       assumedTotal([
-        tenant({ tenantSeq: 1, assumption: 'ASSUMED_FULL', assumedAmount: null }),
+        tenant({
+          tenantSeq: 1,
+          assumption: 'ASSUMED_FULL',
+          assumedAmount: null,
+        }),
       ]),
     ).toEqual({ amount: 0, isLowerBound: true });
   });
@@ -88,8 +92,8 @@ describe('assumedHeadline', () => {
   });
 
   it('확정 금액이 있으면 금액을 쓰고 하한 여부를 함께 넘긴다', () => {
-    expect(
-      assumedHeadline({ amount: 50_000_000, isLowerBound: true }),
-    ).toEqual({ kind: 'AMOUNT', amount: 50_000_000, isLowerBound: true });
+    expect(assumedHeadline({ amount: 50_000_000, isLowerBound: true })).toEqual(
+      { kind: 'AMOUNT', amount: 50_000_000, isLowerBound: true },
+    );
   });
 });

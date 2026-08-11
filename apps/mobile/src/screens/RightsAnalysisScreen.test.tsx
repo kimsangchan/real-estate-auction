@@ -320,9 +320,7 @@ describe('RightsAnalysisScreen', () => {
       }),
     );
     const button = renderer.root
-      .findAll(
-        node => node.props.accessibilityLabel === '입찰가로 총부담 계산',
-      )
+      .findAll(node => node.props.accessibilityLabel === '입찰가로 총부담 계산')
       .at(0);
     await act(async () => {
       button?.props.onPress();
