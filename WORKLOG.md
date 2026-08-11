@@ -11,6 +11,11 @@
 
 ## History (append; 최신이 위)
 
+- 2026-08-11 — 마이그레이션 `013_` 중복 해소: reject_count를 `014_`로 rename (`8cfcf1f`).
+  `run_migrations`가 추적 테이블 없이 `sorted(*.sql)`을 매번 재실행하는 구조라 rename은 무해하고
+  실행 순서도 보존된다. 검증: pytest 172 passed(DB 통합 6개 포함), 개발 DB 수집분 무변화.
+- 2026-08-11 — 크로스툴 세션 컨텍스트 세팅 (`98e40b3`): `NEXT.md`·`WORKLOG.md`·`GEMINI.md`,
+  SessionStart 훅, 스코프별 `CLAUDE.md` 5개. AGENTS.md 기존 섹션 이관·삭제 0건.
 - 2026-08-11 — `apps/mobile` lint 복구: HEAD의 4파일이 prettier 규칙 위반 상태로 커밋돼 lint가
   실패 중이었다. 정렬만 적용(로직 변경 없음) (`4c7cbff`). 검증: lint 통과, jest 16 suites / 123 tests 통과
 - 2026-08-11 — H3 첫 비교를 판독 불가로 기록 (`f0aa377`) / 매각결과를 매각기일 행만 카운트하도록
