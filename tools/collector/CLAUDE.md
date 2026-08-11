@@ -20,8 +20,9 @@ DB 스키마의 소유자는 이 폴더다 — `apps/api`는 읽기 소비자다
 - 임차인 표는 레이아웃 변종이 여러 개다 (`ded25af`). 파서가 행을 조용히 버리지 않도록,
   버린 행 수를 공고별로 기록한다 (`notice_tenant_reject_count`, WP-11 §4-7).
 - 마스킹: 임차인·소유자명은 마스킹 후 저장. 주민등록번호 필드는 만들지 않는다 (D-011a).
-- 마이그레이션은 번호 순. **현재 `013_`이 두 개(`_deposit_tranches`, `_reject_count`) 있으니
-  다음 번호는 `014_`부터 쓰고, 새 중복 번호를 만들지 말 것.**
+- **`run_migrations`는 추적 테이블 없이 매 실행마다 `migrations/*.sql` 전부를 sorted 순서로 재실행한다**
+  (`postgres_repository.py:316`). 그래서 모든 마이그레이션은 **재실행해도 안전(idempotent)** 해야 한다 —
+  `ADD COLUMN IF NOT EXISTS`, 조건부 `UPDATE ... WHERE col IS NULL` 처럼. 다음 번호는 `015_`부터 쓴다.
 
 ## 검증
 

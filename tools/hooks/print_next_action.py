@@ -7,8 +7,9 @@ NEXT.md 나 마커가 없으면 조용히 아무것도 출력하지 않는다(ex
 
 NEXT.md 경로 탐색(먼저 찾히는 것 사용):
   1) $CATCHUP_NEXT_PATH (명시 지정)
-  2) <프로젝트>/NEXT.md
-  3) <프로젝트>/coordination/NEXT.md
+  2) $CLAUDE_PROJECT_DIR (없으면 현재 작업 디렉토리) 기준 NEXT.md / coordination/NEXT.md
+  3) 이 스크립트 위치 기준 <리포루트>/NEXT.md / coordination/NEXT.md
+     (cwd 가 하위 폴더여도 찾게 하는 안전망. <리포루트>/tools/hooks/ 구조를 가정한다.)
 """
 import os
 import sys
@@ -22,13 +23,19 @@ except (AttributeError, ValueError):
 START = "<!-- NEXT-ACTION:START -->"
 END = "<!-- NEXT-ACTION:END -->"
 
+# <리포루트>/tools/hooks/print_next_action.py → parents[2] 가 리포 루트.
+SCRIPT_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+
 
 def _candidates(root):
     env = os.environ.get("CATCHUP_NEXT_PATH")
     if env:
         yield env
-    yield os.path.join(root, "NEXT.md")
-    yield os.path.join(root, "coordination", "NEXT.md")
+    for base in (root, SCRIPT_ROOT):
+        yield os.path.join(base, "NEXT.md")
+        yield os.path.join(base, "coordination", "NEXT.md")
 
 
 def main() -> int:
