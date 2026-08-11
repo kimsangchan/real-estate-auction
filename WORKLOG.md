@@ -6,10 +6,24 @@
 ## Current State
 
 - Status: doing
-- Focus: WP-11 룰 역채점 (H3 판독 가능한 비교 재설계) + 권리분석 실부담 시나리오 실기 확인
+- Focus: 목록·지도 조회 성능(20초) → WP-11 H3 재설계
 - Last updated: 2026-08-11
+- 미완 검증: 웹·앱 **실기 화면 확인**이 아직 없다. 브라우저 MCP 2종이 모두 불가(`pw-browser`는
+  spawn EINVAL/프로토콜 불일치, `ecc:playwright`는 Chrome 확장 없음)이고 로컬 Playwright도 미설치,
+  모바일 에뮬레이터도 미확인. 서버 렌더 HTML과 API 응답으로만 검증했다.
 
 ## History (append; 최신이 위)
+
+- 2026-08-11 — 목록·지도·관심목록 카드에 인수 보증금 배지 (`f087c39`). 판정은 상세 화면과 같은
+  도메인 함수를 쓰고 SELECT는 명세서 키만 싣는다. 검증: api 404 / web 99 / mobile 129 passed,
+  실서버는 새 빌드를 4001에 따로 띄워 확인.
+  - **발견 1 — 성능**: 목록·bbox SELECT가 원래 느리다. 같은 bbox로 예전 빌드 19.91초 vs 새 빌드
+    20.34초(+2%). 실행 중이던 예전 API의 쿼리에 `noticeId`가 없는 것으로 기존 문제임을 확정했다.
+  - **발견 2 — 데이터**: `auction_item_notice_tenant.demanded_distribution`이 NULL 4,108 / true
+    2,617이고 **false가 0건**이다. 명세서의 빈 배당요구 칸을 "안 했다(false)"로 기록하지 못하고
+    NULL(못 읽음)로 둔다는 뜻이다. 그래서 `ASSUMED_FULL`은 "종기 초과" 경로로만 잡히고
+    서울 중심부 181건 중 1건뿐이다(확인필요 92 / 인수없음 87 / 미확인 1). H3가 판독 불가로 끝난
+    것과 같은 계열일 가능성이 있어 H3 재설계 때 함께 본다.
 
 - 2026-08-11 — 마이그레이션 `013_` 중복 해소: reject_count를 `014_`로 rename (`8cfcf1f`).
   `run_migrations`가 추적 테이블 없이 `sorted(*.sql)`을 매번 재실행하는 구조라 rename은 무해하고
