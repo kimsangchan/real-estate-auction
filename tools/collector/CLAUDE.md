@@ -22,7 +22,10 @@ DB 스키마의 소유자는 이 폴더다 — `apps/api`는 읽기 소비자다
 - 마스킹: 임차인·소유자명은 마스킹 후 저장. 주민등록번호 필드는 만들지 않는다 (D-011a).
 - **`run_migrations`는 추적 테이블 없이 매 실행마다 `migrations/*.sql` 전부를 sorted 순서로 재실행한다**
   (`postgres_repository.py:316`). 그래서 모든 마이그레이션은 **재실행해도 안전(idempotent)** 해야 한다 —
-  `ADD COLUMN IF NOT EXISTS`, 조건부 `UPDATE ... WHERE col IS NULL` 처럼. 다음 번호는 `015_`부터 쓴다.
+  `ADD COLUMN IF NOT EXISTS`, 조건부 `UPDATE ... WHERE col IS NULL` 처럼. 다음 번호는 `016_`부터 쓴다.
+- **`auction_item_raw`는 물건당 여러 스냅샷이 쌓인다** (실측 2,979 물건 / 63,479행 / 120MB).
+  이 테이블을 `auction_item_id`로 조회하는 쿼리를 새로 쓸 때 인덱스를 확인할 것 —
+  015 마이그레이션 전까지 API 목록 조회가 행마다 전체 순차 스캔을 해서 20초가 걸렸다.
 
 ## 검증
 
