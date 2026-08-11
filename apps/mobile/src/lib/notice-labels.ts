@@ -7,6 +7,8 @@
 // 라벨은 법원이 공고한 사실을 옮긴 것이지 우리 판단이 아니다 — "안전/위험/추천" 같은 평가어를
 // 쓰지 않는다(D-011).
 
+import { assumedHeadline } from './notice-analysis';
+
 export const ASSUMED_RIGHTS_LABEL: Record<string, string> = {
   NONE: '인수할 권리 없음',
   LEASEHOLD_REGISTRATION: '주택임차권등기',
@@ -116,6 +118,27 @@ export const REGISTERED_BURDEN_RULES: readonly RegisteredBurdenRule[] = [
  */
 export const REGISTERED_BURDEN_NOTE =
   '이 구분은 권리 종류에 따른 규칙이에요 — 이 물건의 등기부를 확인한 결과가 아니에요. (규칙: RIGHT_CLASSIFICATION v1)';
+
+/**
+ * 목록·지도 카드용 인수 보증금 한 줄. 상세 화면 헤드라인(assumedHeadline)과 **같은 분기**를 써서
+ * 목록과 상세가 다른 말을 하지 않게 한다.
+ *
+ * null 입력은 명세서를 못 받았다는 뜻이라 문구를 만들지 않는다(null 반환) — 호출부가
+ * "매각물건명세서 미확인"으로 따로 표기한다. 금액 포맷은 플랫폼마다 달라 주입받는다.
+ */
+export function assumedDepositCardLabel(
+  deposit: { amount: number; isLowerBound: boolean } | null | undefined,
+  formatAmount: (won: number) => string,
+): string | null {
+  // == null 로 받는다 — 필드가 빠진 옛 API 응답에서 목록 화면이 통째로 죽으면 안 된다
+  if (deposit == null) return null;
+  const headline = assumedHeadline(deposit);
+  if (headline.kind === 'NONE') return '보증금 인수 없음';
+  if (headline.kind === 'UNCONFIRMED') return '인수 금액 확인 필요';
+  return `보증금 인수 ${formatAmount(headline.amount)}${
+    headline.isLowerBound ? ' 이상' : ''
+  }`;
+}
 
 export function noticeAssumptionLabel(assumption: string): string {
   return NOTICE_ASSUMPTION_LABEL[assumption] ?? assumption;

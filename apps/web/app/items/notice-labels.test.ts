@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import {
+  assumedDepositCardLabel,
   ASSUMED_RIGHTS_LABEL,
   BURDEN_STATUS_LABEL,
   NOTICE_ASSUMPTION_LABEL,
@@ -149,15 +150,34 @@ test('부담 구분이 등기부를 본 결과가 아니라는 고지를 담는�
   assert.ok(REGISTERED_BURDEN_NOTE.includes('RIGHT_CLASSIFICATION v1'));
 });
 
+test('카드 라벨은 인수 확정 금액·미상·0원·명세서 미확인을 모두 다르게 말한다', () => {
+  // 이 넷이 하나라도 같은 문구로 합쳐지면 사용자가 "부담 없음"으로 오독한다
+  const won = (value: number) => `${value.toLocaleString('ko-KR')}원`;
+  assert.equal(assumedDepositCardLabel({ amount: 50_000_000, isLowerBound: false }, won), '보증금 인수 50,000,000원');
+  assert.equal(assumedDepositCardLabel({ amount: 50_000_000, isLowerBound: true }, won), '보증금 인수 50,000,000원 이상');
+  assert.equal(assumedDepositCardLabel({ amount: 0, isLowerBound: true }, won), '인수 금액 확인 필요');
+  assert.equal(assumedDepositCardLabel({ amount: 0, isLowerBound: false }, won), '보증금 인수 없음');
+  // null(명세서 미확인)은 문구를 만들지 않는다 — 호출부가 "명세서 미확인"으로 따로 적는다
+  assert.equal(assumedDepositCardLabel(null, won), null);
+});
+
+test('카드 라벨은 필드가 빠진 응답에서도 죽지 않는다', () => {
+  // 배포 스큐로 옛 API가 이 필드를 안 주면 목록 화면이 통째로 깨진다
+  assert.equal(assumedDepositCardLabel(undefined, (v) => String(v)), null);
+});
+
 /**
- * 부담 구분 블록은 배열·유니온 타입이라 parseLabels로 못 읽는다 — 소스 원문을 공백 정규화해
- * 비교한다. 프리티어 줄바꿈 차이는 흡수하고 문구 변경은 잡는다.
+ * 부담 구분 블록은 배열·유니온 타입이라 parseLabels로 못 읽는다 — 소스 원문을 비교한다.
+ *
+ * 공백을 **전부** 지우고 비교한다. 두 앱의 프리티어 printWidth가 달라 같은 코드가 다르게
+ * 줄바꿈되기 때문이다(공백 하나로 접으면 `${` 뒤 줄바꿈이 차이로 남는다). 문구 자체가 갈라지는
+ * 것은 각 앱의 값 단위 테스트가 잡고, 여기서는 "한쪽만 고쳤다"를 잡는다.
  */
 function burdenBlock(source: string): string {
   const start = source.indexOf('export type BurdenStatus');
   const end = source.indexOf('export function noticeAssumptionLabel');
   if (start === -1 || end === -1 || end < start) throw new Error('부담 구분 블록을 찾지 못했다');
-  return source.slice(start, end).replace(/\s+/g, ' ').trim();
+  return source.slice(start, end).replace(/\s+/g, '');
 }
 
 test('매수인 부담 구분 문구가 모바일 사본과 같다', () => {

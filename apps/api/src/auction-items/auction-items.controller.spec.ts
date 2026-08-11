@@ -20,6 +20,7 @@ const sampleItem: AuctionItemDto = {
   assumedRightsKind: null,
   riskFlags: [],
   tenantCount: null,
+  assumedDeposit: null,
   lng: 127.0,
   lat: 37.5,
 };

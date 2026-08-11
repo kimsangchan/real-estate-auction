@@ -93,3 +93,15 @@
   background-color: var(--color-ink-deep);
   color: var(--color-canvas);
 }
+
+/* 인수 보증금 — 상세 화면의 인수 배지(warning)와 같은 톤을 쓴다 */
+.chipAssumed {
+  background-color: var(--color-warning);
+  color: var(--color-ink-deep);
+}
+
+/* 명세서를 못 받은 물건. "인수 없음"과 다르다는 것이 색으로도 구분돼야 한다 */
+.chipUnknown {
+  background-color: var(--color-surface-soft);
+  color: var(--color-slate);
+}

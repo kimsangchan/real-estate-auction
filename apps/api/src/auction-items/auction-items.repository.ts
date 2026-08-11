@@ -4,13 +4,13 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
 import type { AuctionCasePhotoDto } from './dto/auction-case-photo.dto';
 import type { AffordabilityDto, ComparableSaleStatsDto } from './dto/affordability.dto';
-import type { AuctionItemDto } from './dto/auction-item.dto';
+import type { AssumedDepositDto, AuctionItemDto } from './dto/auction-item.dto';
 import type { Bbox } from './dto/bbox.dto';
 import type { NoticeAnalysisDto } from './dto/notice-analysis.dto';
 import type { RegionCountDto } from './dto/region-count.dto';
 import { classifyNoticeAssumption } from '../rights-analysis/domain/notice-assumption';
 import { OBSERVED_FROM } from '../backtest/backtest.repository';
-import { computeAffordability } from './affordability';
+import { assumedTotalOf, computeAffordability } from './affordability';
 import { mergeNoticeTenants } from './notice-tenant-merge';
 
 // 법원 convAddr 접두사 → 면적 종류 코드. 화면이 평당가 분모를 고르는 근거라 문자열을 그대로
@@ -76,6 +76,9 @@ const JOIN_RAW_AND_SCHEDULE = `
   -- 점유자 수는 tenant_seq로 센다 — 같은 사람이 정보출처별로 여러 행에 나오기 때문이다 (§4-8).
   LEFT JOIN LATERAL (
     SELECT
+      n.id AS notice_id,
+      n.baseline_date,
+      n.distribution_demand_deadline,
       n.assumed_rights_kind,
       n.risk_flags,
       (SELECT count(DISTINCT t.tenant_seq)
@@ -120,6 +123,11 @@ const SELECT_AND_FROM = `
     ntc.assumed_rights_kind AS "assumedRightsKind",
     ntc.risk_flags AS "riskFlags",
     ntc.tenant_count AS "tenantCount",
+    -- 인수 보증금 요약은 SQL로 계산하지 않는다 — 대항력 판정 규칙이 두 곳으로 갈라진다.
+    -- 명세서 키와 판정 기준일만 싣고, 판정은 withAssumedDeposit이 도메인 함수로 돌린다.
+    ntc.notice_id AS "noticeId",
+    ntc.baseline_date AS "noticeBaselineDate",
+    ntc.distribution_demand_deadline AS "noticeDistributionDemandDeadline",
     ST_X(ai.geom) AS "lng",
     ST_Y(ai.geom) AS "lat"
   ${JOIN_RAW_AND_SCHEDULE}
@@ -143,13 +151,23 @@ interface AuctionItemRow extends QueryResultRow {
   assumedRightsKind: string | null;
   riskFlags: string[] | null;
   tenantCount: string | null;
+  // 아래 셋은 인수 보증금 계산용 내부 값이다 — DTO로 내보내지 않는다(toDto에서 걷어낸다)
+  noticeId: string | null;
+  noticeBaselineDate: Date | string | null;
+  noticeDistributionDemandDeadline: Date | string | null;
   lng: number | null;
   lat: number | null;
 }
 
-function toDto(row: AuctionItemRow): AuctionItemDto {
+function toDto(row: AuctionItemRow, assumedDeposit: AssumedDepositDto | null): AuctionItemDto {
+  // 내부 계산용 컬럼은 스프레드에서 빼낸다 — `...row`로 흘리면 응답 스키마가 조용히 늘어난다
+  const { noticeId, noticeBaselineDate, noticeDistributionDemandDeadline, ...rest } = row;
+  void noticeId;
+  void noticeBaselineDate;
+  void noticeDistributionDemandDeadline;
+
   return {
-    ...row,
+    ...rest,
     appraisalAmount: row.appraisalAmount === null ? null : Number(row.appraisalAmount),
     minimumSalePrice: row.minimumSalePrice === null ? null : Number(row.minimumSalePrice),
     // numeric은 pg가 문자열로 준다. undefined도 NaN이 되지 않게 ==로 받는다
@@ -160,7 +178,93 @@ function toDto(row: AuctionItemRow): AuctionItemDto {
     riskFlags: row.riskFlags ?? [],
     // ?? 로 받는다 — null만 검사하면 컬럼이 undefined일 때 Number(undefined)가 NaN이 된다
     tenantCount: row.tenantCount == null ? null : Number(row.tenantCount),
+    assumedDeposit,
   };
+}
+
+/** 인수 보증금 계산에 필요한 명세서 키·기준일. 목록 SELECT와 관심목록 SELECT가 함께 만족한다. */
+export interface NoticeMetaRow {
+  noticeId: string | null;
+  noticeBaselineDate: Date | string | null;
+  noticeDistributionDemandDeadline: Date | string | null;
+}
+
+/**
+ * 명세서별 인수 보증금 요약을 한 번에 계산한다 — 목록·지도·관심목록 카드가 대항력 있는 임차인의
+ * 존재를 한눈에 보이게 하는 값이다.
+ *
+ * 판정은 상세 화면과 **똑같은 도메인 함수**로 돌린다(mergeNoticeTenants →
+ * classifyNoticeAssumption → assumedTotalOf). SQL로 다시 쓰면 규칙이 두 곳으로 갈라져 목록과
+ * 상세가 다른 숫자를 말하게 된다. 그래서 SELECT는 명세서 키와 기준일만 싣는다.
+ *
+ * 점유자 행은 물건 수와 무관하게 **한 번**만 조회한다(notice_id = ANY) — 물건당 쿼리를 돌리면
+ * 목록 100건에서 N+1이 된다. 명세서가 없는 물건은 맵에 없고, 호출부가 null(=확인 못 함)로 둔다.
+ */
+export async function loadAssumedDeposits(
+  pool: Pool,
+  rows: readonly NoticeMetaRow[],
+): Promise<Map<string, AssumedDepositDto>> {
+  const metaById = new Map<string, NoticeMetaRow>();
+  for (const row of rows) {
+    // != null 로 받는다 — 컬럼이 빠진 SELECT에서 undefined가 오면 "명세서 있음"으로 잘못 읽힌다
+    if (row.noticeId != null) metaById.set(row.noticeId, row);
+  }
+  const result = new Map<string, AssumedDepositDto>();
+  if (metaById.size === 0) return result;
+
+  const tenantResult = await pool.query<NoticeTenantRow & { noticeId: string }>(
+    `SELECT notice_id AS "noticeId",
+            tenant_seq AS "tenantSeq",
+            source_kind AS "sourceKind",
+            occupied_part AS "occupiedPart",
+            move_in_date AS "moveInDate",
+            fixed_date AS "fixedDate",
+            deposit_amount AS "depositAmount",
+            demanded_distribution AS "demandedDistribution",
+            demanded_distribution_date AS "demandedDistributionDate"
+     FROM auction_item_notice_tenant
+     WHERE notice_id = ANY($1::bigint[])
+     ORDER BY notice_id, row_no`,
+    [[...metaById.keys()]],
+  );
+
+  const byNotice = new Map<string, NoticeTenantRow[]>();
+  for (const row of tenantResult.rows) {
+    const bucket = byNotice.get(row.noticeId);
+    if (bucket) bucket.push(row);
+    else byNotice.set(row.noticeId, [row]);
+  }
+
+  for (const [noticeId, meta] of metaById) {
+    // ?? null 로 받는다 — 기준일 컬럼이 빠지면 toIsoDate가 undefined에서 터진다
+    const baselineDate = toIsoDate(meta.noticeBaselineDate ?? null);
+    const deadline = toIsoDate(meta.noticeDistributionDemandDeadline ?? null);
+    // 정보출처별로 흩어진 행을 사람 단위로 합친 뒤 판정한다 (findNoticeAnalysis와 같은 순서)
+    const tenants = mergeNoticeTenants(
+      (byNotice.get(noticeId) ?? []).map((tenant) => ({
+        tenantSeq: tenant.tenantSeq,
+        sourceKind: tenant.sourceKind,
+        occupiedPart: tenant.occupiedPart,
+        moveInDate: toIsoDate(tenant.moveInDate),
+        fixedDate: toIsoDate(tenant.fixedDate),
+        depositAmount: tenant.depositAmount === null ? null : Number(tenant.depositAmount),
+        demandedDistribution: tenant.demandedDistribution,
+        demandedDistributionDate: toIsoDate(tenant.demandedDistributionDate),
+      })),
+    ).map((tenant) => {
+      const verdict = classifyNoticeAssumption(tenant, baselineDate, deadline);
+      return {
+        ...tenant,
+        possessionRightDate: verdict.possessionRightDate,
+        hasPriority: verdict.hasPriority,
+        distributionDemandEffective: verdict.distributionDemandEffective,
+        assumption: verdict.assumption,
+        assumedAmount: verdict.assumedAmount,
+      };
+    });
+    result.set(noticeId, assumedTotalOf(tenants));
+  }
+  return result;
 }
 
 interface RegionCountRow extends QueryResultRow {
@@ -206,13 +310,20 @@ interface ComparableStatsRow extends QueryResultRow {
 export class AuctionItemsRepository {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
+  private async withAssumedDeposit(rows: AuctionItemRow[]): Promise<AuctionItemDto[]> {
+    const deposits = await loadAssumedDeposits(this.pool, rows);
+    return rows.map((row) => toDto(row, row.noticeId === null ? null : deposits.get(row.noticeId) ?? null));
+  }
+
   async findOne(courtOfficeCode: string, caseNo: string, itemNo: string): Promise<AuctionItemDto | null> {
     const result = await this.pool.query<AuctionItemRow>(
       `${SELECT_AND_FROM} WHERE ac.court_office_code = $1 AND ac.case_no = $2 AND ai.item_no = $3`,
       [courtOfficeCode, caseNo, itemNo],
     );
     const row = result.rows[0];
-    return row ? toDto(row) : null;
+    if (!row) return null;
+    const [dto] = await this.withAssumedDeposit([row]);
+    return dto ?? null;
   }
 
   async findMany(
@@ -227,7 +338,7 @@ export class AuctionItemsRepository {
        ORDER BY ai.updated_at DESC LIMIT $1 OFFSET $2`,
       [limit, offset, filter.sido ?? null, filter.sigungu ?? null],
     );
-    return result.rows.map(toDto);
+    return this.withAssumedDeposit(result.rows);
   }
 
   async countBySido(): Promise<RegionCountDto[]> {
@@ -477,6 +588,6 @@ export class AuctionItemsRepository {
        LIMIT $5`,
       [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat, limit],
     );
-    return result.rows.map(toDto);
+    return this.withAssumedDeposit(result.rows);
   }
 }

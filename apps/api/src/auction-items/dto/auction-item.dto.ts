@@ -1,4 +1,16 @@
 // 물건 조회 API 응답 DTO — WP-02 수집기가 채운 auction_item/auction_case/auction_item_raw를 조합한 값
+
+/**
+ * 명세서 기반 인수 보증금 요약. 목록·지도 카드가 대항력 있는 임차인의 존재를 한눈에 보이게 하려고
+ * 쓴다. 값의 정의는 상세 화면과 같다(`assumedTotalOf`) — 목록과 상세가 다른 숫자를 말하면 안 된다.
+ */
+export interface AssumedDepositDto {
+  /** 전액 인수가 확정된 보증금 합. 0은 "인수 0원 확정"이다 */
+  amount: number;
+  /** 금액이 확정되지 않은 임차인이 섞여 있으면 true — 표시할 때 "이상"을 붙인다 */
+  isLowerBound: boolean;
+}
+
 export interface AuctionItemDto {
   courtOfficeCode: string;
   caseNo: string;
@@ -29,6 +41,11 @@ export interface AuctionItemDto {
   assumedRightsKind: string | null;
   riskFlags: string[];
   tenantCount: number | null;
+  /**
+   * null이면 명세서를 아직 못 받았다는 뜻이다 — "인수할 보증금이 없다"와 구분해서 표기해야 한다.
+   * 인수 0원 확정은 `{ amount: 0, isLowerBound: false }`로 온다.
+   */
+  assumedDeposit: AssumedDepositDto | null;
   lng: number | null;
   lat: number | null;
 }

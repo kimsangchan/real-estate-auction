@@ -42,6 +42,8 @@ interface AuctionItemPin {
   assumedRightsKind: string | null;
   riskFlags: string[];
   tenantCount: number | null;
+  /** 명세서 기반 인수 보증금. null은 "명세서 미확인"이지 "인수 없음"이 아니다. */
+  assumedDeposit: { amount: number; isLowerBound: boolean } | null;
   lng: number | null;
   lat: number | null;
 }

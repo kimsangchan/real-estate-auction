@@ -56,6 +56,8 @@ describe('FavoritesRepository', () => {
         assumedRightsKind: 'NONE',
         riskFlags: ['HUG_PRIORITY_WAIVER'],
         tenantCount: 1,
+        // 명세서 키가 없는 행이라 "확인 못 함" — 물건 목록과 같은 규칙이다
+        assumedDeposit: null,
         favoritedAt: '2026-07-20T00:00:00.000Z',
       },
     ]);

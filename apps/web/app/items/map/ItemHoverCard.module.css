@@ -89,6 +89,13 @@
   padding: 1px 7px;
 }
 
+/* 인수 보증금 — 상세 화면의 인수 배지와 같은 톤. 좁은 카드에서 가장 먼저 눈에 들어와야 한다. */
+.noticeChipAssumed {
+  background-color: var(--color-warning);
+  color: var(--color-ink-deep);
+  font-weight: var(--typography-caption-bold-font-weight);
+}
+
 /* 명세서를 아직 못 받은 물건. "인수할 권리 없음"과 절대 같아 보이면 안 된다. */
 .noticeUnknown {
   font-size: var(--typography-caption-font-size);

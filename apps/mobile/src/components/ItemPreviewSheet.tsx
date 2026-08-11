@@ -12,6 +12,7 @@ import {
   formatWonCompact,
 } from '../lib/format';
 import {
+  assumedDepositCardLabel,
   assumedRightsLabel,
   riskFlagLabels,
   shortUsageName,
@@ -32,6 +33,11 @@ export function ItemPreviewSheet({ item, onClose, onOpenDetail }: Props) {
   const rights = assumedRightsLabel(item.assumedRightsKind);
   const tenants = tenantLabel(item.tenantCount);
   const flags = riskFlagLabels(item.riskFlags);
+  // 점유자 "수"만으로는 대항력 여부를 알 수 없다 — 인수 금액까지 여기서 말해준다
+  const assumedLabel = assumedDepositCardLabel(
+    item.assumedDeposit,
+    formatWonCompact,
+  );
 
   // 명세서를 한 조각도 못 받은 물건 — "인수할 권리 없음"과 구분해서 말해야 한다.
   const noticeMissing =
@@ -80,6 +86,11 @@ export function ItemPreviewSheet({ item, onClose, onOpenDetail }: Props) {
           <Text style={styles.noticeUnknown}>매각물건명세서 미확인</Text>
         ) : (
           <View style={styles.chips}>
+            {assumedLabel !== null ? (
+              <Text style={[styles.chip, styles.chipAssumed]}>
+                {assumedLabel}
+              </Text>
+            ) : null}
             {tenants !== null ? (
               <Text style={styles.chip}>{tenants}</Text>
             ) : null}
@@ -153,6 +164,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.sm,
     paddingVertical: 2,
     overflow: 'hidden',
+  },
+  // 인수 보증금 — 권리분석 화면의 인수 배지와 같은 톤. 좁은 시트에서 먼저 눈에 들어와야 한다.
+  chipAssumed: {
+    ...text.captionBold,
+    color: colors.inkDeep,
+    backgroundColor: colors.warning,
   },
   // 명세서를 못 받은 상태. "인수할 권리 없음"과 절대 같아 보이면 안 된다.
   noticeUnknown: { ...text.caption, color: colors.steel, fontStyle: 'italic' },

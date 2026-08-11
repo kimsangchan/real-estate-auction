@@ -9,7 +9,13 @@ import {
   formatDropRate,
   formatWonCompact,
 } from '../format';
-import { assumedRightsLabel, riskFlagLabels, shortUsageName, tenantLabel } from '../notice-labels';
+import {
+  assumedDepositCardLabel,
+  assumedRightsLabel,
+  riskFlagLabels,
+  shortUsageName,
+  tenantLabel,
+} from '../notice-labels';
 import { isBulkLot } from './bulk-lot';
 import styles from './ItemHoverCard.module.css';
 
@@ -27,6 +33,8 @@ export interface HoverCardItem {
   assumedRightsKind: string | null;
   riskFlags: string[];
   tenantCount: number | null;
+  /** 명세서 기반 인수 보증금. null은 "명세서 미확인"이지 "인수 없음"이 아니다. */
+  assumedDeposit: { amount: number; isLowerBound: boolean } | null;
 }
 
 interface Props {
@@ -53,6 +61,8 @@ export function ItemHoverCard({ items, left, top }: Props) {
   const rights = assumedRightsLabel(item.assumedRightsKind);
   const tenants = tenantLabel(item.tenantCount);
   const flags = riskFlagLabels(item.riskFlags);
+  // 점유자 "수"만으로는 대항력 여부를 알 수 없다 — 인수 금액까지 여기서 말해준다
+  const assumedLabel = assumedDepositCardLabel(item.assumedDeposit, formatWonCompact);
 
   // 명세서를 한 조각도 못 받은 물건 — "인수할 권리 없음"과 구분해서 말해야 한다.
   const noticeMissing = rights === null && tenants === null && flags.length === 0;
@@ -98,6 +108,9 @@ export function ItemHoverCard({ items, left, top }: Props) {
           <span className={styles.noticeUnknown}>매각물건명세서 미확인</span>
         ) : (
           <>
+            {assumedLabel ? (
+              <span className={`${styles.noticeChip} ${styles.noticeChipAssumed}`}>{assumedLabel}</span>
+            ) : null}
             {tenants ? <span className={styles.noticeChip}>{tenants}</span> : null}
             {rights ? <span className={styles.noticeChip}>{rights}</span> : null}
             {flags.map((flag) => (

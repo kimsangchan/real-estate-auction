@@ -29,6 +29,11 @@ export interface AuctionItem {
   assumedRightsKind: string | null;
   riskFlags: string[];
   tenantCount: number | null;
+  /**
+   * 명세서 기반 인수 보증금. null은 "명세서를 아직 못 받았다"는 뜻이고,
+   * `{ amount: 0, isLowerBound: false }`가 "인수 0원 확정"이다 — 둘을 같게 표기하면 안 된다.
+   */
+  assumedDeposit: { amount: number; isLowerBound: boolean } | null;
 }
 
 // generateMetadata와 페이지 컴포넌트가 같은 요청 안에서 중복 호출하지 않도록 React cache()로 묶는다

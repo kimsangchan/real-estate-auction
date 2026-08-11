@@ -4,6 +4,14 @@ function createMockPool(rows: unknown[]) {
   return { query: jest.fn().mockResolvedValue({ rows }) };
 }
 
+/** 쿼리 호출 순서대로 다른 결과를 돌려준다 — 인수 보증금은 물건 조회 뒤 점유자 조회가 한 번 더 간다 */
+function createMockPoolSequence(...results: unknown[][]) {
+  const query = jest.fn();
+  for (const rows of results) query.mockResolvedValueOnce({ rows });
+  query.mockResolvedValue({ rows: [] });
+  return { query };
+}
+
 describe('AuctionItemsRepository', () => {
   it('단건 조회 시 BIGINT 문자열 컬럼을 숫자로, 날짜를 ISO 문자열로 변환한다', async () => {
     const pool = createMockPool([
@@ -49,6 +57,8 @@ describe('AuctionItemsRepository', () => {
       assumedRightsKind: 'LEASEHOLD_REGISTRATION',
       riskFlags: ['HUG_PRIORITY_WAIVER'],
       tenantCount: 2,
+      // 명세서 키가 없는 행이라 "확인 못 함" — 인수 0원 확정과 구분한다
+      assumedDeposit: null,
     });
     expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('WHERE ac.court_office_code = $1'), [
       'B000210',
@@ -85,6 +95,118 @@ describe('AuctionItemsRepository', () => {
     expect(result?.assumedRightsKind).toBeNull();
     expect(result?.riskFlags).toEqual([]);
     expect(result?.tenantCount).toBeNull();
+    // 명세서가 없으면 인수 보증금도 "확인 못 함"이다 — 0원으로 내리면 "부담 없음"으로 읽힌다
+    expect(result?.assumedDeposit).toBeNull();
+  });
+
+  it('대항력이 있는데 배당요구가 없으면 목록에도 인수 보증금을 확정 금액으로 내려보낸다', async () => {
+    // 목록·지도 카드가 상세 화면과 같은 숫자를 말해야 한다 (같은 도메인 함수를 쓰는지 확인)
+    const pool = createMockPoolSequence(
+      [
+        {
+          courtOfficeCode: 'B000210',
+          caseNo: '2025타경755',
+          itemNo: '1',
+          bidDatetime: null,
+          riskFlags: [],
+          tenantCount: '1',
+          noticeId: '77',
+          noticeBaselineDate: '2024-05-01',
+          noticeDistributionDemandDeadline: '2024-08-01',
+        },
+      ],
+      [
+        {
+          noticeId: '77',
+          tenantSeq: 1,
+          sourceKind: null,
+          occupiedPart: '202호',
+          moveInDate: '2020-03-02',
+          fixedDate: '2020-03-02',
+          depositAmount: '50000000',
+          demandedDistribution: false,
+          demandedDistributionDate: null,
+        },
+      ],
+    );
+    const repository = new AuctionItemsRepository(pool as never);
+
+    const result = await repository.findOne('B000210', '2025타경755', '1');
+
+    // 전입이 말소기준보다 빠르고 배당요구가 없다 → 보증금 전액 인수 확정
+    expect(result?.assumedDeposit).toEqual({ amount: 50_000_000, isLowerBound: false });
+    // 내부 계산용 컬럼이 응답으로 새어나가지 않는다
+    expect(result).not.toHaveProperty('noticeId');
+    expect(result).not.toHaveProperty('noticeBaselineDate');
+  });
+
+  it('금액을 모르는 임차인이 섞이면 하한으로 표시한다', async () => {
+    // 배당요구가 유효하면 배당 회수액을 등기부 없이 모른다 — 0원으로 확정하면 안 된다
+    const pool = createMockPoolSequence(
+      [
+        {
+          courtOfficeCode: 'B000210',
+          caseNo: '2025타경755',
+          itemNo: '1',
+          bidDatetime: null,
+          riskFlags: [],
+          tenantCount: '2',
+          noticeId: '78',
+          noticeBaselineDate: '2024-05-01',
+          noticeDistributionDemandDeadline: '2024-08-01',
+        },
+      ],
+      [
+        {
+          noticeId: '78',
+          tenantSeq: 1,
+          sourceKind: null,
+          occupiedPart: '201호',
+          moveInDate: '2020-03-02',
+          fixedDate: null,
+          depositAmount: '30000000',
+          demandedDistribution: false,
+          demandedDistributionDate: null,
+        },
+        {
+          noticeId: '78',
+          tenantSeq: 2,
+          sourceKind: null,
+          occupiedPart: '202호',
+          moveInDate: '2020-04-02',
+          fixedDate: '2020-04-02',
+          depositAmount: '40000000',
+          demandedDistribution: true,
+          demandedDistributionDate: '2024-06-01',
+        },
+      ],
+    );
+    const repository = new AuctionItemsRepository(pool as never);
+
+    const result = await repository.findOne('B000210', '2025타경755', '1');
+
+    expect(result?.assumedDeposit).toEqual({ amount: 30_000_000, isLowerBound: true });
+  });
+
+  it('점유자 조회는 물건 수와 무관하게 한 번만 돈다 (N+1 방지)', async () => {
+    const notice = (id: string) => ({
+      courtOfficeCode: 'B000210',
+      caseNo: `2025타경${id}`,
+      itemNo: '1',
+      bidDatetime: null,
+      riskFlags: [],
+      tenantCount: '0',
+      noticeId: id,
+      noticeBaselineDate: '2024-05-01',
+      noticeDistributionDemandDeadline: '2024-08-01',
+    });
+    const pool = createMockPoolSequence([notice('1'), notice('2'), notice('3')], []);
+    const repository = new AuctionItemsRepository(pool as never);
+
+    await repository.findMany(20, 0);
+
+    // 목록 쿼리 1 + 점유자 쿼리 1
+    expect(pool.query).toHaveBeenCalledTimes(2);
   });
 
   it('일치하는 물건이 없으면 null을 반환한다', async () => {

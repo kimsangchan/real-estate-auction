@@ -43,6 +43,7 @@ const ITEM: AuctionItem = {
   assumedRightsKind: null,
   riskFlags: [],
   tenantCount: null,
+  assumedDeposit: null,
   lng: null,
   lat: null,
 };

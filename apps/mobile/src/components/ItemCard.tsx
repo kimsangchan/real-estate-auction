@@ -6,7 +6,9 @@ import {
   computeMinimumBidRate,
   formatBidDatetime,
   formatWon,
+  formatWonCompact,
 } from '../lib/format';
+import { assumedDepositCardLabel } from '../lib/notice-labels';
 import { colors, radius, space, text } from '../theme';
 
 function ItemCardComponent({
@@ -21,6 +23,12 @@ function ItemCardComponent({
     item.minimumSalePrice,
   );
   const bidLabel = formatBidDatetime(item.bidDatetime);
+  // 가격만 보고 인수 부담을 놓치는 것이 입문자의 첫 사고다 — 목록에서부터 같이 보인다.
+  // null이면 명세서를 못 받은 것이라 "인수 없음"으로 적지 않고 미확인으로 표기한다.
+  const assumedLabel = assumedDepositCardLabel(
+    item.assumedDeposit,
+    formatWonCompact,
+  );
 
   return (
     <Pressable
@@ -67,6 +75,15 @@ function ItemCardComponent({
             <Text style={styles.chipDateText}>매각기일 {bidLabel}</Text>
           </View>
         ) : null}
+        {assumedLabel ? (
+          <View style={[styles.chip, styles.chipAssumed]}>
+            <Text style={styles.chipAssumedText}>{assumedLabel}</Text>
+          </View>
+        ) : (
+          <View style={[styles.chip, styles.chipUnknown]}>
+            <Text style={styles.chipUnknownText}>명세서 미확인</Text>
+          </View>
+        )}
       </View>
     </Pressable>
   );
@@ -116,4 +133,10 @@ const styles = StyleSheet.create({
   chipFailedText: { ...text.captionBold, color: colors.canvas },
   chipDate: { backgroundColor: colors.inkDeep },
   chipDateText: { ...text.captionBold, color: colors.canvas },
+  // 인수 보증금 — 권리분석 화면의 인수 배지와 같은 톤
+  chipAssumed: { backgroundColor: colors.warning },
+  chipAssumedText: { ...text.captionBold, color: colors.inkDeep },
+  // 명세서 미확인. "인수 없음"과 같아 보이면 안 된다
+  chipUnknown: { backgroundColor: colors.surfaceSoft },
+  chipUnknownText: { ...text.caption, color: colors.slate },
 });

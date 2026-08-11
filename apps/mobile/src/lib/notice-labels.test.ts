@@ -2,6 +2,7 @@
 // 웹 사본과 어긋나지 않는지 검사하는 쪽은 apps/web(노드 기반 테스트 러너)에 있다 —
 // RN tsconfig에는 Node 타입이 없어 여기서 파일을 읽을 수 없다.
 import {
+  assumedDepositCardLabel,
   assumedRightsLabel,
   BURDEN_STATUS_LABEL,
   REGISTERED_BURDEN_NOTE,
@@ -83,5 +84,30 @@ describe('매수인 부담 구분', () => {
     expect(REGISTERED_BURDEN_NOTE).toContain('권리 종류에 따른 규칙');
     expect(REGISTERED_BURDEN_NOTE).toContain('등기부를 확인한 결과가 아니에요');
     expect(REGISTERED_BURDEN_NOTE).toContain('RIGHT_CLASSIFICATION v1');
+  });
+});
+
+describe('assumedDepositCardLabel', () => {
+  const won = (value: number) => `${value.toLocaleString('ko-KR')}원`;
+
+  it('인수 확정 금액·미상·0원·명세서 미확인을 모두 다르게 말한다', () => {
+    // 이 넷이 하나라도 같은 문구로 합쳐지면 사용자가 "부담 없음"으로 오독한다
+    expect(
+      assumedDepositCardLabel({ amount: 50_000_000, isLowerBound: false }, won),
+    ).toBe('보증금 인수 50,000,000원');
+    expect(
+      assumedDepositCardLabel({ amount: 50_000_000, isLowerBound: true }, won),
+    ).toBe('보증금 인수 50,000,000원 이상');
+    expect(
+      assumedDepositCardLabel({ amount: 0, isLowerBound: true }, won),
+    ).toBe('인수 금액 확인 필요');
+    expect(
+      assumedDepositCardLabel({ amount: 0, isLowerBound: false }, won),
+    ).toBe('보증금 인수 없음');
+    expect(assumedDepositCardLabel(null, won)).toBeNull();
+  });
+
+  it('필드가 빠진 응답에서도 죽지 않는다', () => {
+    expect(assumedDepositCardLabel(undefined, won)).toBeNull();
   });
 });

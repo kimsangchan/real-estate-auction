@@ -3,7 +3,8 @@
 // auction-items.repository.ts의 SELECT_AND_FROM 패턴을 그대로 재사용)
 import { Inject, Injectable } from '@nestjs/common';
 import type { Pool, QueryResultRow } from 'pg';
-import type { AuctionItemDto } from '../auction-items/dto/auction-item.dto';
+import type { AssumedDepositDto, AuctionItemDto } from '../auction-items/dto/auction-item.dto';
+import { loadAssumedDeposits } from '../auction-items/auction-items.repository';
 
 // 법원 convAddr 접두사 → 면적 종류 코드. 화면이 평당가 분모를 고르는 근거라 문자열을 그대로
 // 흘리지 않고 코드로 고정한다.
@@ -37,14 +38,23 @@ interface FavoriteRow extends QueryResultRow {
   assumedRightsKind: string | null;
   riskFlags: string[] | null;
   tenantCount: string | null;
+  // 인수 보증금 계산용 내부 값 — DTO로 내보내지 않는다 (auction-items.repository와 같은 규칙)
+  noticeId: string | null;
+  noticeBaselineDate: Date | string | null;
+  noticeDistributionDemandDeadline: Date | string | null;
   lng: number | null;
   lat: number | null;
   favoritedAt: Date;
 }
 
-function toRecord(row: FavoriteRow): FavoriteRecord {
+function toRecord(row: FavoriteRow, assumedDeposit: AssumedDepositDto | null): FavoriteRecord {
+  const { noticeId, noticeBaselineDate, noticeDistributionDemandDeadline, ...rest } = row;
+  void noticeId;
+  void noticeBaselineDate;
+  void noticeDistributionDemandDeadline;
+
   return {
-    ...row,
+    ...rest,
     appraisalAmount: row.appraisalAmount === null ? null : Number(row.appraisalAmount),
     minimumSalePrice: row.minimumSalePrice === null ? null : Number(row.minimumSalePrice),
     areaKind: AREA_KIND[row.areaKind ?? ''] ?? null,
@@ -53,6 +63,7 @@ function toRecord(row: FavoriteRow): FavoriteRecord {
     // 명세서가 없는 물건은 "위험 없음"이 아니라 "확인 못 함"이다 (auction-items.repository와 동일 규칙)
     riskFlags: row.riskFlags ?? [],
     tenantCount: row.tenantCount == null ? null : Number(row.tenantCount),
+    assumedDeposit,
     favoritedAt: row.favoritedAt.toISOString(),
   };
 }
@@ -88,6 +99,10 @@ const SELECT_FAVORITE_ITEMS = `
     ntc.assumed_rights_kind AS "assumedRightsKind",
     ntc.risk_flags AS "riskFlags",
     ntc.tenant_count AS "tenantCount",
+    -- 인수 보증금은 SQL로 계산하지 않는다 — 판정 규칙이 갈라진다. 키와 기준일만 싣는다.
+    ntc.notice_id AS "noticeId",
+    ntc.baseline_date AS "noticeBaselineDate",
+    ntc.distribution_demand_deadline AS "noticeDistributionDemandDeadline",
     ST_X(ai.geom) AS "lng",
     ST_Y(ai.geom) AS "lat",
     f.created_at AS "favoritedAt"
@@ -106,6 +121,9 @@ const SELECT_FAVORITE_ITEMS = `
   ) sch ON true
   LEFT JOIN LATERAL (
     SELECT
+      n.id AS notice_id,
+      n.baseline_date,
+      n.distribution_demand_deadline,
       n.assumed_rights_kind,
       n.risk_flags,
       (SELECT count(DISTINCT t.tenant_seq)
@@ -125,7 +143,11 @@ export class FavoritesRepository {
       `${SELECT_FAVORITE_ITEMS} WHERE f.user_id = $1 ORDER BY f.created_at DESC`,
       [userId],
     );
-    return result.rows.map(toRecord);
+    // 목록 카드가 물건 목록과 같은 인수 보증금을 말해야 한다 — 같은 함수를 쓴다
+    const deposits = await loadAssumedDeposits(this.pool, result.rows);
+    return result.rows.map((row) =>
+      toRecord(row, row.noticeId === null ? null : deposits.get(row.noticeId) ?? null),
+    );
   }
 
   /** 이미 등록돼 있으면 아무 것도 하지 않는다 — 재등록이 안전하게 멱등하도록 (AGENTS.md 규칙 10) */
