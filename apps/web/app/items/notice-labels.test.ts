@@ -4,8 +4,11 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import {
   ASSUMED_RIGHTS_LABEL,
+  BURDEN_STATUS_LABEL,
   NOTICE_ASSUMPTION_LABEL,
   NOTICE_ASSUMPTION_REASON,
+  REGISTERED_BURDEN_NOTE,
+  REGISTERED_BURDEN_RULES,
   RISK_FLAG_LABEL,
   assumedRightsLabel,
   noticeAssumptionLabel,
@@ -79,6 +82,13 @@ const mobileSource = readFileSync(
   'utf-8',
 );
 
+// 테스트는 dist-test/app/items 에서 돌아 __dirname 이 소스 폴더가 아니다 — 위 mobileSource 와 같은
+// 방식으로 apps/web 까지 올라가서 원본을 읽는다.
+const webSource = readFileSync(
+  join(__dirname, '..', '..', '..', 'app', 'items', 'notice-labels.ts'),
+  'utf-8',
+);
+
 test('인수권리 라벨이 모바일 사본과 같다', () => {
   assert.deepEqual(parseLabels(mobileSource, 'ASSUMED_RIGHTS_LABEL'), ASSUMED_RIGHTS_LABEL);
 });
@@ -103,10 +113,53 @@ test('판정 문구에 판단·권유 표현을 쓰지 않는다 (D-011)', () =>
   const texts = [
     ...Object.values(NOTICE_ASSUMPTION_LABEL),
     ...Object.values(NOTICE_ASSUMPTION_REASON),
+    ...Object.values(BURDEN_STATUS_LABEL),
+    ...REGISTERED_BURDEN_RULES.flatMap((rule) => [rule.subject, rule.detail]),
+    REGISTERED_BURDEN_NOTE,
   ];
   for (const text of texts) {
     for (const word of banned) {
       assert.ok(!text.includes(word), `"${text}"에 금지 표현 "${word}"이 있다`);
     }
   }
+});
+
+test('근저당·압류 계열은 인수하지 않는다고 표기한다', () => {
+  // 사용자가 화면만 보고 "근저당도 내가 계산해야 하나"를 판단할 수 있어야 한다.
+  // apps/api right-classification.ts의 ALWAYS_EXTINGUISHED_ON_SALE와 같은 규칙이다.
+  const rule = REGISTERED_BURDEN_RULES.find((item) => item.subject.includes('근저당'));
+  assert.ok(rule !== undefined, '근저당 항목이 없다');
+  assert.equal(rule.status, 'NOT_ASSUMED');
+  assert.equal(BURDEN_STATUS_LABEL[rule.status], '인수 안 함');
+  // 말소기준보다 앞선 근저당도 소멸한다는 것이 이 화면의 핵심 정보다
+  assert.ok(rule.detail.includes('말소기준보다 앞서도'));
+  assert.ok(rule.detail.includes('경매개시 전'));
+});
+
+test('용익물권 계열은 확인 필요로 남긴다 — "인수 안 함"으로 단정하지 않는다', () => {
+  const rule = REGISTERED_BURDEN_RULES.find((item) => item.subject.includes('전세권'));
+  assert.ok(rule !== undefined, '전세권 항목이 없다');
+  assert.equal(rule.status, 'NEEDS_REVIEW');
+});
+
+test('부담 구분이 등기부를 본 결과가 아니라는 고지를 담는다', () => {
+  // 이 고지가 없으면 "등기 권리가 하나도 없는 물건"으로 읽힌다
+  assert.ok(REGISTERED_BURDEN_NOTE.includes('권리 종류에 따른 규칙'));
+  assert.ok(REGISTERED_BURDEN_NOTE.includes('등기부를 확인한 결과가 아니에요'));
+  assert.ok(REGISTERED_BURDEN_NOTE.includes('RIGHT_CLASSIFICATION v1'));
+});
+
+/**
+ * 부담 구분 블록은 배열·유니온 타입이라 parseLabels로 못 읽는다 — 소스 원문을 공백 정규화해
+ * 비교한다. 프리티어 줄바꿈 차이는 흡수하고 문구 변경은 잡는다.
+ */
+function burdenBlock(source: string): string {
+  const start = source.indexOf('export type BurdenStatus');
+  const end = source.indexOf('export function noticeAssumptionLabel');
+  if (start === -1 || end === -1 || end < start) throw new Error('부담 구분 블록을 찾지 못했다');
+  return source.slice(start, end).replace(/\s+/g, ' ').trim();
+}
+
+test('매수인 부담 구분 문구가 모바일 사본과 같다', () => {
+  assert.equal(burdenBlock(mobileSource), burdenBlock(webSource));
 });

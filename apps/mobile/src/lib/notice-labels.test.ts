@@ -3,6 +3,9 @@
 // RN tsconfig에는 Node 타입이 없어 여기서 파일을 읽을 수 없다.
 import {
   assumedRightsLabel,
+  BURDEN_STATUS_LABEL,
+  REGISTERED_BURDEN_NOTE,
+  REGISTERED_BURDEN_RULES,
   riskFlagLabels,
   shortUsageName,
   tenantLabel,
@@ -54,5 +57,31 @@ describe('tenantLabel', () => {
     expect(tenantLabel(0)).toBe('점유자 없음');
     expect(tenantLabel(2)).toBe('점유자 2명');
     expect(tenantLabel(null)).toBeNull();
+  });
+});
+
+describe('매수인 부담 구분', () => {
+  it('근저당·압류 계열은 인수하지 않는다고 표기한다', () => {
+    // 사용자가 화면만 보고 "근저당도 내가 계산해야 하나"를 판단할 수 있어야 한다
+    const rule = REGISTERED_BURDEN_RULES.find(item =>
+      item.subject.includes('근저당'),
+    );
+    expect(rule?.status).toBe('NOT_ASSUMED');
+    expect(BURDEN_STATUS_LABEL.NOT_ASSUMED).toBe('인수 안 함');
+    expect(rule?.detail).toContain('말소기준보다 앞서도');
+    expect(rule?.detail).toContain('경매개시 전');
+  });
+
+  it('용익물권 계열은 확인 필요로 남긴다', () => {
+    const rule = REGISTERED_BURDEN_RULES.find(item =>
+      item.subject.includes('전세권'),
+    );
+    expect(rule?.status).toBe('NEEDS_REVIEW');
+  });
+
+  it('등기부를 본 결과가 아니라는 고지를 담는다', () => {
+    expect(REGISTERED_BURDEN_NOTE).toContain('권리 종류에 따른 규칙');
+    expect(REGISTERED_BURDEN_NOTE).toContain('등기부를 확인한 결과가 아니에요');
+    expect(REGISTERED_BURDEN_NOTE).toContain('RIGHT_CLASSIFICATION v1');
   });
 });

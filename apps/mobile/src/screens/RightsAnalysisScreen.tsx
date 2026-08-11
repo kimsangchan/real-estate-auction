@@ -34,9 +34,13 @@ import {
 } from '../lib/notice-analysis';
 import {
   assumedRightsLabel,
+  BURDEN_STATUS_LABEL,
   noticeAssumptionLabel,
   noticeAssumptionReason,
+  REGISTERED_BURDEN_NOTE,
+  REGISTERED_BURDEN_RULES,
   riskFlagLabels,
+  type BurdenStatus,
 } from '../lib/notice-labels';
 import type { RootStackParamList } from '../navigation';
 import { colors, radius, space, text } from '../theme';
@@ -49,6 +53,12 @@ const ASSUMPTION_TONE: Record<NoticeAssumption, BadgeTone> = {
   ASSUMED_FULL: 'warning',
   ASSUMED_AMOUNT_UNKNOWN: 'critical',
   UNKNOWN: 'critical',
+};
+
+const BURDEN_TONE: Record<BurdenStatus, BadgeTone> = {
+  ASSUMED: 'warning',
+  NOT_ASSUMED: 'muted',
+  NEEDS_REVIEW: 'critical',
 };
 
 function tenantTitle(tenant: AnalyzedTenant): string {
@@ -92,6 +102,57 @@ function TenantRow({
         tone={ASSUMPTION_TONE[tenant.assumption]}
         label={noticeAssumptionLabel(tenant.assumption)}
       />
+    </View>
+  );
+}
+
+/**
+ * 위 인수 금액에 무엇이 들어가고 무엇이 빠지는지 — "근저당도 내가 계산해야 하나"에 화면에서
+ * 답한다. 등기부 없이도 권리 종류만으로 확정되는 사실이라 지금 말할 수 있다.
+ */
+function BurdenScopeSection() {
+  const last = REGISTERED_BURDEN_RULES.length - 1;
+
+  return (
+    <View style={styles.group}>
+      <Text style={styles.groupTitle}>이 금액에 무엇이 들어갔나</Text>
+      <View style={styles.table}>
+        <View style={[styles.row, styles.rowBorder]}>
+          <Text style={styles.rowKind}>임차인</Text>
+          <View style={styles.rowMain}>
+            <View style={styles.rowLabelLine}>
+              <Text style={styles.rowLabel}>대항력 있는 임차인 보증금</Text>
+            </View>
+            <Text style={styles.rowDetail}>
+              위 인수 금액에 들어가 있어요. 대항력이 말소기준보다 빠른 임차인만
+              해당돼요.
+            </Text>
+          </View>
+          <Badge
+            tone={BURDEN_TONE.ASSUMED}
+            label={BURDEN_STATUS_LABEL.ASSUMED}
+          />
+        </View>
+        {REGISTERED_BURDEN_RULES.map((rule, index) => (
+          <View
+            key={rule.subject}
+            style={[styles.row, index !== last && styles.rowBorder]}
+          >
+            <Text style={styles.rowKind}>등기 권리</Text>
+            <View style={styles.rowMain}>
+              <View style={styles.rowLabelLine}>
+                <Text style={styles.rowLabel}>{rule.subject}</Text>
+              </View>
+              <Text style={styles.rowDetail}>{rule.detail}</Text>
+            </View>
+            <Badge
+              tone={BURDEN_TONE[rule.status]}
+              label={BURDEN_STATUS_LABEL[rule.status]}
+            />
+          </View>
+        ))}
+      </View>
+      <Text style={styles.footnote}>{REGISTERED_BURDEN_NOTE}</Text>
     </View>
   );
 }
@@ -289,6 +350,8 @@ export function RightsAnalysisScreen({ route }: Props) {
           있어요.
         </Text>
       ) : null}
+
+      <BurdenScopeSection />
 
       {affordability ? (
         <AffordabilitySection affordability={affordability} />

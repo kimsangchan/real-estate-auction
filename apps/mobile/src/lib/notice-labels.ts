@@ -71,6 +71,52 @@ export const NOTICE_ASSUMPTION_REASON: Record<string, string> = {
   UNKNOWN: '전입일이나 최선순위 설정일이 명세서에 없어요',
 };
 
+/**
+ * 매수인 부담 구분 — 등기부 없이도 권리 **종류**만으로 확정되는 것을 적는다.
+ *
+ * 근저당·저당권·압류·가압류·담보가등기·경매개시결정은 접수 시점이 말소기준보다 앞서든 뒤든
+ * 매각으로 소멸한다(소제주의). `apps/api` right-classification.ts의 ALWAYS_EXTINGUISHED_ON_SALE와
+ * 같은 규칙이라 두 곳이 갈라지면 안 된다. 용익물권 계열은 말소기준보다 앞서면 인수될 수 있다.
+ *
+ * 이 물건에 실제로 어떤 등기 권리가 있는지는 등기부(WP-04) 연동 전이라 알 수 없다 — 그래서
+ * 권리 목록이 아니라 종류별 규칙만 보여준다. 법적 효과의 사실 서술이며 판단·권유가 아니다 (D-011).
+ */
+export type BurdenStatus = 'ASSUMED' | 'NOT_ASSUMED' | 'NEEDS_REVIEW';
+
+export const BURDEN_STATUS_LABEL: Record<BurdenStatus, string> = {
+  ASSUMED: '인수',
+  NOT_ASSUMED: '인수 안 함',
+  NEEDS_REVIEW: '확인 필요',
+};
+
+export interface RegisteredBurdenRule {
+  subject: string;
+  detail: string;
+  status: BurdenStatus;
+}
+
+export const REGISTERED_BURDEN_RULES: readonly RegisteredBurdenRule[] = [
+  {
+    subject: '근저당·저당권, 압류·가압류, 담보가등기, 경매개시결정',
+    detail:
+      '매각으로 소멸해서 매수인이 인수하지 않아요. 경매개시 전에 설정됐거나 말소기준보다 앞서도 마찬가지예요.',
+    status: 'NOT_ASSUMED',
+  },
+  {
+    subject: '전세권·지상권·지역권, 등기된 임차권',
+    detail:
+      '말소기준보다 앞서면 매수인이 인수할 수 있어요. 법원이 명세서에 적은 내용은 아래 명세서 기재사항에 나와요.',
+    status: 'NEEDS_REVIEW',
+  },
+];
+
+/**
+ * 이 구분이 "이 물건의 등기부를 봤다"는 뜻이 아니라는 고지 — 이게 없으면 등기 권리가 하나도
+ * 없는 물건으로 읽힌다. 등기부 미연동 자체는 화면 최상단 고지에 이미 있어 여기서 반복하지 않는다.
+ */
+export const REGISTERED_BURDEN_NOTE =
+  '이 구분은 권리 종류에 따른 규칙이에요 — 이 물건의 등기부를 확인한 결과가 아니에요. (규칙: RIGHT_CLASSIFICATION v1)';
+
 export function noticeAssumptionLabel(assumption: string): string {
   return NOTICE_ASSUMPTION_LABEL[assumption] ?? assumption;
 }

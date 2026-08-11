@@ -22,9 +22,13 @@ import {
 } from '../notice-analysis';
 import {
   assumedRightsLabel,
+  BURDEN_STATUS_LABEL,
   noticeAssumptionLabel,
   noticeAssumptionReason,
+  REGISTERED_BURDEN_NOTE,
+  REGISTERED_BURDEN_RULES,
   riskFlagLabels,
+  type BurdenStatus,
 } from '../notice-labels';
 import styles from './RightsAnalysisView.module.css';
 
@@ -34,6 +38,51 @@ const ASSUMPTION_TONE: Record<NoticeAssumption, BadgeTone> = {
   ASSUMED_AMOUNT_UNKNOWN: 'critical',
   UNKNOWN: 'critical',
 };
+
+const BURDEN_TONE: Record<BurdenStatus, BadgeTone> = {
+  ASSUMED: 'warning',
+  NOT_ASSUMED: 'muted',
+  NEEDS_REVIEW: 'critical',
+};
+
+/**
+ * 위 인수 금액에 무엇이 들어가고 무엇이 빠지는지 — "근저당도 내가 계산해야 하나"에 화면에서
+ * 답한다. 등기부 없이도 권리 종류만으로 확정되는 사실이라 지금 말할 수 있다.
+ */
+function BurdenScopeSection() {
+  return (
+    <section className={styles.groupBlock}>
+      <h3 className={styles.groupTitle}>이 금액에 무엇이 들어갔나</h3>
+      <div className={styles.table}>
+        <div className={styles.row}>
+          <span className={styles.rowKind}>임차인</span>
+          <div className={styles.rowMain}>
+            <div className={styles.rowLabelLine}>
+              <span className={styles.rowLabel}>대항력 있는 임차인 보증금</span>
+            </div>
+            <p className={styles.rowDetail}>
+              위 인수 금액에 들어가 있어요. 대항력이 말소기준보다 빠른 임차인만 해당돼요.
+            </p>
+          </div>
+          <Badge tone={BURDEN_TONE.ASSUMED}>{BURDEN_STATUS_LABEL.ASSUMED}</Badge>
+        </div>
+        {REGISTERED_BURDEN_RULES.map((rule) => (
+          <div className={styles.row} key={rule.subject}>
+            <span className={styles.rowKind}>등기 권리</span>
+            <div className={styles.rowMain}>
+              <div className={styles.rowLabelLine}>
+                <span className={styles.rowLabel}>{rule.subject}</span>
+              </div>
+              <p className={styles.rowDetail}>{rule.detail}</p>
+            </div>
+            <Badge tone={BURDEN_TONE[rule.status]}>{BURDEN_STATUS_LABEL[rule.status]}</Badge>
+          </div>
+        ))}
+      </div>
+      <p className={styles.footnote}>{REGISTERED_BURDEN_NOTE}</p>
+    </section>
+  );
+}
 
 function tenantTitle(tenant: AnalyzedTenant): string {
   // 성명은 API가 내려주지 않는다 — 점유부분이 사람을 가리키는 유일한 값이다
@@ -193,6 +242,8 @@ export function RightsAnalysisView({
           금액이 확정되지 않은 임차인이 있어 실제 인수액은 위 금액보다 클 수 있어요.
         </p>
       ) : null}
+
+      <BurdenScopeSection />
 
       {affordability ? <AffordabilitySection affordability={affordability} /> : null}
 

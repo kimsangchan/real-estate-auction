@@ -187,6 +187,20 @@ describe('RightsAnalysisScreen', () => {
     expect(rendered).toContain('등기부는 아직 연동하지 않아서');
   });
 
+  it('근저당 등 등기 권리를 매수인이 인수하지 않는다고 화면에서 구분해 준다', async () => {
+    // 입문자가 "경매개시 전 근저당도 내가 계산해야 하나"에서 막힌다 — 화면에서 답해야 한다
+    mockedFetchNoticeAnalysis.mockResolvedValue(analysis());
+    mockedFetchAffordability.mockResolvedValue(affordability());
+
+    const rendered = screenText(await renderScreen());
+
+    expect(rendered).toContain('이 금액에 무엇이 들어갔나');
+    expect(rendered).toContain('근저당');
+    expect(rendered).toContain('경매개시 전에 설정됐거나 말소기준보다 앞서도');
+    expect(rendered).toContain('전세권');
+    expect(rendered).toContain('권리 종류에 따른 규칙');
+  });
+
   it('평가어를 쓰지 않는다 (D-011)', async () => {
     mockedFetchNoticeAnalysis.mockResolvedValue(analysis());
     mockedFetchAffordability.mockResolvedValue(affordability());
