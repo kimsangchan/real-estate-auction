@@ -1,5 +1,9 @@
 # AI Assistant Coding Guidelines
 
+이 프로젝트의 구현 규칙·스택·네비게이션은 아래 import로 불러온다.
+
+@AGENTS.md
+
 ## Karpathy-Style Behavioral Guidelines
 
 These guidelines follow the widely circulated `karpathy-guidelines.mdc` pattern for reducing common LLM coding mistakes. They are not treated as a replacement for project-specific instructions.

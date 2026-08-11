@@ -4,9 +4,11 @@
 루트 `CLAUDE.md`는 변경하지 않는다. 구현 규칙의 추가·수정은 이 파일에서만 한다.
 
 작업 시작 전 반드시 읽을 것:
-1. 이 파일 전체
-2. 할당된 작업 지시서 (`docs/work-orders/WP-NN-*.md`)
-3. 작업 지시서가 참조하는 기획 문서 (`solution-planning/realestate-auction-platform/`)
+1. `NEXT.md`의 `NEXT-ACTION` 마커 블록 — 지금 할 일 (SessionStart 훅이 자동 주입)
+2. 이 파일 전체
+3. 할당된 작업 지시서 (`docs/work-orders/WP-NN-*.md`)
+4. 작업 지시서가 참조하는 기획 문서 (`solution-planning/realestate-auction-platform/`)
+5. 만지는 폴더의 `CLAUDE.md` (스코프 규칙 — 온디맨드)
 
 ## 구현 기준 (22개 — 절대 준수)
 
@@ -56,3 +58,9 @@ React Native 0.86 (앱) / Next.js 16 (웹) / NestJS 11 (API) / PostgreSQL 18 + P
 - TypeScript: `pnpm -r lint && pnpm -r test && pnpm -r build`
 - Python(수집기): `ruff check . && pytest`
 - 완료 보고는 규칙 18 형식을 따른다.
+
+## 네비게이션 (무엇이 어디에)
+
+- 다음 할 일(단일 출처): `NEXT.md` — 히스토리는 `WORKLOG.md` (항상 읽지 않음)
+- 스코프 규칙(온디맨드): `apps/api` `apps/web` `apps/mobile` `tools/collector` `tools/backtest` 각 `CLAUDE.md`
+- 시크릿: 값은 `.env`(커밋 금지), 키 목록은 `.env.example`
