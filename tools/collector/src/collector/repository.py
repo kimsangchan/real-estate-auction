@@ -62,7 +62,10 @@ class InMemoryNoticeRepository:
             # 이 흉내를 안 내면 "표 없이 재수집하면 스캔 기록이 사라지는" 회귀를 테스트가 통과시킨다
             if current is not None and current.tenants_scanned and not notice.tenants_scanned:
                 notice = replace(
-                    notice, tenants_scanned=True, tenants_rejected=current.tenants_rejected
+                    notice,
+                    tenants_scanned=True,
+                    tenants_rejected=current.tenants_rejected,
+                    tenants_continued=current.tenants_continued,
                 )
             if current is None:
                 inserted += 1

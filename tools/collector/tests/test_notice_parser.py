@@ -147,6 +147,8 @@ def test_item_notice_stores_no_free_text():
         "tenants",
         "tenants_scanned",
         "tenants_rejected",
+        # 표가 다음 쪽으로 이어졌는지 — boolean이라 자유서술 원문이 아니다 (WP-11 §4-26)
+        "tenants_continued",
         "bid_date",
     }
 

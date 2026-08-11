@@ -52,6 +52,31 @@ def test_extracts_dates_amounts_and_distribution_demand():
     assert second.demanded_distribution_date == date(2023, 11, 30)
 
 
+def test_demanded_distribution_never_guesses_true_from_unknown_text():
+    """배당요구여부는 날짜나 "없음"류가 아니면 단정하지 않는다.
+
+    예전 규칙(`"없" not in text`)은 "미상"·"불명"·"-" 를 True 로 기록해 배당요구를 한 것으로
+    뒤집었다 — 개발 DB에 날짜 없는 true 3행이 그 흔적이다. False 경로는 설계상 존재했지만
+    단정 테스트가 없어 회귀를 못 잡았다 (WP-11 §4-26).
+    """
+    from collector.notice_tenant_parser import _parse_demanded
+
+    # 법원이 명시적으로 적은 "없음"류만 False 다
+    assert _parse_demanded("없음", None) is False
+    assert _parse_demanded("해당없음", None) is False
+
+    # 판독 불가 표기를 "요구했다"로 뒤집지 않는다
+    assert _parse_demanded("미상", None) is None
+    assert _parse_demanded("불명", None) is None
+    assert _parse_demanded("-", None) is None
+
+    # 공란도 여전히 보류다 (요구 안 했다고 단정하지 않는다)
+    assert _parse_demanded(None, None) is None
+
+    # 일자가 잡히면 요구한 것이다 — 이 경로만 True 를 만든다
+    assert _parse_demanded("2023.11.30.", date(2023, 11, 30)) is True
+
+
 def test_assigns_tenant_seq_per_person_not_per_row():
     tenants = parse_tenant_table([_page0()]).tenants
 

@@ -146,6 +146,10 @@ class NoticeTenant:
     # 증액 재계약이 확인될 때만 채운다. 여기서 안 뽑아두면 기일이 지난 뒤에는 원본을
     # 다시 못 받아 영영 복구할 수 없다 (WP-11 §4-3과 같은 이유).
     deposit_tranches: tuple[DepositTranche, ...] | None = None
+    # 배당요구여부 칸의 원문. bool 하나로는 "칸이 비었다"·"그 출처에는 이 칸이 없다"·"컬럼이
+    # 어긋나 조각이 버려졌다"가 모두 NULL로 합류해 사후에 구분할 수 없다 — 그래서 전사해 둔다.
+    # 이것도 기일이 지나면 다시 못 받는다 (deposit_tranches와 같은 이유, WP-11 §4-26).
+    demanded_distribution_raw: str | None = None
 
 
 @dataclass(frozen=True)
@@ -496,6 +500,8 @@ def _to_tenants(rows: list[dict[str, str]]) -> tuple[NoticeTenant, ...]:
                 fixed_date=_parse_date(row.get("fixed_date")),
                 demanded_distribution=_parse_demanded(demanded_text, demanded_date),
                 demanded_distribution_date=demanded_date,
+                # 가공하지 않은 셀 원문 — 판정을 바꾸지 않고 근거만 남긴다
+                demanded_distribution_raw=demanded_text,
                 deposit_tranches=_parse_deposit_tranches(
                     row.get("deposit_amount"), row.get("fixed_date")
                 ),
@@ -622,12 +628,24 @@ def _parse_korean_amount(text: str) -> int | None:
 
 
 def _parse_demanded(text: str | None, parsed_date: date | None) -> bool | None:
-    """배당요구여부 — 일자가 적혀 있으면 요구한 것이다. 공란이면 판단하지 않고 None."""
+    """배당요구여부 — 일자가 적혀 있으면 요구한 것이다. 공란·판독 불가는 None.
+
+    False 는 법원이 그 칸에 "없음"류를 적었을 때만 만든다. 그 밖의 텍스트는 True 로 단정하지
+    않는다 — 예전 규칙(`"없" not in text`)은 "미상"·"불명"·"-" 를 True 로 기록해 **배당요구를
+    한 것으로 뒤집었다**(실측 3행: 날짜 없는 true). `_UNKNOWN_VALUES` 검사가 `_parse_date` 에만
+    있고 여기에는 없었던 탓이다. 모르는 표기는 지어내지 않고 None 으로 둔다.
+
+    None 을 "요구 안 함"으로 바꾸지 않는 이유는 WP-11 §4-26 에 있다 — 이 칸은 권리신고 행에만
+    적히고(실측: true 2,617 중 2,599 가 권리신고 행, 현황조사·등기 행 4,075 은 전부 공란),
+    공란을 False 로 새기면 배당요구가 확인된 그 사람의 다른 출처 행 1,613 건이 자기모순이 된다.
+    """
     if parsed_date is not None:
         return True
     if text is None:
         return None
-    return "없" not in text
+    if "없" in text:
+        return False
+    return None
 
 
 def _number(value: Any) -> float:

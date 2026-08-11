@@ -522,6 +522,7 @@ _TENANT_FIELDS = (
     "fixed_date",
     "demanded_distribution",
     "demanded_distribution_date",
+    "demanded_distribution_raw",
     "deposit_tranches",
 )
 
@@ -618,10 +619,12 @@ def _replace_notice_tenants(cur: psycopg.Cursor[Any], notice_id: int, notice: It
         cur.execute(
             """
             UPDATE auction_item_notice
-            SET tenant_scanned_at = now(), tenant_rows_rejected = %s
+            SET tenant_scanned_at = now(),
+                tenant_rows_rejected = %s,
+                tenant_table_continued = %s
             WHERE id = %s
             """,
-            (notice.tenants_rejected, notice_id),
+            (notice.tenants_rejected, notice.tenants_continued, notice_id),
         )
 
     if not notice.tenants:
