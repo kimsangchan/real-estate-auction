@@ -9,6 +9,12 @@ import { isBulkLot } from './bulk-lot';
 import { clusterPoints, type ClusterInput } from './cluster';
 import { ItemDetailPanel } from './ItemDetailPanel';
 import { ItemHoverCard } from './ItemHoverCard';
+import {
+  usageCategory,
+  USAGE_CATEGORY_ICON,
+  USAGE_CATEGORY_LABEL,
+  type UsageCategory,
+} from './usage-category';
 import styles from './page.module.css';
 
 const NCP_MAPS_CLIENT_ID = process.env.NEXT_PUBLIC_NCP_MAPS_CLIENT_ID;
@@ -22,6 +28,12 @@ const INITIAL_ZOOM = 12;
 // 이 줌 이상에서는 클러스터 대신 개별 마커 + 가격 캡션을 보여준다 (모바일 CAPTION_ZOOM과 동일, §1-6)
 const CAPTION_ZOOM = 15;
 const IDLE_DEBOUNCE_MS = 300;
+// 호버 카드 크기 — 컨테이너 밖으로 잘리지 않게 위치를 보정하는 데 쓴다.
+// width는 ItemHoverCard.module.css의 .card와 같은 값이고, height는 칩이 가장 많은 경우의 실측 상한이다
+// (칩 3줄 + 가격 + 감정가). 정확히 알 수 없어 넉넉히 잡는다 — 남으면 카드가 조금 위로 붙을 뿐이다.
+const HOVER_CARD_WIDTH = 236;
+const HOVER_CARD_MAX_HEIGHT = 168;
+const HOVER_CARD_MARGIN = 8;
 
 interface AuctionItemPin {
   courtOfficeCode: string;
@@ -59,11 +71,27 @@ function itemKey(item: { courtOfficeCode: string; caseNo: string; itemNo: string
  * 마커 하나의 내용. 묶음이면 하락률 대신 건수를 붙인다 —
  * 하락률은 물건마다 달라서 묶음을 대표할 값이 없다.
  */
+const USAGE_CATEGORY_CLASS: Record<UsageCategory, string> = {
+  APARTMENT: styles.usageApartment ?? '',
+  MULTI_HOUSE: styles.usageMultiHouse ?? '',
+  OFFICETEL: styles.usageOfficetel ?? '',
+  DETACHED: styles.usageDetached ?? '',
+  RETAIL: styles.usageRetail ?? '',
+  LAND: styles.usageLand ?? '',
+  OTHER: styles.usageOther ?? '',
+};
+
+/** 건물 유형 아이콘. 모양과 색으로 유형을 말한다 — 예전 6px 점은 유형을 구분하지 못했다. */
+function usageIconHtml(category: UsageCategory): string {
+  return `<svg class="${styles.markerIcon} ${USAGE_CATEGORY_CLASS[category]}" viewBox="0 0 12 12" aria-label="${USAGE_CATEGORY_LABEL[category]}" role="img" fill="currentColor">${USAGE_CATEGORY_ICON[category]}</svg>`;
+}
+
 function markerHtml(
   priceLabel: string | null,
   drop: string | null,
   count: number,
   bulkLot: boolean,
+  category: UsageCategory,
 ): string {
   // 일괄매각은 가격이 묶음 전체 값이라 건수만 붙이면 "한 채에 421억"으로 읽힌다 —
   // 묶음이라는 사실을 뱃지에 적는다.
@@ -73,7 +101,7 @@ function markerHtml(
       : drop
         ? `<span class="${styles.markerDrop}">${drop}</span>`
         : '';
-  return `<div class="${styles.marker}"><span class="${styles.markerDot}"></span>${
+  return `<div class="${styles.marker}">${usageIconHtml(category)}${
     priceLabel ? `<span class="${styles.markerPrice}">${priceLabel}</span>` : ''
   }${tail}</div>`;
 }
@@ -115,6 +143,7 @@ export function MapView() {
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
   const idleListenerRef = useRef<naver.maps.MapEventListener | null>(null);
+  const boundsListenerRef = useRef<naver.maps.MapEventListener | null>(null);
   const markersRef = useRef<naver.maps.Marker[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdRef = useRef(0); // bbox 요청이 역전 응답되어도 최신 결과만 반영하기 위한 순번
@@ -131,6 +160,32 @@ export function MapView() {
     left: number;
     top: number;
   } | null>(null);
+  // 호버 중인 마커의 지도 좌표. 카메라가 움직이는 동안 카드를 따라오게 하려면 화면 좌표가 아니라
+  // 원본 좌표를 들고 있어야 한다 — 화면 좌표는 이동하는 순간 낡는다. 리스너가 최신 값을 읽어야
+  // 하므로 state가 아니라 ref다(등록 시점 클로저에 갇히지 않게).
+  const hoveredCoordRef = useRef<naver.maps.LatLng | null>(null);
+
+  /**
+   * 마커 좌표를 지도 컨테이너 기준 카드 위치로 바꾼다.
+   *
+   * 카드가 컨테이너를 넘지 않게 여기서 보정한다 — ItemHoverCard는 "호출부가 보정해 넘긴다"를
+   * 전제로 만들어져 있는데 실제로는 아무도 보정하지 않아, 오른쪽·아래 끝 마커에서 카드가 잘렸다.
+   * 카드 높이는 내용(칩 개수)에 따라 달라 정확히 알 수 없으므로 가장 높은 경우를 기준으로 민다.
+   */
+  const hoverPositionOf = useCallback(
+    (map: naver.maps.Map, coord: naver.maps.LatLng): { left: number; top: number } => {
+      const offset = map.getProjection().fromCoordToOffset(coord);
+      const container = mapElementRef.current;
+      if (container === null) return { left: offset.x, top: offset.y };
+      const maxLeft = container.clientWidth - HOVER_CARD_WIDTH - HOVER_CARD_MARGIN;
+      const maxTop = container.clientHeight - HOVER_CARD_MAX_HEIGHT - HOVER_CARD_MARGIN;
+      return {
+        left: Math.max(HOVER_CARD_MARGIN, Math.min(offset.x, maxLeft)),
+        top: Math.max(HOVER_CARD_MARGIN, Math.min(offset.y, maxTop)),
+      };
+    },
+    [],
+  );
 
   const loadBbox = useCallback(async (bounds: naver.maps.LatLngBounds) => {
     const requestId = ++requestIdRef.current;
@@ -157,9 +212,28 @@ export function MapView() {
     }
   }, []);
 
+  /**
+   * 카메라가 움직이는 **동안** 카드를 마커에 붙여 둔다.
+   *
+   * 예전에는 idle에서만 카드를 닫았는데, idle은 카메라가 멈춘 뒤에 뜨기 때문에 드래그·줌 중에는
+   * 카드가 옛 화면 좌표에 그대로 남아 엉뚱한 곳을 가리켰다(사용자 신고: "스크롤하면 위치가 어긋난다").
+   * bounds_changed는 이동 중 계속 발생하므로 여기서 다시 계산한다.
+   */
+  const handleBoundsChanged = useCallback(
+    (map: naver.maps.Map) => {
+      const coord = hoveredCoordRef.current;
+      if (coord === null) return;
+      const next = hoverPositionOf(map, coord);
+      setHovered((prev) => (prev === null ? prev : { ...prev, ...next }));
+    },
+    [hoverPositionOf],
+  );
+
   const handleIdle = useCallback(
     (map: naver.maps.Map) => {
-      // 호버 카드는 마커의 화면 좌표에 고정돼 있어 지도가 움직이면 엉뚱한 곳을 가리킨다 — 닫는다.
+      // 마커를 다시 그리면 호버 중이던 마커 객체가 사라지므로(아래 items 이펙트) 여기서 닫는다.
+      // 위치 어긋남은 bounds_changed가 따라오며 해결한다 — 닫는 이유가 아니다.
+      hoveredCoordRef.current = null;
       setHovered(null);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
@@ -183,13 +257,16 @@ export function MapView() {
     mapRef.current = map;
     setScriptState('ready');
     idleListenerRef.current = window.naver.maps.Event.addListener(map, 'idle', () => handleIdle(map));
+    boundsListenerRef.current = window.naver.maps.Event.addListener(map, 'bounds_changed', () =>
+      handleBoundsChanged(map),
+    );
     handleIdle(map); // 최초 화면도 idle과 동일한 흐름으로 조회한다
 
     // 브라우저 검증(WP-07 §2-d, map.panBy 호출)용 — 프로덕션 번들에는 포함하지 않는다.
     if (process.env.NODE_ENV !== 'production') {
       (window as unknown as { __auctionMapDebug?: naver.maps.Map }).__auctionMapDebug = map;
     }
-  }, [handleIdle]);
+  }, [handleIdle, handleBoundsChanged]);
 
   // 네이버 지도 인증 실패(서비스 URL 미등록 등, WP-07 §0)는 스크립트 로드 자체는 성공하고 이 전역
   // 콜백으로만 통지된다 — next/script의 onError로는 잡히지 않아 별도로 등록해야 한다.
@@ -209,6 +286,11 @@ export function MapView() {
       window.naver.maps.Event.removeListener(idleListenerRef.current);
     }
     idleListenerRef.current = null;
+    if (boundsListenerRef.current && window.naver?.maps) {
+      window.naver.maps.Event.removeListener(boundsListenerRef.current);
+    }
+    boundsListenerRef.current = null;
+    hoveredCoordRef.current = null;
     markersRef.current.forEach((marker) => marker.setMap(null));
     markersRef.current = [];
     mapRef.current?.destroy();
@@ -250,6 +332,8 @@ export function MapView() {
               formatDropRate(lead.appraisalAmount, lead.minimumSalePrice),
               group.items.length,
               isBulkLot(group.items),
+              // 묶음은 대표 물건(가장 싼 것)의 유형을 쓴다 — 패널 목록 첫 줄과 같은 물건이다
+              usageCategory(lead.usageName),
             ),
             anchor: new naverMaps.Point(28, 12),
           },
@@ -258,13 +342,16 @@ export function MapView() {
           setSelected(group.items);
           setHovered(null); // 패널이 열리면 호버 카드는 중복이다
         });
-        // 호버 카드는 마커 기준 화면 좌표에 띄운다. 지도 컨테이너 안 절대 위치라
-        // 지도가 움직이면 좌표가 어긋나므로 카메라가 움직이면 닫는다(아래 idle 핸들러).
+        // 호버 카드는 마커 기준 화면 좌표에 띄운다. 좌표는 hoverPositionOf가 컨테이너 기준으로
+        // 바꾸고 화면 밖으로 나가지 않게 보정한다. 카메라가 움직이면 bounds_changed가 다시 계산한다.
         naverMaps.Event.addListener(marker, 'mouseover', () => {
-          const offset = map.getProjection().fromCoordToOffset(position);
-          setHovered({ items: group.items, left: offset.x, top: offset.y });
+          hoveredCoordRef.current = position;
+          setHovered({ items: group.items, ...hoverPositionOf(map, position) });
         });
-        naverMaps.Event.addListener(marker, 'mouseout', () => setHovered(null));
+        naverMaps.Event.addListener(marker, 'mouseout', () => {
+          hoveredCoordRef.current = null;
+          setHovered(null);
+        });
         markersRef.current.push(marker);
       }
       return;
