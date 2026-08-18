@@ -78,7 +78,15 @@ _HEADER_KEYWORDS = (
 _TABLE_END_MARKERS = ("<비고>", "비고란", "※")
 
 _DATE_PATTERN = re.compile(r"(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})")
-_DIGIT_AMOUNT_PATTERN = re.compile(r"^[0-9][0-9,]*$")
+# 콤마가 있으면 천단위로 정확히 끊겨 있어야 금액 하나로 읽는다. 셀 안에서 줄바꿈된 금액 두 개는
+# 구분자 없이 이어붙는데(실측 2025타경51589 `220,000,000231,000,000`), 예전 `^[0-9][0-9,]*$`는
+# 이것을 18자리 수 하나로 읽어 220조를 저장했다. 콤마 위치가 어긋나면 아래 다중 금액 경로로 보낸다.
+_DIGIT_AMOUNT_PATTERN = re.compile(r"^(?:\d+|\d{1,3}(?:,\d{3})+)$")
+# 금액 상한. 넘으면 셀이 어긋나 여러 금액이 이어붙은 것으로 보고 값을 버린다 — 실측 최대 보증금은
+# 20억(2025타경597)이라 1조는 현실값과 겹치지 않는다. 콤마가 아예 없이 붙는 경우(`4000000040000000`)는
+# 위 패턴으로 못 걸러 여기서 막는다. 막지 않으면 bigint를 넘겨 **명세서 한 건이 통째로 저장 실패**한다
+# (실측 2026-08-18 2025타경12316: 24자리, 그 물건 명세서 전부 소실). 기일이 지나면 다시 못 받는다.
+_MAX_PLAUSIBLE_AMOUNT = 1_000_000_000_000
 # 한 셀에 금액이 여러 개 적힌 증액 사건에서 금액만 골라낸다. 천단위 콤마를 요구해야
 # `1)200,000,0002)210,000,000`처럼 줄이 붙어버린 문자열에서도 경계가 흐트러지지 않는다.
 _AMOUNT_IN_TEXT_PATTERN = re.compile(r"\d{1,3}(?:,\d{3})+")
@@ -533,6 +541,9 @@ def _parse_amount(text: str | None) -> int | None:
       괄호 안은 증액된 금액과 시점이다. 괄호 안 금액을 집으면 2.1억을 1천만으로 읽는다.
 
     권리분석에 필요한 값은 어느 쪽이든 **현재 보증금**이라 그것만 남긴다.
+
+    셀이 어긋나 금액 여러 개가 한 셀로 이어붙은 문자열은 금액 하나로 읽지 않는다
+    (`_DIGIT_AMOUNT_PATTERN`·`_MAX_PLAUSIBLE_AMOUNT`).
     """
     if text is None:
         return None
@@ -540,14 +551,19 @@ def _parse_amount(text: str | None) -> int | None:
     if not cleaned or any(unknown in cleaned for unknown in _UNKNOWN_VALUES):
         return None
     if _DIGIT_AMOUNT_PATTERN.match(cleaned):
-        return int(cleaned.replace(",", ""))
+        return _plausible_amount(int(cleaned.replace(",", "")))
 
     amounts = _AMOUNT_IN_TEXT_PATTERN.findall(cleaned)
     if amounts:
         chosen = amounts[-1] if _NUMBERED_AMOUNT_PATTERN.search(cleaned) else amounts[0]
-        return int(chosen.replace(",", ""))
+        return _plausible_amount(int(chosen.replace(",", "")))
 
     return _parse_korean_amount(cleaned)
+
+
+def _plausible_amount(value: int) -> int | None:
+    """상한을 넘는 금액은 셀이 어긋나 이어붙은 결과다 — 지어내지 않고 버린다."""
+    return value if value <= _MAX_PLAUSIBLE_AMOUNT else None
 
 
 _NUMBERED_ENTRY_PATTERN = re.compile(r"(\d)\)\s*(\d{1,3}(?:,\d{3})+)")

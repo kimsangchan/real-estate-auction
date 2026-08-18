@@ -316,9 +316,37 @@ def test_tenant_row_without_move_in_date_still_parses():
         (None, None),
         # 구사건 한글 표기는 그대로 살아 있어야 한다
         ("1억5천만원", 150_000_000),
+        # 콤마 없는 표기도 그대로 읽는다 (실측 4자리·8자리 셀)
+        ("5000", 5_000),
+        ("40000000", 40_000_000),
     ],
 )
 def test_parse_amount_handles_increase_notations(cell, expected):
+    from collector.notice_tenant_parser import _parse_amount
+
+    assert _parse_amount(cell) == expected
+
+
+@pytest.mark.parametrize(
+    ("cell", "expected"),
+    [
+        # 셀 안에서 줄바꿈된 금액 둘이 구분자 없이 붙는다 — 예전에는 18자리 수 하나로 읽었다
+        ("220,000,000231,000,000", 220_000_000),
+        ("300,000,000269,550,000", 300_000_000),
+        # 행이 뭉쳐 세 셀이 붙은 경우 (실측 2025타경12316)
+        ("40,000,00040,000,00040,000,000", 40_000_000),
+        # 콤마가 없어 위 규칙으로 못 가르는 문자열은 상한으로 막고 버린다
+        ("4000000040000000", None),
+        ("400000004000000040000000", None),
+    ],
+)
+def test_parse_amount_does_not_read_concatenated_cells_as_one_number(cell, expected):
+    """어긋난 셀을 금액 하나로 읽으면 bigint를 넘겨 명세서 한 건이 통째로 저장 실패한다.
+
+    실측 2026-08-18: `2025타경12316` 물건1이 두 실행 연속 `bigint out of range`로 저장되지
+    못했다. 명세서는 기일이 지나면 다시 못 받으므로(WP-11 §4-3) 한 셀 때문에 문서를 잃으면
+    복구 경로가 없다. DB에는 같은 원인으로 15~18자리 보증금 19행이 이미 들어가 있었다.
+    """
     from collector.notice_tenant_parser import _parse_amount
 
     assert _parse_amount(cell) == expected
