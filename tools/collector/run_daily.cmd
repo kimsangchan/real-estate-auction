@@ -65,6 +65,24 @@ ping -n 6 127.0.0.1 >nul
 goto wait_db
 :db_ready
 
+REM A resume or reboot can bring the DB up before DNS is ready, and then every court fails on
+REM name resolution (observed 2026-08-13 12:02: 5 stage failures, 136 wasted requests against
+REM courtauction with <urlopen error [Errno 11001] getaddrinfo failed>). Wait for the name the
+REM collector actually resolves. PowerShell is used instead of ping/nslookup because their
+REM failure text is localized and their exit codes are not reliable here.
+set /a net_tries=0
+:wait_net
+powershell -NoProfile -Command "try { [void][System.Net.Dns]::GetHostEntry('www.courtauction.go.kr'); exit 0 } catch { exit 1 }" >nul 2>&1
+if not errorlevel 1 goto net_ready
+set /a net_tries+=1
+if %net_tries% geq 24 (
+  echo run_daily: courtauction did not resolve within 2 minutes 1>&2
+  exit /b 4
+)
+ping -n 6 127.0.0.1 >nul
+goto wait_net
+:net_ready
+
 cd /d "%HERE%"
 ".venv\Scripts\python.exe" -m collector daily --with-tenants >> "%HERE%daily.log" 2>&1
 exit /b %ERRORLEVEL%
