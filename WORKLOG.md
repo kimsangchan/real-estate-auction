@@ -6,13 +6,35 @@
 ## Current State
 
 - Status: doing
-- Focus: 목록·지도 조회 성능(20초) → WP-11 H3 재설계
-- Last updated: 2026-08-11
+- Focus: WP-11 — §4-27 동일인 병합 결정 → H3 비교 재설계
+- Last updated: 2026-08-18
 - 미완 검증: 웹·앱 **실기 화면 확인**이 아직 없다. 브라우저 MCP 2종이 모두 불가(`pw-browser`는
   spawn EINVAL/프로토콜 불일치, `ecc:playwright`는 Chrome 확장 없음)이고 로컬 Playwright도 미설치,
   모바일 에뮬레이터도 미확인. 서버 렌더 HTML과 API 응답으로만 검증했다.
 
 ## History (append; 최신이 위)
+
+- 2026-08-18 — 주말 수집 구멍을 확인하고 메웠다. 마지막 완주는 **08-14 15:08**이고 08-15~17은
+  PC가 꺼져 있었다. 그 앞 08-13 12:02 실행은 **DNS 미준비로 5개 법원 전부 실패**했다
+  (run_id `a8af80e9`, stage_failures=5, requests=136, `getaddrinfo failed`). 08-18 09:17 실행으로
+  물건 2,212건 처리 / 713 신규까지 확인했다(명세서 단계는 실행 중).
+  - `run_daily.cmd`에 **이름 해석 대기**를 추가 (`ff7d113`). DB healthy 다음에 넣었고 실패 시
+    `exit /b 4`로 docker 실패(3)와 구분한다. 판정은 PowerShell `Dns.GetHostEntry` —
+    ping·nslookup은 실패 문구가 현지화돼 있고 종료 코드도 신뢰할 수 없다.
+    검증: 대기 블록만 떼어 두 경로 실행(해석되면 즉시 통과 / 안 되면 재시도 후 exit 4).
+    전체 스크립트는 수집 실행 중이라 돌리지 않았다.
+  - **남은 확인**: 스케줄 작업 `AuctionCollectorDaily`의 오늘 09:05 기동 결과가
+    `0x800710E0`(요청 거부)로 남아 있다. 트리거는 3시간 간격 / `MultipleInstances=IgnoreNew` /
+    `StartWhenAvailable=True`이므로 정상 트리거 1회(12:00 이후)가 0으로 끝나는지 봐야 한다.
+- 2026-08-12 — 지도 호버 카드·마커 아이콘 (`3468390`). ① 카메라 이동 중 카드가 옛 좌표에
+  남던 것을 `bounds_changed`로 마커에 붙여 따라가게 했다(호버 마커의 **지도 좌표**를 ref에
+  들고 있어야 재계산된다). ② `ItemHoverCard`가 전제하던 뷰포트 보정을 아무도 하지 않아
+  오른쪽·아래 끝에서 잘렸다 — `hoverPositionOf`가 컨테이너 크기로 clamp 한다.
+  ③ 마커 6px 점을 건물 유형별 아이콘+색으로 (실측 2,979건/15종을 7범주로). 색은 범주 구분용이라
+  `warning`·`critical` 토큰을 쓰지 않고 DESIGN-meta 원문 토큰만 골랐다(새 hex 없음).
+  검증: web lint 통과, node --test 105 passed(신규 6), next build 통과. 신규 테스트를
+  `tsconfig.test.json`에 등록해야 실행된다는 함정에 그대로 걸렸다가 고쳤다.
+  미검증: 실제 브라우저 화면(호버 추적·아이콘 렌더).
 
 - 2026-08-11 — 배당요구 공란→false 를 **검증 후 기각** (`8987987`, WP-11 §4-26). 울트라코드
   워크플로우(조사 4 → 반증 3 → 설계 1)로 돌렸고 반증 3/3 성립. 핵심 수치는 직접 재검증했다:
