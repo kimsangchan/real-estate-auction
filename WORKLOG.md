@@ -8,9 +8,10 @@
 - Status: doing
 - Focus: WP-11 — §4-27 동일인 병합 결정 → H3 비교 재설계
 - Last updated: 2026-08-18
-- 미완 검증: 웹·앱 **실기 화면 확인**이 아직 없다. 브라우저 MCP 2종이 모두 불가(`pw-browser`는
-  spawn EINVAL/프로토콜 불일치, `ecc:playwright`는 Chrome 확장 없음)이고 로컬 Playwright도 미설치,
-  모바일 에뮬레이터도 미확인. 서버 렌더 HTML과 API 응답으로만 검증했다.
+- 미완 검증: **웹은 08-18 실기 화면 확인 완료**(아래 History). 브라우저 MCP 2종은 여전히 불가하지만
+  (`pw-browser`는 spawn EINVAL, `ecc:playwright`는 Chrome 확장 필요), `C:\Python39`의 Python
+  Playwright가 설치돼 있어 그걸로 스크린샷을 찍었다 — MCP가 막히면 이 경로를 쓰면 된다.
+  모바일 에뮬레이터는 아직 미확인.
 
 ## History (append; 최신이 위)
 
@@ -23,9 +24,21 @@
     ping·nslookup은 실패 문구가 현지화돼 있고 종료 코드도 신뢰할 수 없다.
     검증: 대기 블록만 떼어 두 경로 실행(해석되면 즉시 통과 / 안 되면 재시도 후 exit 4).
     전체 스크립트는 수집 실행 중이라 돌리지 않았다.
-  - **남은 확인**: 스케줄 작업 `AuctionCollectorDaily`의 오늘 09:05 기동 결과가
-    `0x800710E0`(요청 거부)로 남아 있다. 트리거는 3시간 간격 / `MultipleInstances=IgnoreNew` /
-    `StartWhenAvailable=True`이므로 정상 트리거 1회(12:00 이후)가 0으로 끝나는지 봐야 한다.
+  - **남은 확인 → 닫음**: `0x800710E0`은 두 가지 경우에 나온다. 09:05은 배터리 조건
+    (`DisallowStartIfOnBatteries`, 절전 복귀 직후 배터리로 평가), 12:00은 **이미 실행 중이라
+    새 인스턴스를 무시한 것**(`IgnoreNew`)이다. 코드만 보고 배터리로 단정하면 안 된다.
+    조건을 바꿨다 — `DisallowStartIfOnBatteries`·`StopIfGoingOnBatteries` False,
+    `StartWhenAvailable` True. 4일 공백의 주원인은 배터리가 아니라 **절전 중 트리거 미발생 +
+    따라잡기 꺼짐**이었다.
+  - 따라잡기 실행은 12:28 완주했다(run_id `4d0e543d`, stage_failures=0, requests 1,859).
+    중간에 한 번 끊겼는데, 백그라운드 래퍼가 죽으면 python 자식도 같이 죽는다 — 긴 수집은
+    `Start-ScheduledTask`로 띄워 세션과 분리해야 한다.
+  - **공백의 데이터 영향은 0**이다. 08-15(광복절·토)·08-16(일)·08-17(대체공휴일)에 매각기일
+    물건이 0건이라 닫힌 열람 창이 없다. 신규 713건의 명세서 712건은 전부 임차인 스캔까지 됐다.
+    공백과 무관한 기존 구멍(임차인 53·매각결과 16)과 그 측정 함정은 WP-11 §4-28.
+  - 웹 실기 확인: 목록·지도 정상(마커 66 클러스터, 콘솔 에러 0). 지도가 처음 실패한 건
+    `NEXT_PUBLIC_NCP_MAPS_CLIENT_ID` 없이 띄웠기 때문이고 코드 문제가 아니다 — README 4~5단계대로
+    API는 `PORT=4000`, 웹은 이 값을 넣고 띄워야 한다.
 - 2026-08-12 — 지도 호버 카드·마커 아이콘 (`3468390`). ① 카메라 이동 중 카드가 옛 좌표에
   남던 것을 `bounds_changed`로 마커에 붙여 따라가게 했다(호버 마커의 **지도 좌표**를 ref에
   들고 있어야 재계산된다). ② `ItemHoverCard`가 전제하던 뷰포트 보정을 아무도 하지 않아

@@ -10,6 +10,9 @@
   → `apps/api/src/auction-items/notice-tenant-merge.ts`, `auction-items.repository.ts`(tenantCount)
 - **[진행중]** WP-11 룰 역채점 — H3(임차인 유무↔매각결과) 첫 비교가 판독 불가로 기록됨.
   판독 가능한 비교 설계를 다시 세운다. → `docs/work-orders/WP-11-rule-backtest.md`, 커밋 `f0aa377`
+- **[확인필요]** 열람 창이 열렸는데 임차인 표가 안 잡힌 2건 — `B000213 2023타경111117/1,2`
+  (기일 08-25, 창은 08-18 개시). 다음 daily 회차에 잡히는지 본다. 안 잡히면 재방문 조건 결함이다.
+  구멍 실측·원인은 WP-11 §4-28. → `tools/collector/src/collector/runner.py`(needs_tenants)
 - **[대기·사용자]** 실거래가 API 신청 — 승인되면 실부담 시나리오 기준을 감정가 → 시세로 전환.
   → `apps/api/src/rights-analysis/domain/total-burden.ts`
 <!-- NEXT-ACTION:END -->
