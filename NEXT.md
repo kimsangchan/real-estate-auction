@@ -8,6 +8,9 @@
   "임차인 2명 / 1.6억 이상"으로 나오는데 실제로는 1명·1.6억이다.
   고치는 방향에 트레이드오프가 있어(과소 표시 위험) 사용자 결정이 필요하다.
   → `apps/api/src/auction-items/notice-tenant-merge.ts`, `auction-items.repository.ts`(tenantCount)
+  같은 결정에 **행 뭉침**(§4-29)이 딸려 있다 — 현황조사 행이 앵커가 없어 이웃 임차인의 행을
+  삼킨다(54행/54건). 정보출처를 앵커로 쓰면 행은 갈리지만 성명 병합셀이 아래 행에 떨어져 귀속이
+  어긋난다. 행·사람 묶기 기준을 한 번에 정해야 한다. → `tools/collector/src/collector/notice_tenant_parser.py`
 - **[진행중]** WP-11 룰 역채점 — H3(임차인 유무↔매각결과) 첫 비교가 판독 불가로 기록됨.
   판독 가능한 비교 설계를 다시 세운다. → `docs/work-orders/WP-11-rule-backtest.md`, 커밋 `f0aa377`
 - **[확인필요]** 열람 창이 열렸는데 임차인 표가 안 잡힌 2건 — `B000213 2023타경111117/1,2`
